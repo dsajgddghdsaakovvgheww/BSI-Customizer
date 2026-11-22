@@ -62,8 +62,16 @@ Window {
   color:"#452600"
   gradient:Gradient {GradientStop {position:0;color:"#553311"} GradientStop {position:1;color:"#331100"}}
   UiImage {id:brand;objectName:"nativeProductLogo";x:10;y:8}
+  UiImageButton {id:menu;objectName:"nativeMenu";asset:"TitlebarMenu";x:514;y:4}
   UiImageButton {id:button;objectName:"nativeClose";x:556;y:4;onClicked:host.clicks++}
   Skin.TopbarSkin {host:topbar}
+ }
+ Rectangle {
+  id:rail;x:544;y:40;width:56;height:200;color:"#ff00ff"
+  property var pKebabMenuWin:null
+  Skin.SidebarVisual {anchors.fill:parent;mode:"rail"}
+  UiImageButton {id:sideButton;objectName:"nativeSidebarButton";property string pVoidElementId:"settings";property bool pImageAnimationRunning:false;asset:"SidebarSettings";x:12;y:20}
+  Skin.SidebarSkin {host:rail}
  }
  Component {id:lateFactory;UiImage {objectName:"lateProductLogo";x:50;y:8}}
  function addLogo(){lateFactory.createObject(topbar)}
@@ -104,10 +112,22 @@ Window {
     peer=peer_component.create();assert peer,'\n'.join(e.toString() for e in peer_component.errors())
     peer.setTransientParent(window);settle()
     original_brand=logo.property('source').toString()
+    side=find(root,'nativeSidebarButton');menu=find(root,'nativeMenu')
+    side_glyph=find(side,'bsiOutlineGlyph');menu_glyph=find(menu,'voidChromeGlyph')
+    assert side_glyph is not None and menu_glyph is not None
     for preset in json.loads((assets/'themes.json').read_text()):
         peer.setProperty('requested',preset['id']);QMetaObject.invokeMethod(peer,'choose');settle()
         assert topbar.property('color').name()==preset['palette']['background'],preset['id']
         assert logo.property('source').toString()==original_brand,'brand was tinted/replaced with theme'
+        QTest.mouseMove(window,QPoint(200,160));settle()
+        assert side_glyph.property('tint').name()==preset['palette']['muted']
+        assert menu_glyph.property('tint').name()==preset['palette']['muted']
+        QTest.mouseMove(window,QPoint(530,20));settle()
+        assert menu_glyph.property('tint').name()==preset['palette']['accent'],'topbar hover not synchronized'
+        QTest.mouseMove(window,QPoint(572,76));settle()
+        assert side_glyph.property('tint').name()==preset['palette']['accent'],'sidebar hover not synchronized'
+        assert menu_glyph.property('tint').name()==preset['palette']['muted'],'topbar hover stuck after pointer left'
+        QTest.mouseMove(window,QPoint(200,160));settle()
         assert window.grabWindow().pixelColor(300,20).name()==preset['palette']['background'],'OEM gradient returned'
     QMetaObject.invokeMethod(window,'addLogo');settle()
     assert 'Branding/VOID-Mark.png' in find(root,'lateProductLogo').property('source').toString()

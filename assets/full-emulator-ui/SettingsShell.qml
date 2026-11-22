@@ -49,7 +49,7 @@ Item {
         var area={x:host.screen.virtualX,y:host.screen.virtualY,width:host.screen.desktopAvailableWidth,height:host.screen.desktopAvailableHeight}
         if(!(area.width>0 && area.height>0))return
         // A compact utility window, never a desktop-filling dashboard.
-        host.width=Math.max(320,Math.min(940,area.width-32))
+        host.width=Math.max(320,Math.min(1000,area.width-32))
         host.height=Math.max(320,Math.min(700,area.height-32))
         host.x=Math.max(area.x,Math.min(host.x,area.x+area.width-host.width))
         host.y=Math.max(area.y,Math.min(host.y,area.y+area.height-host.height))
@@ -72,7 +72,7 @@ Item {
         height:52
         MouseArea {anchors.fill:parent;anchors.rightMargin:56;onPressed:if(shell.bsiHost)shell.bsiHost.startSystemMove()}
         BrandLogo {x:14;anchors.verticalCenter:parent.verticalCenter;width:31;height:27}
-        Text {x:51;anchors.verticalCenter:parent.verticalCenter;text:"𝓥𝓞𝓘𝓓";color:Theme.text;font.family:Theme.fontFamily;font.pixelSize:21;font.bold:true}
+        Text {x:51;anchors.verticalCenter:parent.verticalCenter;text:"VOID";color:Theme.text;font.family:Theme.fontFamily;font.pixelSize:21;font.bold:true}
         Text {x:142;anchors.verticalCenter:parent.verticalCenter;text:"Settings";visible:!shell.bsiCompact;color:Theme.muted;font.family:Theme.fontFamily;font.pixelSize:12}
         Text {objectName:"voidFullUiVersion";visible:false;anchors.right:closeButton.left;anchors.rightMargin:26;anchors.verticalCenter:parent.verticalCenter;text:"NATIVE SETTINGS";color:Theme.muted;font.family:Theme.fontFamily;font.pixelSize:10;font.letterSpacing:1.3}
         Rectangle {x:124;anchors.verticalCenter:parent.verticalCenter;width:1;height:21;color:Theme.border;visible:!shell.bsiCompact}

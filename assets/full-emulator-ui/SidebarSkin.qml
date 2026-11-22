@@ -53,6 +53,13 @@ Item {
                 // The direct inline bridge already owns these visuals. Do not
                 // compete with its asset guard or create a second icon face.
                 if(!inline)visual.createObject(item,{control:item})
+                else {
+                    // The inline face owns paint only; suppress the OEM hover
+                    // background too, not just its image asset. Unknowns fall back.
+                    var ownedInline=inline,ownedControl=item
+                    ownedControl.contentItem.opacity=Qt.binding(function(){return ownedInline.known?0:1})
+                    if(ownedControl.background)ownedControl.background.opacity=Qt.binding(function(){return ownedInline.known?0:1})
+                }
             }
         }
         if (item.children) for (var j=0;j<item.children.length;++j) walk(item.children[j],depth+1)

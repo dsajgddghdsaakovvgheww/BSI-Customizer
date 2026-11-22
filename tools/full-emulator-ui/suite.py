@@ -1,4 +1,4 @@
-"""VOID OLED Studio 15: full eligible native-QML visual pass, using pinned transactions.
+"""VOID OLED Studio 16: full eligible native-QML visual pass, using pinned transactions.
 No resource scanning occurs on import. Check/Apply/Export are explicit commands.
 """
 import argparse
@@ -63,7 +63,7 @@ def runtime():
             raise RuntimeError('Pinned replacement hook changed; review required.')
         text = text.replace(before, after, 1)
     text = text.replace('Settings now uses the reference shell and contains the VOID Optimizer tab.', 'Settings now uses OLED Studio with live Appearance controls (no optimizer).')
-    text=text.replace('VOID FULL UI V5 — Carbon palette / incremental styling / native session tools; boot logic protected','VOID OLED STUDIO 15 - six dark presets / native UI / no optimizer')
+    text=text.replace('VOID FULL UI V5 — Carbon palette / incremental styling / native session tools; boot logic protected','VOID OLED STUDIO 16 - six dark presets / native UI / no optimizer')
     exec(compile(text, 'pinned-void-ui-engine.py', 'exec'), module.__dict__)
     module.live_names=set()
     module.live_coverage=[]
@@ -173,7 +173,7 @@ def runtime():
             item = rows.setdefault(row['name'], {})
             item.update(row)
             item.setdefault('status', 'changed' if row['changed'] else 'verified')
-        report['suite'] = 'VOID OLED Studio 15'
+        report['suite'] = 'VOID OLED Studio 16'
         report['live_theme_bindings']=module.live_coverage
         report['theme_presets']=[entry['name'] for entry in json.loads(assets['themes.json'])]
         report['all_ui_runtime_certified'] = False
@@ -438,6 +438,8 @@ def first_frame_sources(module, desired, url):
             delayed='Component.onCompleted: setSource('+json.dumps(url+'SettingsShell.qml')+', {bsiHost:iSettingsWindow,bsiTheme:UiTheme})'
             source=source.replace(delayed,'asynchronous: false\n    source: '+json.dumps(url+'SettingsShell.qml'))
             source=source.replace('onLoaded: {\n        iSelectedSettingControl.parent = item.pageContainer','onLoaded: {\n        item.bsiHost=iSettingsWindow; item.bsiTheme=UiTheme\n        iSelectedSettingControl.parent = item.pageContainer')
+            source=re.sub(r'width = transientParent\.width \* 0\.70', 'width = Math.min(1000, Math.max(320, screen.desktopAvailableWidth - 32))', source)
+            source=re.sub(r'height = transientParent\.height \* 0\.70', 'height = Math.min(700, Math.max(320, screen.desktopAvailableHeight - 32))', source)
         if source!=before and 'VoidChrome10.' in source and namespace not in source:
             imports=list(re.finditer(r'^import[^\r\n]*[\r\n]+',source,re.M))
             manager.require(bool(imports),'Missing chrome imports.')
@@ -451,13 +453,13 @@ def strip_owned_sections(module, source):
     """Upgrade our exact v14 layout additions, never restore a different OEM model.
     Removes only scoped owned fields; native limits, callbacks and labels survive.
     """
-    if '// VOID NATIVE SECTION CARDS 14' not in source:return source
+    if not any(marker in source for marker in ('// VOID NATIVE SECTION CARDS 14','// VOID NATIVE VERTICAL SECTIONS 15')):return source
     manager=module.manager();tokens,scopes=manager.scopes_and_bindings(source);edits=[]
     owned=set()
     for key,scope in scopes.items():
         first=tokens[key].end
         # v14 marker was inserted immediately after the opening of each card.
-        if source[first:first+100].lstrip().startswith('// VOID NATIVE SECTION CARDS 14'):
+        if source[first:first+100].lstrip().startswith(('// VOID NATIVE SECTION CARDS 14','// VOID NATIVE VERTICAL SECTIONS 15')):
             owned.add(key)
     added_texts=('Limit or unlock your frame rate.','Allocate CPU cores for your games.','Set the memory available to the emulator.','Balance resources for the way you play.')
     deleted=[]
@@ -475,7 +477,7 @@ def strip_owned_sections(module, source):
             while start>=2 and tokens[start-1].text=='.':start-=2
             edits.append((tokens[start].start,tokens[key-1].end,'UiColumnLayout'))
     # These exact property declarations only exist in the owned v14 patch.
-    for match in re.finditer(r'(?m)^\s*(?:(?:readonly )?property (?:bool|real|int) (?:pVoidSectionCard|pVoidFps|pVoidRam|pVoidInlineSlider):[^\r\n]+|pIcon:[^\r\n]+|id:voidNativeSettingCard\d+|// VOID NATIVE SECTION CARDS 14)\r?\n',source):
+    for match in re.finditer(r'(?m)^\s*(?:(?:readonly )?property (?:bool|real|int) (?:pVoidSectionCard|pVoidFps|pVoidRam|pVoidInlineSlider):[^\r\n]+|(?:pIcon|pDescription):[^\r\n]+|id:voidNativeSettingCard\d+|// VOID NATIVE (?:SECTION CARDS 14|VERTICAL SECTIONS 15))\r?\n',source):
         if not any(a<=match.start()<b for a,b in deleted):edits.append((match.start(),match.end(),''))
     for key,scope in scopes.items():
         if any(a<=tokens[key].start<b for a,b in deleted):continue
@@ -505,7 +507,7 @@ def native_section_sources(module, desired, url):
     """Vertical native settings, source-patched rather than overlaid/reparented.
     Every native input/model/handler remains in its original creation context.
     """
-    result=dict(desired);manager=module.manager();marker='// VOID NATIVE VERTICAL SECTIONS 15'
+    result=dict(desired);manager=module.manager();marker='// VOID NATIVE REFERENCE ROWS 16'
     for name in module.PAGE_NAMES:
         if name not in result:continue
         body=result[name];source=body.decode('utf-8-sig')
@@ -543,9 +545,65 @@ def native_section_sources(module, desired, url):
             fields='\n'+marker+'\npIcon:'+json.dumps(kind)+'\n'
             if 'spacing' in bindings:put(bindings['spacing'],'10')
             if 'Layout.fillWidth' not in bindings:fields+='Layout.fillWidth:true\n'
-            if kind in ('cpu','memory','rocket'):
-                description={'cpu':'Choose how many CPU cores this instance can use.','memory':'Memory reserved for this instance. Leave room for Windows.','rocket':'Balance speed and memory use across your running instances.'}[kind]
-                fields+='pDescription:'+json.dumps(description)+'\n'
+            row_card=name=='UiPerformanceSetting.qml' and kind in ('cpu','memory','rocket','framerate')
+            children=[k for k,v in scopes.items() if v['parent']==opening]
+            if row_card:
+                card_id=identity(scope) or 'voidReferenceRow'+str(opening)
+                if not identity(scope):fields+='id:'+card_id+'\n'
+                fields+='pRowLayout:true\n'
+                if 'spacing' in bindings:
+                    # Replace the earlier queued value, not the native binding twice.
+                    span=bindings['spacing'];edits=[e for e in edits if e[:2]!=(tokens[span[0]].start,tokens[span[1]-1].end)];put(span,'6')
+                # Direct native children keep their creation context and all
+                # nested help/custom-input rows. Only attached layout fields move.
+                descriptions={'cpu':'Allocate CPU cores for your games.','memory':'Set the memory available to the emulator.','rocket':'Balance performance and memory use.'}
+                extra_description=kind in descriptions and not (len(children)>2 and scopes[children[1]]['type']=='Text')
+                if extra_description:fields+='pDescription:'+json.dumps(descriptions[kind])+'\n'
+                for n,key in enumerate(children):
+                    child=scopes[key];cb=child['bindings'];layout=''
+                    if kind=='framerate':
+                        if child['type']=='UiSlider' and identity(child)=='iFrameRateSlider':
+                            layout+='property bool pVoidInlineSlider:true\nrightPadding:54\n'
+                            layout+='Layout.row:0\nLayout.column:'+card_id+'.pInline?1:0\nLayout.rowSpan:'+card_id+'.pInline?2:1\nLayout.columnSpan:'+card_id+'.pInline?1:2\n'
+                            layout+='Rectangle {objectName:"voidReferenceFpsValue";anchors.right:parent.right;anchors.verticalCenter:parent.verticalCenter;width:44;height:30;radius:Math.min(VoidLiveTheme.Theme.corner,8);color:VoidLiveTheme.Theme.background;border.width:1;border.color:VoidLiveTheme.Theme.border;Text {anchors.centerIn:parent;text:Math.round(iFrameRateSlider.value);color:VoidLiveTheme.Theme.text;font.family:VoidLiveTheme.Theme.fontFamily;font.pixelSize:12}MouseArea {anchors.fill:parent;onPressed:function(mouse){mouse.accepted=true}}}\n'
+                            # Narrow windows get a conventional full-width slider.
+                            layout=layout.replace('Layout.row:0\n','Layout.row:'+card_id+'.pInline?0:2\n',1)
+                        else:
+                            layout+='Layout.row:'+card_id+'.pInline?'+str(n+1)+':'+str(n+2)+'\nLayout.column:0\nLayout.columnSpan:2\n'
+                            # OEM recommendation is useful, but not a permanent
+                            # paragraph inside the compact FPS reference card.
+                            is_guidance=any('Recommended FPS' in source[tokens[k].start:tokens[k].end+180] for k in descendants(key))
+                            if is_guidance and child['type']=='UiColumnLayout' and 'visible' not in cb:
+                                layout+='visible:'+card_id+'.pShowHelp\n'
+                        if 'Layout.fillWidth' not in cb:layout+='Layout.fillWidth:true\n'
+                    else:
+                        control=any(identity(scopes[k]) in ('iCpuCombobox','iRamCombobox','iMemoryModeCombobox') for k in [key]+descendants(key))
+                        if control:
+                            layout+='Layout.row:'+card_id+'.pInline?0:2\nLayout.column:'+card_id+'.pInline?1:0\nLayout.rowSpan:'+card_id+'.pInline?2:1\nLayout.columnSpan:'+card_id+'.pInline?1:2\n'
+                            align=cb.get('Layout.alignment')
+                            if align:put(align,'Qt.AlignRight|Qt.AlignVCenter')
+                            else:layout+='Layout.alignment:Qt.AlignRight|Qt.AlignVCenter\n'
+                        else:
+                            layout+='Layout.row:'+str(n)+'\nLayout.column:0\nLayout.columnSpan:'+card_id+'.pInline?1:2\n'
+                            if 'Layout.fillWidth' not in cb:layout+='Layout.fillWidth:true\n'
+                            if child['type']=='Text' and n==0 and 'font.bold' not in cb:
+                                if 'font' in cb:put(cb['font'],'Qt.font({family:VoidLiveTheme.Theme.fontFamily,pixelSize:14,bold:true})')
+                                else:layout+='font.bold:true\n'
+                    edits.append((tokens[key].end,tokens[key].end,'\n'+layout))
+                if kind=='framerate':
+                    fields+='pDescription:"Limit or unlock your frame rate."\n'
+                    fields+='Text {Layout.row:0;Layout.column:0;Layout.columnSpan:'+card_id+'.pInline?1:2;Layout.preferredWidth:180;Layout.fillWidth:true;text:iFrameRateSlider.pSelectedValueText;color:VoidLiveTheme.Theme.text;font.family:VoidLiveTheme.Theme.fontFamily;font.pixelSize:14;font.bold:true}\n'
+                    fields+='Text {Layout.row:1;Layout.column:0;Layout.columnSpan:'+card_id+'.pInline?1:2;Layout.fillWidth:true;text:"Limit or unlock your frame rate.";color:VoidLiveTheme.Theme.muted;font.family:VoidLiveTheme.Theme.fontFamily;font.pixelSize:11}\n'
+                    fields=fields.replace('pDescription:"Limit or unlock your frame rate."\n','')
+                    fields+='pHelpAvailable:true\n'
+                    for row_key in descendants(opening):
+                        row=scopes[row_key]
+                        if row['type']!='UiRowLayout':continue
+                        row_ids={identity(scopes[k]) for k in descendants(row_key)}
+                        for native_id,icon in [('iEnableHighFpsToggleBtn','performance'),('iEnableVSyncToggleBtn','sync'),('iEnableFpsDisplayToggleBtn','gamepad')]:
+                            if native_id in row_ids:
+                                edits.append((tokens[row_key].end,tokens[row_key].end,'\nVoidLiveTheme.StudioGlyph {Layout.preferredWidth:16;Layout.preferredHeight:16;kind:'+json.dumps(icon)+';tint:'+native_id+'.checked?VoidLiveTheme.Theme.accent:VoidLiveTheme.Theme.muted}\n'))
+                                break
             # Explicit top alignment prevents a tall native ScrollView from
             # vertically centering (and clipping) the first CPU section.
             if 'Layout.alignment' not in bindings:fields+='Layout.alignment:Qt.AlignTop\n'
@@ -553,9 +611,13 @@ def native_section_sources(module, desired, url):
             for key in descendants(opening):
                 child=scopes[key];cb=child['bindings']
                 if child['type'] in ('UiComboBox','ComboBox','UiTextField','TextField'):
-                    if 'Layout.preferredWidth' in cb:put(cb['Layout.preferredWidth'],'240')
+                    if 'Layout.preferredWidth' in cb:
+                        native_id=identity(child)
+                        value=('92' if native_id=='iCustomCpuCombobx' else '106' if native_id=='iCustomRamTextField' else '(iCustomCpuCombobx.visible?156:218)' if native_id=='iCpuCombobox' and 'iCustomCpuCombobx' in ids else '(iCustomRamTextField.visible?156:218)' if native_id=='iRamCombobox' and 'iCustomRamTextField' in ids else '218') if row_card else '240'
+                        put(cb['Layout.preferredWidth'],value)
                     # Fill input rows, but never change visibility/validation.
                     if 'Layout.maximumWidth' not in cb:edits.append((tokens[key].end,tokens[key].end,'\nLayout.maximumWidth:360\n'))
+                    if row_card and 'Layout.minimumWidth' not in cb:edits.append((tokens[key].end,tokens[key].end,'\nLayout.minimumWidth:0\n'))
                 if child['type'] in ('Text','UiTextUrl') and 'wrapMode' not in cb:
                     edits.append((tokens[key].end,tokens[key].end,'\nwrapMode:Text.Wrap\n'))
         if not count:continue
@@ -572,6 +634,10 @@ def native_section_sources(module, desired, url):
                     # Keep every OEM visibility predicate byte-for-byte.
                     # Only the decorative one-pixel line is transparent.
                     if 'opacity' not in cb:edits.append((tokens[key].end,tokens[key].end,'\nopacity:0\n'))
+                    if name=='UiPerformanceSetting.qml':
+                        if 'visible' in cb:
+                            span=cb['visible'];put(span,'('+source[tokens[span[0]].start:tokens[span[1]-1].end]+') && false')
+                        else:edits.append((tokens[key].end,tokens[key].end,'\nvisible:false\n'))
                     put(height,'0')
         for key,scope in scopes.items():
             cb=scope['bindings']
@@ -676,6 +742,10 @@ def live_theme_sources(module, desired, url):
         source=body.decode('utf-8-sig')
         slots,unsupported,_,_=manager.visual_slots(source)
         edits=[]
+        if name=='UiSettingsButton.qml':
+            pattern=r'pSelected\s*\?\s*UiTheme\.colors\.subWindowHeaderClick\s*:\s*VoidLiveTheme\.Theme\.muted'
+            for match in re.finditer(pattern,source):
+                edits.append((match.start(),match.end(),'pSelected ? VoidLiveTheme.Theme.accent : VoidLiveTheme.Theme.muted'))
         for start,end,kind,value,line,binding in slots:
             role=None
             if kind=='font':replacement='VoidLiveTheme.Theme.fontFamily'
@@ -766,7 +836,7 @@ def main(argv=None):
     module.replacing_ui = '--replace-ui' in argv
     if module.replacing_ui:
         print('REPLACE UI: old UI files/state will be replaced; apps/data and independent helpers are not removed.')
-    print('VOID OLED STUDIO 15 - live native appearance / six presets / custom colors')
+    print('VOID OLED STUDIO 16 - live native appearance / six presets / custom colors')
     if '--export-sources' in argv:
         parser = argparse.ArgumentParser()
         parser.add_argument('--export-sources', type=Path, required=True)

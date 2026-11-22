@@ -168,11 +168,12 @@ Window {
         assert abs(cards[i].width()-cards[i+1].width())<1,'card right edges do not align'
         assert points[i+1].y()>=points[i].y()+cards[i].height()+11,'vertical sections overlap'
     combo=visual(root,'fixtureCpu');position=combo.mapToScene(QPointF(0,0))
-    assert abs(position.x()-(points[0].x()+60))<2,'vertical CPU control is not left-aligned'
-    assert position.y()>points[0].y()+40,'native control did not sit below its title'
+    assert position.x()>points[0].x()+cards[0].width()/2,'native input is not in the reference right column'
+    assert position.y()<points[0].y()+cards[0].height()/2,'native input fell below the title'
     native_slider=visual(root,'fixtureFps')
-    assert native_slider.property('contentItem').property('spacing')==12
-    assert visual(native_slider,'voidReferenceFpsValue') is None,'obsolete horizontal FPS badge survived'
+    assert native_slider.property('pVoidInlineSlider')
+    assert native_slider.property('contentItem').property('spacing')==0
+    assert visual(native_slider,'voidReferenceFpsValue') is not None
     assert visual(root,'bsiSettingsMinimize') is None
     assert visual(root,'bsiSettingsMaximize') is None
     assert visual(root,'bsiSettingsClose') is not None
@@ -205,4 +206,4 @@ Window {
     assert cards[0].property('pVoidSectionCard')
     assert not warnings,'\n'.join(warnings)
     window.setVisible(False);window.deleteLater();settle()
-print('PASS: generated native cards render without overlap using src-code layout wrappers; six palettes/corners, primary Save callback/contrast, vertical native sections with left-aligned inputs, close-only header and scroll-reachable FPS controls. Native input doubles, NOT live OEM certification.')
+print('PASS: generated native cards render without overlap using src-code layout wrappers; six palettes/corners, primary Save callback/contrast, vertically stacked reference rows with native right-aligned inputs, close-only header and scroll-reachable FPS controls. Native input doubles, NOT live OEM certification.')

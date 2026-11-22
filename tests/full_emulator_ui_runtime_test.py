@@ -254,7 +254,7 @@ Window {
     for preset in json.loads((ROOT/'assets/full-emulator-ui/themes.json').read_text()):
         peer.setProperty('requestedTheme',preset['id']);QMetaObject.invokeMethod(peer,'choose');settle()
         assert window.property('themeName')==preset['name'],'separate engine did not update main theme'
-        assert visual(face,'bsiOutlineGlyph').property('tint').name()==preset['palette']['accent']
+        assert visual(face,'bsiOutlineGlyph').property('tint').name()==preset['palette']['muted']
         assert visual(visual(root,'bsiSettingsTab_1'),'voidSettingsNavIcon').property('tint').name()==preset['palette']['accent']
     QMetaObject.invokeMethod(window,'forestAppearance');settle()
     assert peer.property('selected')=='forest' and peer.property('accent').name()=='#82dfb1'

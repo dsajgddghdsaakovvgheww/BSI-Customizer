@@ -61,7 +61,7 @@ Button {
  property bool pImageAnimationRunning:false
  width:42;height:42
  contentItem:Rectangle {color:"#ff00ff";visible:nativeButton.asset.length>0}
- background:Rectangle {color:"transparent"}
+ background:Rectangle {color:"#ff00ff"}
 }
 ''')
     source='''import QtQuick 2.15
@@ -123,7 +123,7 @@ Window {
     # No 'blank instead of stock' loophole: both themed glyphs must exist too.
     for top in (40,100):
         pixels=[first.pixelColor(x,y) for y in range(top+10,top+32) for x in range(447,469)]
-        count=sum(1 for color in pixels if color.green()>60 and color.green()>color.red()*1.2 and color.green()>color.blue()*1.1)
+        count=sum(1 for color in pixels if color.green()>90 and color.green()>color.red()*1.05 and color.green()>color.blue()*1.01)
         assert count>10,('themed icon missing in initial capture',top,count,max(color.green() for color in pixels),frames)
     # Old external rail and stock icons are magenta in this fixture.
     assert not any(first.pixelColor(x,y).name()=='#ff00ff' for x in range(430,486) for y in range(first.height())), 'stock skin visible in first capture'
@@ -163,8 +163,8 @@ Window {
     for preset in json.loads((assets/'themes.json').read_text()):
         window.setProperty('requestedTheme',preset['id']);QMetaObject.invokeMethod(window,'choose');settle()
         assert edge.property('color').name()==preset['palette']['border'],preset['id']
-        assert glyph.property('tint').name()==preset['palette']['accent'],preset['id']
-        assert find(fallback,'bsiOutlineGlyph').property('tint').name()==preset['palette']['accent']
+        assert glyph.property('tint').name()==preset['palette']['muted'],preset['id']
+        assert find(fallback,'bsiOutlineGlyph').property('tint').name()==preset['palette']['muted']
     p=button.mapToScene(QPointF(button.width()/2,button.height()/2))
     QTest.mouseClick(window,Qt.LeftButton,Qt.NoModifier,QPoint(round(p.x()),round(p.y())));settle()
     assert window.property('clicked')==1,'native sidebar callback lost'

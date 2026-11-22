@@ -15,7 +15,7 @@ Item {
     property bool motionEnabled: Theme.motionEnabled
     // Reserve recognized glyphs during creation; never paint a stock icon while
     // its replacement warms up. A missing PNG restores the native fallback.
-    readonly property bool known: iconKey !== "" && glyph.status !== Image.Error && mode === "button"
+    readonly property bool known: iconKey !== "" && face.ready && mode === "button"
     readonly property string iconKey: resolveIcon()
     readonly property color ink: !available ? Theme.border : pressed ? Theme.text :
                                 hovered || active ? Theme.text : Theme.text
@@ -57,63 +57,15 @@ Item {
     }
 
     Rectangle {
-        objectName:"voidRailBackground"
-        anchors.fill: parent
-        visible: skin.mode === "rail"
-        gradient: Gradient {
-            GradientStop { position: 0; color: Theme.surface }
-            GradientStop { position: 0.42; color: Theme.background }
-            GradientStop { position: 1; color: Theme.background }
-        }
-        Rectangle { objectName:"voidRailEdge";width:1;height:parent.height;color:Theme.border }
-        Rectangle {anchors.top:parent.top;anchors.topMargin:12;anchors.horizontalCenter:parent.horizontalCenter;width:Math.max(8,parent.width-18);height:2;radius:1;color:Theme.accent;opacity:0.8}
-        Rectangle { anchors.right: parent.right; width: 1; height: parent.height; color: Theme.background }
+        objectName:"voidRailBackground";anchors.fill:parent
+        visible:skin.mode==="rail";color:Theme.background
+        Rectangle {objectName:"voidRailEdge";width:1;height:parent.height;color:Theme.border}
     }
-
-    Item {
-        id: face
-        anchors.fill: parent
-        visible: skin.mode === "button"
-        scale: skin.pressed ? 0.96 : 1
-        Behavior on scale { enabled: skin.motionEnabled; NumberAnimation { duration: Theme.duration; easing.type: Easing.OutCubic } }
-        Rectangle {
-            anchors.fill: parent
-            anchors.margins: 3
-            radius: Math.min(12,Theme.corner)
-            // Unknown icons must remain visible underneath this passive overlay.
-            color: Theme.raised
-            Behavior on border.color { enabled: skin.motionEnabled; ColorAnimation { duration: Theme.duration } }
-            opacity: !skin.available ? 0 : !skin.known ? (skin.pressed ? 0.14 : skin.hovered ? 0.08 : 0) :
-                     skin.pressed ? 0.96 : skin.active ? 0.95 : skin.hovered ? 0.85 : 0.22
-            border.width: skin.hovered || skin.active || skin.pressed ? 1 : 0
-            border.color: skin.pressed ? Theme.muted : Theme.border
-            Behavior on opacity { enabled: skin.motionEnabled; NumberAnimation { duration: Theme.duration } }
-        }
-        Rectangle {
-            width: 2; height: skin.active ? 15 : 5; radius: 1
-            Behavior on height { enabled: skin.motionEnabled; NumberAnimation { duration: Theme.duration; easing.type: Easing.OutBack } }
-            anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter
-            color: Theme.accent
-            opacity: skin.active && skin.available ? 1 : 0
-            Behavior on opacity { enabled: skin.motionEnabled; NumberAnimation { duration: Theme.duration } }
-        }
-        ThemeIcon {
-            id: glyph
-            objectName: "bsiOutlineGlyph"
-            anchors.centerIn: parent
-            width: 19; height: 19
-            scale: skin.pressed ? 0.95 : 1
-            Behavior on scale { enabled: skin.motionEnabled; NumberAnimation { duration: Theme.duration; easing.type: Easing.OutBack; easing.overshoot: 1.1 } }
-            sourceSize.width: 38; sourceSize.height: 38
-            fillMode: Image.PreserveAspectFit
-            tint: Theme.accent
-            opacity: !skin.available ? 0.35 : skin.hovered || skin.pressed || skin.active ? 1 : 0.75
-            source: skin.svg ? "SharedIcons/"+skin.iconKey+".png" : ""
-            RotationAnimation on rotation {
-                from: 0; to: 360; duration: 1100; loops: Animation.Infinite
-                running: skin.motionEnabled && skin.animating && skin.available && skin.visible && skin.mode === "button"
-                onRunningChanged: if (!running) glyph.rotation = 0
-            }
-        }
+    ChromeButtonVisual {
+        id:face;anchors.fill:parent;visible:skin.mode==="button"
+        glyphObjectName:"bsiOutlineGlyph"
+        iconSource:skin.svg?"SharedIcons/"+skin.iconKey+".png":""
+        hovered:skin.hovered;pressed:skin.pressed;active:skin.active
+        available:skin.available;animating:skin.animating;motionEnabled:skin.motionEnabled
     }
 }

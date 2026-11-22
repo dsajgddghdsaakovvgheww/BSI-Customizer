@@ -97,6 +97,18 @@ class SuiteTests(unittest.TestCase):
         self.assertNotIn('ThemeIcon',logo)
         self.assertNotIn('Branding/VOID-',(ROOT/'assets/full-emulator-ui/IconMasks.js').read_text())
 
+    def test_supplied_window_geometry_does_not_override_compact_shell_or_native_guard(self):
+        before=U.payload()['baseline/UiSettingsWindow.qml'].decode('utf-8-sig')
+        after=S.first_frame_sources(U,{'UiSettingsWindow.qml':before.encode()},'file:///Skin/')['UiSettingsWindow.qml'].decode('utf-8-sig')
+        self.assertNotIn('transientParent.width * 0.70',after)
+        self.assertNotIn('transientParent.height * 0.70',after)
+        self.assertIn('screen.desktopAvailableWidth - 32',after)
+        def closing(source):
+            tokens,scopes=U.manager().scopes_and_bindings(source)
+            root=next(v for v in scopes.values() if v['type']=='Window' and v['parent'] is None)
+            a,b=root['bindings']['onClosing'];return source[tokens[a].start:tokens[b-1].end]
+        self.assertEqual(closing(before),closing(after))
+
     def test_native_section_cards_are_additive_and_use_real_native_values(self):
         original={name:U.payload()['baseline/pages/'+name] for name in U.PAGE_NAMES}
         styled=S.native_section_sources(U,original,'file:///Skin/')
@@ -108,7 +120,7 @@ class SuiteTests(unittest.TestCase):
         self.assertIn(b'Layout.alignment:Qt.AlignTop',performance)
         self.assertIn(b'pIcon:"cpu"',performance)
         self.assertIn(b'pIcon:"memory"',performance)
-        self.assertNotIn(b'pVoidInlineSlider:true',performance)
+        self.assertIn(b'pVoidInlineSlider:true',performance)
         self.assertIn(b'pRangeValueVisibility: true',performance)
         self.assertNotIn(b'Layout.preferredWidth: 200',performance)
         self.assertIn(b'pVoidPrimaryAction:true',performance)
@@ -153,10 +165,10 @@ Layout.column:1
         self.assertEqual(output.count(b'VoidLiveTheme.NativeSettingCard'),1)
         self.assertIn(b'to:540;value:462',output)
         self.assertIn(b'onMoved:backend.setFps(value)',output)
-        self.assertNotIn(b'rightPadding:54',output)
-        self.assertNotIn(b'pVoidInlineSlider',output)
-        self.assertNotIn(b'voidReferenceFpsValue',output)
-        self.assertNotIn(b'Layout.column:',output)
+        self.assertEqual(output.count(b'rightPadding:54'),1)
+        self.assertEqual(output.count(b'pVoidInlineSlider'),1)
+        self.assertEqual(output.count(b'voidReferenceFpsValue'),1)
+        self.assertIn(b'pRowLayout:true',output)
         self.assertNotIn(b'VOID NATIVE SECTION CARDS 14',output)
         self.assertEqual(S.native_section_sources(U,{'UiPerformanceSetting.qml':output},'file:///Skin/')['UiPerformanceSetting.qml'],output)
 

@@ -140,16 +140,21 @@ Window {
     root=window.contentItem();page=visual(root,'actualNativeVisualPage');cpu=visual(root,'iCpuCombobox');ram=visual(root,'iRamCombobox')
     assert cpu and ram
     cp=cpu.mapToScene(QPointF(0,0));rp=ram.mapToScene(QPointF(0,0))
-    assert cp.y()>150 and cp.y()<320,('first native CPU input clipped',cp)
-    assert rp.y()>cp.y()+65,('native RAM not vertically below CPU',cp,rp)
+    assert cp.y()>130 and cp.y()<320,('first native CPU input clipped',cp)
+    assert rp.y()>cp.y()+60,('native RAM not vertically below CPU',cp,rp)
     assert abs(cp.x()-rp.x())<2,('native controls not left-aligned',cp,rp)
-    assert cpu.width()>=230 and ram.width()>=230
+    assert cpu.width()>=210 and ram.width()>=210
+    assert cp.x()>page.mapToScene(QPointF(page.width()/2,0)).x(),'native controls did not move to the right reference column'
     output=ROOT/'.cache/full-ui';output.mkdir(parents=True,exist_ok=True)
     assert window.grabWindow().save(str(output/'native-layout-fixture.png'))
     page.setProperty('pCompLoaded',True)
     cpu.setProperty('currentIndex',3);QMetaObject.invokeMethod(cpu,'activated',Q_ARG(int,3))
     ram.setProperty('currentIndex',1);QMetaObject.invokeMethod(ram,'activated',Q_ARG(int,1));settle()
     assert visual(root,'iCustomCpuCombobx').isVisible() and visual(root,'iCustomRamTextField').isVisible(),('custom native inputs lost',visual(root,'iCustomCpuCombobx').isVisible(),visual(root,'iCustomRamTextField').isVisible(),ram.property('currentIndex'),page.property('pRamModel'),warnings)
+    for name in ('iCustomCpuCombobx','iCustomRamTextField'):
+        item=visual(root,name);right=item.mapToScene(QPointF(item.width(),0)).x()
+        assert right<=page.mapToScene(QPointF(page.width(),0)).x(),('custom native control overflow',name,right)
+
     scroll=visual(root,'iScrollView')
     pos=scroll.mapToScene(QPointF(scroll.width()/2,scroll.height()/2))
     last=visual(root,'iEnableFpsDisplayToggleBtn')

@@ -1,4 +1,4 @@
-# VOID OLED Studio 15 — six live native themes
+# VOID OLED Studio 16 — six live native themes
 
 **𝓥𝓞𝓘𝓓 · Developed By NOVA XIS · https://www.youtube.com/@nova_xis20**
 
@@ -6,7 +6,7 @@ This changes the emulator, not the customizer. It is not another optimizer-only
 ZIP or a set of disconnected mock QML screens. Actual mapped native sources and
 their compiled-cache owners are patched in the established backed-up transaction.
 
-## Studio 15 — first-frame chrome and unified command rail
+## Studio 16 — first-frame chrome and unified command rail
 
 - Replaces the pack-owned legacy inline sidebar bridge that still referenced a
   fixed `C:/Program Files/.../BSISidebarVisual.qml`. The actual rail and its inline
@@ -53,7 +53,7 @@ changed, protected, verified/unchanged resources and unsupported visual bindings
 missing resources are not silently advertised as redesigned. The source-only test
 snapshot does not prove compatibility or exact appearance on a live OEM player.
 
-## OLED Studio 15 — live native Appearance
+## OLED Studio 16 — live native Appearance
 
 Open native **Settings → Appearance** in the **left sidebar**. Choose **OLED Black** (default),
 **Midnight Blue**, **Amethyst**, **Forest**, **Ember**, or **Rose Noir**. These are
@@ -83,7 +83,7 @@ one Carbon skin. Each also has its own corner and transition defaults.
 - `UI-COVERAGE.json` includes `live_theme_bindings` and `theme_presets`. Unsupported
   native expressions/artwork are reported rather than globally overwritten.
 
-### Studio 15 — supplied logo and native topbar repair
+### Studio 16 — supplied logo and native topbar repair
 
 - Your supplied angular purple V is used unchanged in color, not a redrawn V or a
   theme-tinted substitute. It appears in the Settings header/rail and the known
@@ -94,8 +94,8 @@ one Carbon skin. Each also has its own corner and transition defaults.
   OEM gradient, and relays live theme changes even when no command rail is present.
   It does not change `plr.qml`, guest rendering, startup/auth or window actions.
 - Settings keeps our existing colors, compact dimensions and reference layout.
-  FPS uses the original full-width native slider and its real value/range labels,
-  followed vertically by recommended-FPS guidance and native toggle rows.
+  FPS uses its original slider with a right-side read-only value badge. The native
+  guidance is expandable via the info control; toggle rows remain immediately visible.
 - The sidebar has a real “Theme” preset dropdown, plus the existing Appearance
   page for custom colors. The Settings header has **Close only**, routed through
   the native close/unsaved-change flow. The main player window actions are unchanged.
@@ -103,12 +103,12 @@ one Carbon skin. Each also has its own corner and transition defaults.
   Properties → Change Icon). The pack does not claim to replace the Windows EXE's
   embedded icon or modify your existing shortcut target/arguments automatically.
 
-### Studio 15 — vertical native workspace
+### Studio 16 — vertical native workspace
 
-- Settings remains compact: **940 × 700** logical pixels or less on a small desktop.
+- Settings remains compact: **1000 × 700** logical pixels or less on a small desktop.
 - CPU, RAM and Performance mode use full-width, equal-edge cards. A coordinated
-  icon identifies each section; **the original native inputs sit below the title**,
-  aligned to one left edge, with short help. Lower settings remain scrollable.
+  icon identifies each section; **the original native inputs align on the right**,
+  with short help on the left. Rows stack vertically; narrow screens reflow safely.
 - The FPS section retains its native slider, recommended-FPS guidance and three
   native toggles, including their real limits and backend callbacks. Reference
   mockup numbers (such as 462 FPS) are not used as fake settings values.
@@ -256,9 +256,9 @@ control doubles, click routing, popup open/close, absence of optimizer entries a
 Fixture screenshots are labelled examples, not live MSI/BlueStacks captures.
 See `BUILD-REPORT.json` and `Source/PROVENANCE.json`. No player EXE/DLL is distributed.
 
-## Studio 15: vertical native Settings
+## Studio 16: vertical native Settings
 
-Native section layouts are now vertical (title, native controls, concise help).
+Native Performance sections now stack as compact rows (icon/title/help left, real controls right).
 The Settings titlebar has Close only. Appearance uses vertical preset choices,
 full-width color fields, and separate typography/shape/motion sections.
 The installed Studio 14 owned card fields are removed before applying the new
@@ -276,3 +276,28 @@ Other symbols remain the project-drawn family; the supplied purple logo is uncha
 
 Rendering tests use the actual reviewed Performance page visual hierarchy as
 well as small control doubles; a passing fixture is not live OEM certification.
+
+## Studio 16 — supplied reference geometry and synchronized player chrome
+
+This interprets vertical as vertically stacked compact rows, matching the supplied
+reference, NOT a label-above-input form. CPU/RAM custom inputs stay in their native
+rows; FPS keeps its real slider, native limits, read-only badge, three toggles and
+expandable original guidance. Only the Settings Close button is shown.
+
+The reviewed UiSettingsWindow onVisibleChanged 70%-of-player sizing conflicted
+with the shell's compact dimensions. Only those two geometry expressions are
+patched; onClosing, unsaved guards, backend calls and selected-page lifecycle
+remain native. UiSettingsButton's recognized selected-color fallback follows
+the active theme; the shell's own navigation is not duplicated.
+
+Sidebar and topbar now use ONE passive ChromeButtonVisual: neutral idle icons,
+accent hover/active icons, matching subtle fills and OutCubic press/release motion.
+No bounce, permanent idle tiles, gradient rail, or competing OEM hover background.
+Motion-off is immediate. ThemeRelay keeps separately loaded engines synchronized.
+The supplied purple logo and six existing palettes are retained. Select Amethyst
+or customize Accent in Appearance for the purple look from the reference.
+
+No filesystem scan runs automatically on entry. The guarded planner still
+inventories the selected install only after Check/Apply/Export is requested,
+patches all mapped eligible resources and compiled-cache owners, and reports
+unsupported/protected sources rather than force-patching arbitrary logic.
