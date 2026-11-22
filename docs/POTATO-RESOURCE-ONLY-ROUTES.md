@@ -100,6 +100,23 @@ blur, generated mips, output-resolution change or allocation/FPS claim.
   nonsharing native-image fixture pass. Mesa's independent raw native-pbuffer
   export failure remains documented; this does not claim that route works there.
 
+### First Windows attempt and fixture-contract correction
+
+The first candidate `9ff81da` failed the WGL/EGL hook assertions in the Windows
+shader/package runs; it is **not** a successful Windows candidate. Review found
+an old WGL expectation still treating last-DC-lease release as loss of named GL
+FBO proof (only its native DEFAULT-image identity is lost), and a new positive
+surfaceless RBO case using the protected-texture-capable context, whose RBO
+protection cannot be queried without changing bindings. Production correctly
+keeps that RBO path native. The fixture correction retains an explicit protected
+RBO negative, uses the existing qualified no-protection transfer context for the
+positive RBO case, and checks that last-lease release refuses default-image
+copies while the separately qualified named FBO still works. No production
+protection/lifetime guard is relaxed for either correction. Draw mismatches now
+print expected/actual inside-original bindings and the original-call number.
+Follow-up exact-head Windows execution belongs on draft PR121, not inferred
+from cross-compilation or this explanation.
+
 This is an independently demonstrated missing producer path, **not a proven
 installed-game root cause or success**. Actual game material capture/texture
 changes/exact Off remain unverified. Unobserved sharing and EGLImage/private/

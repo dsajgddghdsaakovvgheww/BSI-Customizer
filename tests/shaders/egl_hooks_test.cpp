@@ -92,6 +92,8 @@ struct Fixture {
         require(count("bsiFixtureDrawCalls")==before+1,"each real detour invokes its original exactly once, including bypasses/multi/indirect calls");
         require(count("bsiFixtureArgumentsIntact")&&count("bsiFixtureBindingsRestored")&&!count("bsiFixtureInvalidGl"),
                 "all counts, offsets, pointer arrays, signed base vertices and 64-bit count-buffer offsets forward intact; restore exact native samplers/active unit");
+        if(count("bsiFixtureLastPrivateBindings")!=bindings||count("bsiFixturePrivateDraws")!=privateBefore+(bindings?1:0))
+            std::fprintf(stderr,"EGL draw #%ld kind %u: expected %ld private bindings, observed %ld; private-draw total %ld -> %ld\n",before+1,unsigned(kind),bindings,count("bsiFixtureLastPrivateBindings"),privateBefore,count("bsiFixturePrivateDraws"));
         require(count("bsiFixtureLastPrivateBindings")==bindings&&count("bsiFixturePrivateDraws")==privateBefore+(bindings?1:0),
                 "private coarser-LOD samplers are visible INSIDE the original draw, never merely counted afterward");
     }
@@ -460,7 +462,16 @@ int main(int argc,char **argv){
     require(runtime.metrics().textureInspected==surfacelessInspected&&b.count("bsiFixtureGlQueries")==queriesBeforeSurfacelessProtection
             &&!b.count("bsiFixtureIllegalQueries"),
             "surfaceless still rejects protected contexts BEFORE GL, mismatched null DRAW/non-null READ, isolated names, unrelated FBOs and all unknown default images; NEVER query EGL_NO_SURFACE");
-    b.current(nullptr,shared);b.resource(3,70);b.draw(GlDrawKind::Arrays,0,0);
+    b.current(nullptr,shared);b.transferState(2,70);b.transfer(false);
+    b.resource(3,70);b.draw(GlDrawKind::Arrays,0,0);
+    require(!runtime.metrics().textureTransferCalls&&runtime.metrics().textureProducerDraws==1,
+            "surfaceless does not bypass unqueryable RBO protection on the protected-texture-capable context");
+    // Keep the existing RBO protection boundary: the protected-texture
+    // capability has no binding-free core RBO protection query. The positive
+    // RBO control therefore uses the already qualified no-protection transfer
+    // context, as the earlier pbuffer/RBO fixture does; do not weaken capture.
+    b.function<void(*)(int)>("bsiFixtureExtensions")(0);
+    b.current(nullptr,transferContext);b.resource(3,70);b.draw(GlDrawKind::Arrays,0,0);
     b.transferState(2,70);b.transfer(false);b.resource(3,70);b.draw();
     b.transferState(0,0);b.transfer(true);
     require(runtime.metrics().textureProducerDraws==2&&runtime.metrics().textureTransferCalls==1,

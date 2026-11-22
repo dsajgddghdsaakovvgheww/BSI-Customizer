@@ -43,6 +43,8 @@ struct Fixture {
         const auto before=count("bsiFixtureDrawCalls"),privateBefore=count("bsiFixturePrivateDraws");
         function<void(*)(unsigned,unsigned,unsigned)>("bsiFixtureDraw")(static_cast<unsigned>(GlDrawKind::ElementsBaseVertex),0,4);
         require(count("bsiFixtureDrawCalls")==before+1&&count("bsiFixtureArgumentsIntact")&&count("bsiFixtureBindingsRestored")&&!count("bsiFixtureInvalidGl"),"draw original once, exact arguments/active unit/native source samplers, no illegal GL query");
+        if(count("bsiFixtureLastPrivateBindings")!=bindings||count("bsiFixturePrivateDraws")!=privateBefore+(bindings?1:0))
+            std::fprintf(stderr,"WGL draw #%ld: expected %ld private bindings, observed %ld; private-draw total %ld -> %ld\n",before+1,bindings,count("bsiFixtureLastPrivateBindings"),privateBefore,count("bsiFixturePrivateDraws"));
         require(count("bsiFixtureLastPrivateBindings")==bindings&&count("bsiFixturePrivateDraws")==privateBefore+(bindings?1:0),"private desktop bias+floor bindings must exist INSIDE the original, not merely diagnostic counters");
     }
     void *pbuffer(HWND hidden=nullptr){auto *p=function<void*(*)(HWND)>("bsiFixturePbuffer")(hidden);require(p!=nullptr,"create authored memory/hidden-window pbuffer");return p;}
@@ -122,7 +124,13 @@ int main(int argc,char **argv){
     auto *leased=f.pbuffer();const auto leasedDc=f.get(leased);require(leasedDc&&f.get(leased,true)==leasedDc,"multiple observed leases, both native aliases");
     f.current(leasedDc,scene);f.resource(2);f.draw(2);f.release(leased,leasedDc);f.draw(2);
     f.failures(2);f.release(leased,leasedDc,0,true);f.draw(2);f.failures(0);
-    f.release(leased,leasedDc,1,true);f.draw(0);require(f.get(leased)==leasedDc,"refresh released DC");
+    const auto beforeLastLease=runtime.metrics().textureProducerDraws;
+    const auto transfersBeforeLastLease=runtime.metrics().textureTransferCalls;
+    f.release(leased,leasedDc,1,true);f.draw(2);
+    f.transferState(0,0);f.transfer(true);f.resource(2);
+    require(runtime.metrics().textureProducerDraws==beforeLastLease+1&&runtime.metrics().textureTransferCalls==transfersBeforeLastLease,
+            "last native DC lease removes DEFAULT-image copy proof, not the independently qualified named FBO in its surviving shared GL namespace");
+    require(f.get(leased)==leasedDc,"refresh released DC");
     f.failures(4);f.destroy(leased,FALSE);f.draw(2);f.failures(0);
     f.current(nullptr,nullptr);f.destroy(leased,TRUE,true);
     auto *replacement=f.pbuffer();const auto replacementDc=f.get(replacement);require(replacementDc!=nullptr,"reused native pbuffer handle with fresh observed generation");
