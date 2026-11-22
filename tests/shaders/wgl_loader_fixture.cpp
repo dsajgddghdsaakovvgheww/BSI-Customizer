@@ -4,7 +4,7 @@
 #include "egl_gl_fixture.h"
 #define API extern "C" __declspec(dllexport)
 namespace {
-struct Context {bool live=false;EglDrawFixture::State gl;} contexts[24];
+struct Context {bool live=false;unsigned procedures=0;EglDrawFixture::State gl;} contexts[24];
 struct Pbuffer {bool live=false;HDC dc=nullptr;HWND window=nullptr;unsigned leases=0;} pbuffers[16];
 thread_local Context *currentContext=nullptr;
 thread_local HDC drawDc=nullptr,readDc=nullptr;
@@ -64,6 +64,19 @@ API BOOL WINAPI bsiWglBindTexImage(void *value,int buffer){
     return validPbuffer(value)&&buffer>=0x2083&&buffer<=0x2086&&!(failures&32);
 }
 API PROC WINAPI bsiWglGetProcAddress(LPCSTR name){
+    SetLastError(0x13579b);
+    if(!name)return nullptr;
+    // The presenter cannot resolve these distinct entry points. A later native
+    // lookup on another dispatch table must be observed before its first draw.
+    if(currentContext&&currentContext->procedures){
+        if(std::strcmp(name,"glDrawElements")==0)return reinterpret_cast<PROC>(&EglDrawFixture::drawElements<BsiShaders::glDrawAliases>);
+        if(std::strcmp(name,"glBlitFramebuffer")==0)return reinterpret_cast<PROC>(&EglDrawFixture::blitFramebuffer<4>);
+        if(std::strcmp(name,"glCopyTexSubImage2D")==0)return reinterpret_cast<PROC>(&EglDrawFixture::copyTexSubImage2D<2>);
+    }
+    if(std::strcmp(name,"bsiInvalidOne")==0)return reinterpret_cast<PROC>(std::intptr_t(1));
+    if(std::strcmp(name,"bsiInvalidTwo")==0)return reinterpret_cast<PROC>(std::intptr_t(2));
+    if(std::strcmp(name,"bsiInvalidThree")==0)return reinterpret_cast<PROC>(std::intptr_t(3));
+    if(std::strcmp(name,"bsiInvalidMinusOne")==0)return reinterpret_cast<PROC>(std::intptr_t(-1));
 #define WGL(text,fn) if(std::strcmp(name,text)==0)return reinterpret_cast<PROC>(&fn)
     WGL("wglCreateContextAttribsARB",bsiWglCreateContextAttribs);
     WGL("wglBindTexImageARB",bsiWglBindTexImage);WGL("wglQueryPbufferARB",bsiWglQueryPbuffer);
@@ -114,3 +127,28 @@ API void bsiFixtureNativeTextureTarget(unsigned name){EglDrawFixture::state().te
 API void bsiFixtureOnTransfer(void(WINAPI *callback)()){EglDrawFixture::onTransfer=callback;}
 
 API void bsiFixtureTransferToDefault(){EglDrawFixture::state().framebuffer=0;}
+
+API void bsiFixtureProcedureVariant(unsigned variant){if(currentContext)currentContext->procedures=variant;}
+API void bsiFixtureLateDraw(unsigned mode){
+    constexpr unsigned kind=static_cast<unsigned>(BsiShaders::GlDrawKind::Elements),alias=BsiShaders::glDrawAliases;
+    constexpr int count=13;constexpr unsigned type=0x1403;const auto *indices=reinterpret_cast<void*>(0x123400);
+    EglDrawFixture::expectedHash=EglDrawFixture::hash(kind,alias,mode,count,type,indices);
+    using Function=void(WINAPI*)(unsigned,int,unsigned,const void*);
+    void *volatile target=reinterpret_cast<void*>(&EglDrawFixture::drawElements<alias>);
+    reinterpret_cast<Function>(target)(mode,count,type,indices);
+}
+API void bsiFixtureLateTransfer(unsigned copy){
+    if(copy){
+        constexpr unsigned target=0x0de1;constexpr int level=0,dx=3,dy=4,x=1,y=2,width=57,height=56;
+        EglDrawFixture::expectedTransferHash=EglDrawFixture::hash(101,2,target,level,dx,dy,x,y,width,height);
+        using Function=void(WINAPI*)(unsigned,int,int,int,int,int,int,int);
+        void *volatile entry=reinterpret_cast<void*>(&EglDrawFixture::copyTexSubImage2D<2>);
+        reinterpret_cast<Function>(entry)(target,level,dx,dy,x,y,width,height);
+    }else{
+        constexpr int sx0=1,sy0=2,sx1=61,sy1=62,dx0=3,dy0=4,dx1=59,dy1=60;constexpr unsigned mask=0x4000,filter=0x2600;
+        EglDrawFixture::expectedTransferHash=EglDrawFixture::hash(100,4,sx0,sy0,sx1,sy1,dx0,dy0,dx1,dy1,mask,filter);
+        using Function=void(WINAPI*)(int,int,int,int,int,int,int,int,unsigned,unsigned);
+        void *volatile entry=reinterpret_cast<void*>(&EglDrawFixture::blitFramebuffer<4>);
+        reinterpret_cast<Function>(entry)(sx0,sy0,sx1,sy1,dx0,dy0,dx1,dy1,mask,filter);
+    }
+}
