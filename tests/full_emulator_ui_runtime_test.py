@@ -191,7 +191,9 @@ Window {
     flick=scroller.property('contentItem')
     offset=accent.mapToScene(QPointF(0,0)).y()-scroller.mapToScene(QPointF(0,0)).y()-12
     flick.setProperty('contentY',flick.property('contentY')+offset);settle()
-    click(accent);QTest.keyClick(window,Qt.Key_A,Qt.ControlModifier);QTest.keyClicks(window,'#aaccff');settle()
+    click(accent);QTest.keyClick(window,Qt.Key_A,Qt.ControlModifier)
+    for character in '#aaccff':QTest.keyClick(window,character)
+    settle()
     click(visual(root,'applyCustomTheme'))
     assert window.property('themeName')=='My theme','vertical custom-color editor did not apply'
     assert slider.property('pColor').property('sliderFill').name()=='#aaccff'
