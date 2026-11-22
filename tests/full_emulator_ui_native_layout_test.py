@@ -13,7 +13,7 @@ import time
 os.environ.setdefault('QT_QPA_PLATFORM','offscreen')
 os.environ.setdefault('QT_QUICK_BACKEND','software')
 os.environ.setdefault('QT_QUICK_CONTROLS_STYLE','Basic')
-from PySide6.QtCore import QUrl, QPointF, QMetaObject
+from PySide6.QtCore import QUrl, QPointF, QMetaObject, Q_ARG
 from PySide6.QtGui import QGuiApplication, QFontDatabase
 from PySide6.QtQml import QQmlEngine, QQmlComponent
 from PySide6.QtQuick import QQuickWindow
@@ -68,8 +68,9 @@ Item {
  property int pMaxCpu:8
  property int pMaxRam:16384
  property int pDefaultCpu:4
+ property int pDefaultRam:4096
  property string pVmName:"fixture"
- property var pCpuModel:[{text:"High (4 cores)",value:"4"},{text:"Custom",value:"1"}]
+ property var pCpuModel:[{text:"High (4 cores)",value:"4"},{text:"Medium (2 cores)",value:"2"},{text:"Low (1 core)",value:"1"},{text:"Custom",value:"1"}]
  property var pCustomCpuModel:["1","2","3","4"]
  property var pRamModel:[{text:"Enhanced (4 GB)",value:"4096",visible:true},{text:"Custom (MB)",value:"*",visible:true}]
  property int saved:0
@@ -78,7 +79,6 @@ Item {
  function fHandleConfChange(){saved++}
  function fInitUi(){}
  function bottom(){iScrollView.contentItem.contentY=Math.max(0,iScrollView.contentHeight-iScrollView.availableHeight)}
- function custom(){iCustomCpuCombobx.visible=true;iRamCombobox.currentIndex=1}
  TREE
 }'''.replace('SKIN',url).replace('TREE',tree)
     # Native palette pass + the exact vertical source transformer used by install.
@@ -116,6 +116,8 @@ Window {
   property string productName:"Fixture Player"
   function confGetBoolDefaultWhenEmpty(key,value){return value}
   function confSetInstanceBool(key,value){}
+  function confSetInstanceI32(key,value){}
+  function confGetInstanceI32(key){return key==="cpus"?4:4096}
   function confIsPropModified(key){return false}
   function confIsInstancePropModified(key){return false}
   function confCommit(){}
@@ -144,7 +146,9 @@ Window {
     assert cpu.width()>=230 and ram.width()>=230
     output=ROOT/'.cache/full-ui';output.mkdir(parents=True,exist_ok=True)
     assert window.grabWindow().save(str(output/'native-layout-fixture.png'))
-    QMetaObject.invokeMethod(page,'custom');settle()
+    page.setProperty('pCompLoaded',True)
+    cpu.setProperty('currentIndex',3);QMetaObject.invokeMethod(cpu,'activated',Q_ARG(int,3))
+    ram.setProperty('currentIndex',1);QMetaObject.invokeMethod(ram,'activated',Q_ARG(int,1));settle()
     assert visual(root,'iCustomCpuCombobx').isVisible() and visual(root,'iCustomRamTextField').isVisible(),('custom native inputs lost',visual(root,'iCustomCpuCombobx').isVisible(),visual(root,'iCustomRamTextField').isVisible(),ram.property('currentIndex'),page.property('pRamModel'),warnings)
     QMetaObject.invokeMethod(page,'bottom');settle()
     last=visual(root,'iEnableFpsDisplayToggleBtn');p=last.mapToScene(QPointF(0,last.height()))
