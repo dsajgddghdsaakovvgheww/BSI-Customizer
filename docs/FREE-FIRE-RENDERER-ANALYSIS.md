@@ -1,22 +1,61 @@
 # Free Fire: host presentation is not scene-texture capture
 
-## Current implementation after the failed report
+## Latest installed-player follow-up: depth-independent inspection, 2,652 NoSampler
 
-Saved Potato On now selects an [explicit depth-independent owned-mip
-compatibility path](POTATO-DEPTH-COMPATIBILITY.md), not the old depth gate. This
-pursues the originals' demonstrated LOD mechanism using private draw-scoped
-samplers and exact Off restoration. Real production software pixels prove mip
-selection and full spatial-texture detail changes with depth disabled/no depth
-attachment; opaque mipmapped HUD/RGB-data effects are disclosed. Exact
-provider/display/drawable ownership, protection, unblended/mip/sampler checks
-remain. No unknown offscreen/share-group producer is adopted.
+The user's **"still not working"** report supersedes the old depth-gate failure:
 
-This has **not** been deployed or verified on the reported game; its last
-installed-player result below remains negative. No repeat Save/gameplay/report
-request or lower-resolution substitute is proposed. Historical gate/guard
-statements below describe those earlier revisions, not the current On policy.
+```text
+Requested API: Automatic; configured / observed host API: OpenGL / OpenGL
+Processed presentation-shader frames: 1326
+Texture policy: Owned mip compatibility (depth independent); inspection armed: yes
+Texture calls / sampler-inspection calls: 2652 / 2652
+NoSampler: 2652; depth / blended / other bypass: 0 / 0 / 0
+Prepared draws / overridden bindings: 0 / 0
+All first-depth-blocker subcounts: 0; nested inspected / prepared: 0 / 0
+Vulkan: 1 loader, 1 instance, 1 device; 0 surfaces/swapchains/presents
+Qt bridge / host: 5.15.2 / 5.15.4
+```
 
-## Latest installed-player follow-up: all 4,506 inspected calls have depth testing disabled
+**Presentation grading works; Potato textures still do not.** All counted calls
+now reach sampler inspection. Do not diagnose this run as TestDisabled, an
+unsaved toggle, inactive gameplay or a Qt patch-version failure. `NoSampler`
+combined shader layout/type/unit/binding, feedback, protection, mip/color,
+descriptor policy and replacement failures; it does **not** prove no mipmaps.
+The frame/call ratio does not prove complete scene coverage or two draws per
+frame because their evidence intervals differ. The report establishes neither
+a particular producer/API/process nor permission to adopt unknown resources.
+
+## Current repair: follow a bound presentation input to its exact FBO producer
+
+Saved On still uses [depth-independent owned-mip compatibility](POTATO-DEPTH-COMPATIBILITY.md).
+A new [resource-linked producer path](POTATO-RESOURCE-PRODUCERS.md) repairs an
+independently reproduced gap: a one-level compositor correctly has no reducible
+mips, while the material draw that fills its input may use another drawable.
+Previously even that **same context's** nonpresenting producer was never
+inspected. The new path seeds resource evidence only from the selected
+presentation's active color bindings, then requires the candidate FBO to write
+the exact recently referenced texture in the same or **observed successfully
+shared** namespace. A provider/share group or equal numeric names alone never
+qualifies. Known unprotected EGL pbuffers are candidates, not new presentation
+sources; unknown/foreign/Qt/protected routes remain excluded. The original
+sampler/protection/mip/Off and nested/concurrency safeguards still apply.
+
+Real software pixels reproduce **compositor bindings 0 -> linked material
+producer bindings 1**, a changed full presented image and byte-exact full-frame
+Off. A negative control disabling production producer qualification fails the
+expected material-pixel assertion. This is a behavioral repair, not merely more
+status text or a blur/resolution substitute. The new NoSampler detail also
+separates discovered slots/bindings from mip/color/protection, descriptor and
+private-sampler failures; producer/input observations have separate counters.
+
+**This new repair has not been deployed to the reported game and is not its
+established root cause or texture/FPS acceptance.** Unsupported shader/sampler
+kinds, unobserved sharing, other processes/APIs and nontexture transfer paths
+remain native. No repeat Save/gameplay/report request or blind DLL deployment
+is proposed. Historical gate/guard statements below describe earlier revisions,
+not this latest installed-player result.
+
+## Previous installed-player follow-up: all 4,506 inspected calls had depth testing disabled
 
 The saved/armed-On follow-up after the nested-wrapper repair remains a **failed
 texture result**, despite working host OpenGL grading:

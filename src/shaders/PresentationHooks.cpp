@@ -22,6 +22,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <set>
 #include <thread>
 #include <tuple>
 #include <utility>
@@ -34,9 +35,13 @@ using WglCurrent=HGLRC(WINAPI*)();
 using WglCurrentDc=HDC(WINAPI*)();
 using WglProc=PROC(WINAPI*)(LPCSTR);
 using WglDelete=BOOL(WINAPI*)(HGLRC);
+using WglCreate=HGLRC(WINAPI*)(HDC);
+using WglShare=BOOL(WINAPI*)(HGLRC,HGLRC);
+using WglCreateAttributes=HGLRC(WINAPI*)(HDC,HGLRC,const int*);
 using EglSwap=unsigned(WINAPI*)(void*,void*);
 using EglCreate=void*(WINAPI*)(void*,void*,void*,const int*);
 using EglPlatformCreate=void*(WINAPI*)(void*,void*,void*,const std::intptr_t*);
+using EglPbufferCreate=void*(WINAPI*)(void*,void*,const int*);
 using EglDestroy=unsigned(WINAPI*)(void*,void*);
 using EglCurrent=void*(WINAPI*)();
 using EglCurrentSurface=void*(WINAPI*)(int);
@@ -50,12 +55,13 @@ using DrawableKey=std::pair<std::uintptr_t,std::uintptr_t>; // display + surface
 using ContextKey=std::tuple<unsigned,std::uintptr_t,std::uintptr_t>; // provider + display + context
 struct EglProvider {
     HMODULE module=nullptr;
-    EglSwap swap=nullptr;EglCreate create=nullptr,createPlatformExt=nullptr;
-    EglPlatformCreate createPlatform=nullptr;
+    EglSwap swap=nullptr;EglCreate create=nullptr,createPlatformExt=nullptr,createContext=nullptr;
+    EglPlatformCreate createPlatform=nullptr;EglPbufferCreate createPbuffer=nullptr;
     EglDestroy destroySurface=nullptr,destroyContext=nullptr;
     EglCurrent current=nullptr,currentDisplay=nullptr;EglCurrentSurface currentSurface=nullptr;
     EglQuery query=nullptr,queryContext=nullptr;EglProc proc=nullptr;EglQueryApi api=nullptr;EglString strings=nullptr;
     std::map<DrawableKey,HWND> surfaces;
+    std::set<DrawableKey> pbuffers; // only successful, observed unprotected pbuffer creations
 };
 struct GameContext {
     GlPipeline pipeline;
@@ -63,17 +69,29 @@ struct GameContext {
     Renderer renderer=Renderer::Unknown;
     HWND window=nullptr;
     DrawableKey drawable{};
-    bool drawHooks=false;
+    bool drawHooks=false,resourceHooks=false;
 };
 struct DrawHook {void *target=nullptr;std::atomic<void*> original{nullptr};std::atomic<unsigned> providers{0};};
+struct ResourceEvent {
+    enum Kind { Deleted, Created, CreatedShared, Shared } kind=Deleted;
+    unsigned providers=0,count=0;
+    GlContextIdentity parent{},child{};
+    std::array<unsigned,64> names{};
+};
 struct Hooks {
-    std::mutex mutex,renderMutex,surfaceMutex,hookMutex;
+    std::mutex mutex,renderMutex,surfaceMutex,hookMutex,resourceMutex,procedureMutex;
     std::atomic<bool> stopping{false};
     std::thread worker;
     bool started=false;
     HMODULE gl=nullptr;
     WglSwap swaps[2]{};
     WglCurrent currentWgl=nullptr;WglCurrentDc currentDc=nullptr;WglProc wglProc=nullptr;WglDelete deleteWgl=nullptr;
+    WglCreate createWgl=nullptr;WglShare shareWgl=nullptr;WglProc nativeWglProc=nullptr;
+    GlTextureProvenance provenance;
+    std::array<ResourceEvent,32> resources{};unsigned resourceCount=0;std::atomic<unsigned> resourceReset{0};
+    std::atomic<std::uint64_t> resourceSerial{0};
+    std::array<DrawHook,12> textureDeletes{};
+    std::array<DrawHook,16> attributedCreates{};
     std::array<EglProvider,maximumEglProviders> egl;
     unsigned eglCount=0;
     // 0 = WGL; each EGL provider has its own identity, procedures and lifecycle.
@@ -98,6 +116,47 @@ void *resolve(const char *name,void *user){
     }
     return address;
 }
+// Creation/deletion callbacks never wait for renderMutex: a driver may join a
+// worker while a draw holds it. Fixed events are consumed under that mutex.
+// Contention/overflow invalidates the provider's evidence, never guesses it.
+void resourceEvent(const ResourceEvent &event)noexcept{
+    auto &h=hooks();if(h.stopping.load())return;
+    try{
+        std::unique_lock<std::mutex> lock(h.resourceMutex,std::try_to_lock);
+        if(lock&&h.resourceCount<h.resources.size()){
+            h.resources[h.resourceCount++]=event;h.resourceSerial.fetch_add(1);return;
+        }
+    }catch(...){}
+    h.resourceReset.fetch_or(event.providers);h.resourceSerial.fetch_add(1);
+}
+void drainResources(){
+    auto &h=hooks();std::array<ResourceEvent,32> pending{};unsigned count=0,reset=0;
+    {
+        std::lock_guard<std::mutex> lock(h.resourceMutex);count=h.resourceCount;
+        std::copy_n(h.resources.begin(),count,pending.begin());h.resourceCount=0;
+        reset=h.resourceReset.exchange(0);
+    }
+    for(unsigned provider=0;provider<=maximumEglProviders;++provider)
+        if(reset&(1u<<provider))h.provenance.forgetProvider(provider);
+    for(unsigned i=0;i<count;++i){const auto &event=pending[i];
+        if(event.providers&reset)continue;
+        if(event.kind==ResourceEvent::Deleted){
+            for(unsigned provider=0;provider<=maximumEglProviders;++provider)
+                if(event.providers&(1u<<provider))h.provenance.deleted(provider,int(event.count),event.names.data());
+        }else{
+            if(event.kind!=ResourceEvent::Shared)h.provenance.forget(event.child);
+            if(event.kind==ResourceEvent::Shared||event.kind==ResourceEvent::CreatedShared)
+                h.provenance.shared(event.parent,event.child);
+            else h.provenance.remember(event.child);
+        }
+    }
+}
+void contextCreated(unsigned provider,std::uintptr_t display,std::uintptr_t context,std::uintptr_t share)noexcept{
+    if(!context)return;
+    ResourceEvent event;event.providers=1u<<provider;
+    event.kind=share?ResourceEvent::CreatedShared:ResourceEvent::Created;
+    event.parent={provider,display,share};event.child={provider,display,context};resourceEvent(event);
+}
 std::uintptr_t contextFor(unsigned provider){
     auto &h=hooks();return provider?reinterpret_cast<std::uintptr_t>(h.egl[provider-1].current()):h.currentWgl?reinterpret_cast<std::uintptr_t>(h.currentWgl()):0;
 }
@@ -115,6 +174,7 @@ HWND drawableFor(unsigned provider,DrawableKey *key){
     return it==p.surfaces.end()?nullptr:it->second;
 }
 bool installDrawHooks(unsigned provider,void *user);
+bool installResourceHooks(unsigned provider,void *user);
 bool extension(const char *list,const char *name);
 Renderer rendererFor(unsigned provider){
     if(!provider)return Renderer::OpenGL;
@@ -134,32 +194,45 @@ bool unprotectedEgl(EglProvider &p,DrawableKey drawable,std::uintptr_t context,b
     return (!surfaces||(p.query(display,surface,0x32c0,&protectedSurface)&&!protectedSurface))
         &&(!content||(p.queryContext(display,reinterpret_cast<void*>(context),0x32c0,&protectedContext)&&!protectedContext));
 }
-// Provider-shared draw entry points may be returned by several EGL DLLs.
-// A translator may draw the scene with another context on the SAME game
-// drawable and only swap with its compositor context. A draw may use that
-// already-proven presentation, but may NEVER claim a route from a context alone.
-// No pbuffer/offscreen/share-group/other-window ownership is guessed.
+// A draw can use the exact selected drawable, or (compatibility only) write a
+// recently presented color-texture dependency in its same/observed-share
+// namespace. Another window/default framebuffer, unknown pbuffer, mere sharing
+// and equal numeric object names never select or authorize a presentation.
 struct GameDraw {
     GlDrawScope scope;
     GameContext *selected=nullptr;
     GameDraw(unsigned providers,unsigned primitive)noexcept:scope(hooks().renderMutex,presenting){
         try {
-            auto &h=hooks();if(!scope.mayInspect()||h.stopping.load())return;
-            const auto quality=Runtime::instance().texture();if(!quality.enabled)return;
+            auto &h=hooks();auto &runtime=Runtime::instance();
+            if(!scope.mayInspect()||h.stopping.load()||!runtime.texture().enabled)return;
+            if(!scope.tryLock())return;
+            drainResources();const auto route=runtime.textureRoute();const auto quality=route.configuration;
+            h.provenance.synchronize(route.object,route.revision);
+            if(!quality.enabled||!route.object||!runtime.eligible(route.window)){scope.releaseBypass();return;}
             for(unsigned provider=0;provider<=maximumEglProviders;++provider){
                 if(!(providers&(1u<<provider)))continue;
                 const auto context=contextFor(provider);if(!context)continue;
-                DrawableKey drawable{};const HWND window=drawableFor(provider,&drawable);
-                if(!Runtime::instance().eligible(reinterpret_cast<std::uintptr_t>(window)))continue;
-                if(!scope.ownsLock()&&!scope.tryLock())return;
-                const auto renderer=rendererFor(provider);
+                const auto renderer=rendererFor(provider);if(renderer!=route.renderer)continue;
                 GameContext *source=nullptr;
-                for(const auto &entry:h.contexts){
-                    auto &session=*entry.second;
-                    if(std::get<0>(entry.first)==provider&&session.window==window&&session.drawable==drawable&&session.drawHooks
-                       &&Runtime::instance().isPresentation(renderer,reinterpret_cast<std::uintptr_t>(&session),reinterpret_cast<std::uintptr_t>(window))){source=&session;break;}
+                for(const auto &entry:h.contexts)
+                    if(std::get<0>(entry.first)==provider&&reinterpret_cast<std::uintptr_t>(entry.second.get())==route.object){source=entry.second.get();break;}
+                if(!source||!source->drawHooks||!runtime.isPresentation(renderer,route.object,route.window))continue;
+                DrawableKey drawable{};const HWND window=drawableFor(provider,&drawable);
+                const bool exact=source->window==window&&source->drawable==drawable;
+                const GlContextIdentity identity{provider,drawable.first,context};
+                if(!exact){
+                    if(quality.drawPolicy!=TextureDrawPolicy::OwnedMipCompatibility||!quality.externalOverridesReviewed
+                       ||!source->resourceHooks||!h.provenance.hasDependencies(identity))continue;
+                    if(window){if(window!=source->window)continue;}
+                    else {
+                        // Only an observed unprotected EGL pbuffer is a known
+                        // non-window route. Unmapped/pre-existing/foreign
+                        // windows, surfaceless and unknown WGL DCs stay native.
+                        if(!provider)continue;
+                        std::lock_guard<std::mutex> lock(h.surfaceMutex);
+                        if(!h.egl[provider-1].pbuffers.count(drawable))continue;
+                    }
                 }
-                if(!source)continue;
                 auto *egl=provider?&h.egl[provider-1]:nullptr;bool protectionPossible=false;
                 if(egl&&!unprotectedEgl(*egl,drawable,context,&protectionPossible))continue;
                 const ContextKey key{provider,drawable.first,context};auto found=h.contexts.find(key);
@@ -168,25 +241,38 @@ struct GameDraw {
                     found=h.contexts.emplace(key,std::make_unique<GameContext>()).first;
                 }
                 auto &session=*found->second;
-                session.window=window;session.drawable=drawable;session.renderer=renderer;
-                selected=&session;scope.guardInspection();
+                // A producer never overwrites the presenter's window/drawable
+                // association, even when one context performs both roles.
+                if(exact){session.window=window;session.drawable=drawable;}
+                session.renderer=renderer;selected=&session;scope.guardInspection();
                 std::string detail;
                 if(!session.drawHooks){
                     session.drawHooks=session.potato.initialize(resolve,egl,&detail,protectionPossible)&&installDrawHooks(provider,egl);
                     if(!session.drawHooks){
-                        Runtime::instance().textureReport(0,detail.empty()?"This game scene context has no safe draw-inspection path; native sampling retained.":detail,false);
+                        runtime.textureReport(0,detail.empty()?"This game context has no safe sampler-inspection path; native sampling retained.":detail,false,
+                                              TextureDrawReason::NotInspected,TextureDepthFailure::None,scope.nested(),!exact,route.revision);
                         selected=nullptr;scope.releaseBypass();return;
                     }
                 }
-                TextureDrawReason reason=TextureDrawReason::NotInspected;
-                TextureDepthFailure depth=TextureDepthFailure::None;
+                if(quality.drawPolicy==TextureDrawPolicy::OwnedMipCompatibility&&quality.externalOverridesReviewed){
+                    if(!session.resourceHooks)session.resourceHooks=installResourceHooks(provider,egl);
+                    const auto serial=h.resourceSerial.load();GlTextureUsage usage;
+                    const bool captured=session.resourceHooks&&(primitive==4||primitive==5||primitive==6)&&session.potato.usage(&usage)
+                        &&serial==h.resourceSerial.load();
+                    if(!exact&&(!captured||!h.provenance.producer(identity,usage))){selected=nullptr;scope.releaseBypass();return;}
+                    if(captured){
+                        const auto inputs=h.provenance.observe(identity,usage,exact);
+                        if(exact&&usage.defaultFramebuffer)runtime.textureConsumerReport(inputs,route.revision);
+                    }
+                }
+                if(runtime.textureRoute().revision!=route.revision){selected=nullptr;scope.releaseBypass();return;}
+                TextureDrawReason reason=TextureDrawReason::NotInspected;TextureDepthFailure depth=TextureDepthFailure::None;
                 const auto changed=selected->potato.begin(quality.quality(),quality.externalOverridesReviewed,primitive,&detail,&reason,&depth,quality.drawPolicy);
-                Runtime::instance().textureReport(changed,detail,true,reason,depth,scope.nested());
+                if(!exact)detail="Presentation-linked color-FBO producer: "+detail;
+                runtime.textureReport(changed,detail,true,reason,depth,scope.nested(),!exact,route.revision);
                 if(!changed){
-                    // No bindings are borrowed by the outer original. A
-                    // translator can establish its real depth state/context
-                    // INSIDE that original and call a second hooked entry.
-                    // Do not hide it behind this bypass's guard/render lock.
+                    // Zero-binding wrappers release their leases BEFORE the
+                    // original, allowing its later real nested draw inspection.
                     selected=nullptr;scope.releaseBypass();
                 }
                 return;
@@ -226,6 +312,62 @@ const std::array<std::array<void*,drawSlots>,drawKinds> drawCallbacks{{
 #undef BSI_DRAW_CALLBACK_ROW
 }};
 #undef BSI_GL_DRAW_CALLS
+template<unsigned Index> void WINAPI deletedTextures(int count,const unsigned *names){
+    auto &h=hooks();auto &hook=h.textureDeletes[Index];const auto providers=hook.providers.load(std::memory_order_acquire);
+    if(count>0&&!h.stopping.load()){
+        if(!names||count>64){h.resourceReset.fetch_or(providers);h.resourceSerial.fetch_add(1);}
+        else {ResourceEvent event;event.providers=providers;event.count=unsigned(count);std::copy_n(names,count,event.names.begin());resourceEvent(event);}
+    }
+    using Function=void(WINAPI*)(int,const unsigned*);
+    reinterpret_cast<Function>(hook.original.load(std::memory_order_acquire))(count,names);
+}
+template<std::size_t... Index> auto deleteCallbacks(std::index_sequence<Index...>){
+    return std::array<void*,sizeof...(Index)>{{reinterpret_cast<void*>(&deletedTextures<Index>)...}};
+}
+template<std::size_t N> bool resourceHook(std::array<DrawHook,N> &slots,const std::array<void*,N> &callbacks,void *target,unsigned providers){
+    if(!target)return false;
+    std::lock_guard<std::mutex> lock(hooks().procedureMutex);
+    for(std::size_t i=0;i<N;++i){auto &entry=slots[i];
+        if(entry.target==target){entry.providers.fetch_or(providers,std::memory_order_release);return entry.original.load()!=nullptr;}
+        if(entry.target)continue;
+        entry.target=target;entry.providers.store(providers,std::memory_order_release);
+        if(installPublished(target,callbacks[i],nullptr,&entry.original))return true;
+        entry.providers.store(0);entry.target=nullptr;return false;
+    }
+    return false;
+}
+bool installResourceHooks(unsigned provider,void *user){
+    static const auto callbacks=deleteCallbacks(std::make_index_sequence<12>{});
+    return resourceHook(hooks().textureDeletes,callbacks,resolve("glDeleteTextures",user),1u<<provider);
+}
+template<unsigned Index> HGLRC WINAPI createAttributedWgl(HDC dc,HGLRC share,const int *attributes){
+    auto &entry=hooks().attributedCreates[Index];
+    const auto context=reinterpret_cast<WglCreateAttributes>(entry.original.load(std::memory_order_acquire))(dc,share,attributes);
+    contextCreated(0,0,reinterpret_cast<std::uintptr_t>(context),reinterpret_cast<std::uintptr_t>(share));return context;
+}
+template<std::size_t... Index> auto attributedCallbacks(std::index_sequence<Index...>){
+    return std::array<void*,sizeof...(Index)>{{reinterpret_cast<void*>(&createAttributedWgl<Index>)...}};
+}
+PROC WINAPI queriedWgl(LPCSTR name){
+    const auto result=hooks().nativeWglProc(name);
+    if(result&&name&&std::strcmp(name,"wglCreateContextAttribsARB")==0)try{
+        const auto value=reinterpret_cast<std::intptr_t>(result);
+        if(value!=1&&value!=2&&value!=3&&value!=-1){
+            static const auto callbacks=attributedCallbacks(std::make_index_sequence<16>{});
+            resourceHook(hooks().attributedCreates,callbacks,reinterpret_cast<void*>(result),1);
+        }
+    }catch(...){} // a failed optional detour never changes the returned native address
+    return result;
+}
+HGLRC WINAPI createdWgl(HDC dc){
+    const auto context=hooks().createWgl(dc);contextCreated(0,0,reinterpret_cast<std::uintptr_t>(context),0);return context;
+}
+BOOL WINAPI sharedWgl(HGLRC parent,HGLRC child){
+    const auto result=hooks().shareWgl(parent,child);
+    if(result){ResourceEvent event;event.kind=ResourceEvent::Shared;event.providers=1;
+        event.parent={0,0,reinterpret_cast<std::uintptr_t>(parent)};event.child={0,0,reinterpret_cast<std::uintptr_t>(child)};resourceEvent(event);}
+    return result;
+}
 bool installDrawHooks(unsigned provider,void *user){
     bool any=false;auto &h=hooks();
     for(unsigned kind=0;kind<drawKinds;++kind){
@@ -255,6 +397,7 @@ void process(unsigned provider,std::uintptr_t context,HWND window,DrawableKey dr
     std::unique_lock<std::mutex> lock(h.renderMutex,std::try_to_lock);if(!lock.owns_lock())return;
     Recursion guard;
     try {
+        drainResources();
         const ContextKey key{provider,drawable.first,context};auto it=h.contexts.find(key);
         if(it==h.contexts.end()){
             if(h.contexts.size()>=16){Runtime::instance().report(true,true,false,"Too many game contexts; shaders safely bypassed.",false,renderer);return;}
@@ -268,7 +411,9 @@ void process(unsigned provider,std::uintptr_t context,HWND window,DrawableKey dr
         session.window=window;session.drawable=drawable;session.renderer=renderer;
         if(!Runtime::instance().claimPresentation(renderer,token,reinterpret_cast<std::uintptr_t>(window)))return;
         std::string error;
-        const auto quality=Runtime::instance().texture();
+        const auto route=Runtime::instance().textureRoute();const auto quality=route.configuration;
+        h.provenance.synchronize(route.object,route.revision);
+        h.provenance.remember({provider,drawable.first,context});h.provenance.nextFrame();
         if(quality.enabled){
             if(!session.drawHooks){
                 const bool ready=session.potato.initialize(resolve,egl,&error,externalProtectionPossible);
@@ -278,6 +423,8 @@ void process(unsigned provider,std::uintptr_t context,HWND window,DrawableKey dr
                     :"Potato is armed for subsequent qualified scene draws on the identified game context. No sampler override has been counted yet.";
                 Runtime::instance().textureReport(0,session.drawHooks?armed:error.empty()?"Potato draw hooks could not be attached; native texture sampling retained.":error,session.drawHooks);
             }
+            if(session.drawHooks&&quality.externalOverridesReviewed&&quality.drawPolicy==TextureDrawPolicy::OwnedMipCompatibility&&!session.resourceHooks)
+                session.resourceHooks=installResourceHooks(provider,egl);
         }
         const auto p=Runtime::instance().settings();
         if(p.neutral()){Runtime::instance().report(true,true,false,"Neutral bypass",false,renderer);return;}
@@ -293,7 +440,8 @@ void processWgl(HDC dc){
 }
 template<int Index> BOOL WINAPI swapWgl(HDC dc){try{processWgl(dc);}catch(...){}Recursion guard;return hooks().swaps[Index](dc);}
 void removeContextState(unsigned provider,std::uintptr_t display,std::uintptr_t context){
-    auto &h=hooks();std::lock_guard<std::mutex> lock(h.renderMutex);const auto it=h.contexts.find({provider,display,context});
+    auto &h=hooks();std::lock_guard<std::mutex> lock(h.renderMutex);drainResources();
+    h.provenance.forget({provider,display,context});const auto it=h.contexts.find({provider,display,context});
     if(it==h.contexts.end())return;
     Runtime::instance().releasePresentation(it->second->renderer,reinterpret_cast<std::uintptr_t>(it->second.get()));h.contexts.erase(it);
 }
@@ -320,11 +468,28 @@ template<unsigned Index> void *WINAPI createPlatformSurface(void *display,void *
 template<unsigned Index> void *WINAPI createPlatformSurfaceExt(void *display,void *config,void *window,const int *attrs){
     auto &p=hooks().egl[Index];void *surface=p.createPlatformExt(display,config,window,attrs);trackSurface(p,display,surface,window,attrs);return surface;
 }
+template<unsigned Index> void *WINAPI createdEglContext(void *display,void *config,void *share,const int *attributes){
+    auto &p=hooks().egl[Index];const auto context=p.createContext(display,config,share,attributes);
+    contextCreated(Index+1,reinterpret_cast<std::uintptr_t>(display),reinterpret_cast<std::uintptr_t>(context),reinterpret_cast<std::uintptr_t>(share));return context;
+}
+template<unsigned Index> void *WINAPI createdPbuffer(void *display,void *config,const int *attributes){
+    auto &h=hooks();auto &p=h.egl[Index];const auto surface=p.createPbuffer(display,config,attributes);
+    if(surface)try{
+        bool unprotected=true,terminated=attributes==nullptr;
+        if(attributes)for(unsigned i=0;i<128;i+=2){
+            if(attributes[i]==0x3038){terminated=true;break;}
+            if(attributes[i]==0x32c0&&attributes[i+1])unprotected=false;
+        }
+        if(unprotected&&terminated){std::lock_guard<std::mutex> lock(h.surfaceMutex);
+            if(p.pbuffers.size()<128)p.pbuffers.emplace(reinterpret_cast<std::uintptr_t>(display),reinterpret_cast<std::uintptr_t>(surface));}
+    }catch(...){}
+    return surface;
+}
 template<unsigned Index> unsigned WINAPI removeSurface(void *display,void *surface){
     auto &h=hooks();auto &p=h.egl[Index];const auto okay=p.destroySurface(display,surface);
     if(okay){try{
         const DrawableKey drawable{reinterpret_cast<std::uintptr_t>(display),reinterpret_cast<std::uintptr_t>(surface)};
-        {std::lock_guard<std::mutex> lock(h.surfaceMutex);p.surfaces.erase(drawable);}
+        {std::lock_guard<std::mutex> lock(h.surfaceMutex);p.surfaces.erase(drawable);p.pbuffers.erase(drawable);}
         std::lock_guard<std::mutex> lock(h.renderMutex);for(const auto &entry:h.contexts)
             if(std::get<0>(entry.first)==Index+1&&entry.second->drawable==drawable){
                 Runtime::instance().releasePresentation(entry.second->renderer,reinterpret_cast<std::uintptr_t>(entry.second.get()));
@@ -394,6 +559,8 @@ template<unsigned Index> void attachEgl(HMODULE module){
     const bool surfaces=install(reinterpret_cast<void*>(GetProcAddress(module,"eglDestroySurface")),reinterpret_cast<void*>(&removeSurface<Index>),reinterpret_cast<void**>(&p.destroySurface));
     const bool contexts=install(reinterpret_cast<void*>(GetProcAddress(module,"eglDestroyContext")),reinterpret_cast<void*>(&removeContext<Index>),reinterpret_cast<void**>(&p.destroyContext));
     if(created&&surfaces&&contexts){
+        install(reinterpret_cast<void*>(GetProcAddress(module,"eglCreateContext")),reinterpret_cast<void*>(&createdEglContext<Index>),reinterpret_cast<void**>(&p.createContext));
+        install(reinterpret_cast<void*>(GetProcAddress(module,"eglCreatePbufferSurface")),reinterpret_cast<void*>(&createdPbuffer<Index>),reinterpret_cast<void**>(&p.createPbuffer));
         const auto optional=[&](const char *name){void *entry=reinterpret_cast<void*>(GetProcAddress(module,name));return entry?entry:p.proc?p.proc(name):nullptr;};
         install(optional("eglCreatePlatformWindowSurface"),reinterpret_cast<void*>(&createPlatformSurface<Index>),reinterpret_cast<void**>(&p.createPlatform));
         install(optional("eglCreatePlatformWindowSurfaceEXT"),reinterpret_cast<void*>(&createPlatformSurfaceExt<Index>),reinterpret_cast<void**>(&p.createPlatformExt));
@@ -404,6 +571,9 @@ void scan(){
     auto &h=hooks();
     if(!h.gl){h.gl=GetModuleHandleW(L"opengl32.dll");if(h.gl){h.currentWgl=exportFunction<WglCurrent>(h.gl,"wglGetCurrentContext");h.currentDc=exportFunction<WglCurrentDc>(h.gl,"wglGetCurrentDC");h.wglProc=exportFunction<WglProc>(h.gl,"wglGetProcAddress");}}
     if(h.gl&&h.currentWgl&&h.currentDc&&h.wglProc){
+        if(!h.nativeWglProc)install(reinterpret_cast<void*>(GetProcAddress(h.gl,"wglGetProcAddress")),reinterpret_cast<void*>(&queriedWgl),reinterpret_cast<void**>(&h.nativeWglProc));
+        if(!h.createWgl)install(reinterpret_cast<void*>(GetProcAddress(h.gl,"wglCreateContext")),reinterpret_cast<void*>(&createdWgl),reinterpret_cast<void**>(&h.createWgl));
+        if(!h.shareWgl)install(reinterpret_cast<void*>(GetProcAddress(h.gl,"wglShareLists")),reinterpret_cast<void*>(&sharedWgl),reinterpret_cast<void**>(&h.shareWgl));
         if(!h.deleteWgl)install(reinterpret_cast<void*>(GetProcAddress(h.gl,"wglDeleteContext")),reinterpret_cast<void*>(&removeWgl),reinterpret_cast<void**>(&h.deleteWgl));
         void *candidates[]{reinterpret_cast<void*>(GetProcAddress(GetModuleHandleW(L"gdi32.dll"),"SwapBuffers")),reinterpret_cast<void*>(GetProcAddress(h.gl,"wglSwapBuffers"))};
         void *callbacks[]{reinterpret_cast<void*>(&swapWgl<0>),reinterpret_cast<void*>(&swapWgl<1>)};

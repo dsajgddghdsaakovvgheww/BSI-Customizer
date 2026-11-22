@@ -1,14 +1,16 @@
 #pragma once
 #include "GlPipeline.h"
 #include "TextureQuality.h"
+#include "GlTextureProvenance.h"
 #include <memory>
 
 namespace BsiShaders {
 // Draw-scoped PRIVATE sampler substitution, not a final-image blur. The caller
 // must first prove the CURRENT drawable belongs to the selected owned game
-// presentation. A separate scene context on that EXACT drawable can qualify;
-// shared/offscreen/pbuffer/foreign contexts are never inferred from a loaded
-// provider or a share group. No original sampler/texture/profile is edited.
+// presentation, OR prove the current color-FBO output is a recently consumed
+// presentation dependency in the same/explicitly shared object namespace.
+// Sharing, a loaded provider or equal numeric texture names alone never prove
+// ownership. Foreign window routes remain excluded. No source object is edited.
 // GL 3.3 / GLES 3.1, opaque triangle draws, ordinary sampler2D uniforms and
 // complete normalized-color mip chains. The legacy policy additionally needs
 // qualified depth; explicit owned-mip compatibility does NOT require depth.
@@ -25,6 +27,10 @@ public:
     GlTextureOverride(const GlTextureOverride &) = delete;
     GlTextureOverride &operator=(const GlTextureOverride &) = delete;
     bool initialize(ResolveGl resolve,void *user,std::string *error,bool externalProtectionPossible=false);
+    // Read-only dependency capture, including single-level compositor inputs.
+    // No sampler replacement, texture binding, pixel readback or GL error read.
+    // Restores ACTIVE_TEXTURE on every path; caller still proves the route.
+    bool usage(GlTextureUsage *out);
     // Returns the number of bindings temporarily replaced for this draw.
     // Call end() AFTER the original draw; begin() already restores ACTIVE_TEXTURE
     // and rolls back every binding before propagating an inspection exception.

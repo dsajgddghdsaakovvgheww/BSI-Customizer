@@ -223,6 +223,49 @@ bool GlTextureOverride::initialize(ResolveGl resolve,void *user,std::string *err
     g.srgbDecode=g.extension("GL_EXT_texture_sRGB_decode");g.minmax=g.extension("GL_EXT_texture_filter_minmax");
     g.changed.reserve(32);g.ready=true;return true;
 }
+bool GlTextureOverride::usage(GlTextureUsage *out){
+    if(!out)return false;
+    *out={};auto &g=*impl;if(!g.ready||g.IsEnabled(0x0be2))return false;
+    I program=0,count=0,maxName=0;g.GetIntegerv(0x8b8d,&program);if(!program)return false;
+    g.GetProgramiv(U(program),0x8b86,&count);g.GetProgramiv(U(program),0x8b87,&maxName);
+    if(count<0||count>256||maxName<0||maxName>512)return false;
+    B mask[4]{};g.GetBooleanv(0x0c23,mask); // buffer-0 COLOR_WRITEMASK, no pixel data
+    if(!mask[0]&&!mask[1]&&!mask[2]&&!mask[3])return false;
+    I framebuffer=0,slot=0;g.GetIntegerv(0x8ca6,&framebuffer);out->defaultFramebuffer=framebuffer==0;
+    g.GetIntegerv(0x8825,&slot);if(!slot)return false; // DRAW_BUFFER0, legal in GL3/ES3
+    if(framebuffer&&slot>=0x8ce0&&slot<0x8ce0+g.attachments){
+        // Capture only buffer 0, whose mask is known on BOTH APIs. Do not
+        // authorize other MRT attachments using buffer 0's indexed mask.
+        I type=0,name=0;g.GetFramebufferAttachmentParameteriv(0x8ca9,U(slot),0x8cd0,&type);
+        if(type==0x1702)g.GetFramebufferAttachmentParameteriv(0x8ca9,U(slot),0x8cd1,&name);
+        if(type==0x1702&&name)out->writes[out->writeCount++]=U(name);
+    }
+    struct ActiveRestore {Impl &g;I active;~ActiveRestore(){g.ActiveTexture(U(active));}} restore{g,0};
+    g.GetIntegerv(0x84e0,&restore.active);std::array<bool,32> used{};
+    for(I i=0;i<count;++i){
+        char name[512]{};I length=0,size=0;U type=0;
+        g.GetActiveUniform(U(program),U(i),512,&length,&size,&type,name);
+        if(type!=0x8b5e||size<1||size>32||length<1||length>=511)continue;
+        std::string stem(name);if(size>1&&stem.size()>3&&stem.substr(stem.size()-3)=="[0]")stem.resize(stem.size()-3);
+        for(I element=0;element<size;++element){
+            const std::string uniform=size==1?std::string(name):stem+"["+std::to_string(element)+"]";
+            const I location=g.GetUniformLocation(U(program),uniform.c_str());if(location<0)continue;
+            I unit=-1;g.GetUniformiv(U(program),location,&unit);
+            if(unit<0||unit>=g.units||unit>=32||used[std::size_t(unit)])continue;
+            used[std::size_t(unit)]=true;g.ActiveTexture(texture0+U(unit));I texture=0,sampler=0;
+            g.GetIntegerv(0x8069,&texture);g.GetIntegerv(0x8919,&sampler);
+            if(!texture||g.attached(U(texture)))continue;
+            if(g.protectedTextures){I secret=1;g.GetTexParameteriv(texture2d,0x8bfa,&secret);if(secret)continue;}
+            I base=0,width=0,height=0,format=0,compare=0;
+            g.GetTexParameteriv(texture2d,0x813c,&base);if(base<0||base>30)continue;
+            g.GetTexLevelParameteriv(texture2d,base,0x1000,&width);g.GetTexLevelParameteriv(texture2d,base,0x1001,&height);
+            g.GetTexLevelParameteriv(texture2d,base,0x1003,&format);g.integer(U(sampler),0x884c,&compare);
+            if(width<1||height<1||width>16384||height>16384||!colorFormat(format)||compare)continue;
+            if(out->readCount<out->reads.size())out->reads[out->readCount++]=U(texture);
+        }
+    }
+    return true;
+}
 unsigned GlTextureOverride::begin(TextureQuality mode,bool reviewed,U primitive,std::string *detail,TextureDrawReason *reason,TextureDepthFailure *depthFailure,TextureDrawPolicy policy){
     auto &g=*impl;end();
     if(reason)*reason=TextureDrawReason::NotInspected;
@@ -243,8 +286,8 @@ unsigned GlTextureOverride::begin(TextureQuality mode,bool reviewed,U primitive,
     }
     // The user-enabled compatibility strategy follows the original's LOD
     // approach WITHOUT depending on depth-test/write/attachment state. It is
-    // still scoped by the caller to the selected owned drawable, then by the
-    // real program, complete mip color, protection and descriptor checks below.
+    // still scoped by the caller to the selected drawable or a resource-proven
+    // color-FBO dependency, then by the real shader/mip/protection/descriptor checks.
     // Blended UI/transparent passes remain native, even in the game context.
     if(g.IsEnabled(0x0be2))return fail(TextureDrawReason::Blended,"Potato bypass: blended/UI draw retains native sampling.");
     if(reason)*reason=TextureDrawReason::NoSampler;
@@ -253,11 +296,13 @@ unsigned GlTextureOverride::begin(TextureQuality mode,bool reviewed,U primitive,
     g.GetProgramiv(U(program),0x8b86,&count);g.GetProgramiv(U(program),0x8b87,&maxName);
     if(count<0||count>256||maxName<0||maxName>512)return fail(TextureDrawReason::NoSampler,"Potato bypass: shader uniform layout exceeds safe inspection bounds.");
     Impl::Inspection inspection(g);
+    unsigned samplers=0,bound=0,feedback=0,noChain=0,descriptor=0,replacementFailure=0;
     std::set<U> used;
     for(I i=0;i<count;++i){
         char name[512]{};I length=0,size=0;U type=0;
         g.GetActiveUniform(U(program),U(i),512,&length,&size,&type,name);
         if(type!=0x8b5e||size<1||size>32||length<1||length>=511)continue; // sampler2D ONLY
+        samplers+=U(size);
         std::string stem(name);
         if(size>1&&stem.size()>3&&stem.substr(stem.size()-3)=="[0]")stem.resize(stem.size()-3);
         for(I element=0;element<size;++element){
@@ -267,29 +312,35 @@ unsigned GlTextureOverride::begin(TextureQuality mode,bool reviewed,U primitive,
             if(unit<0||unit>=g.units||unit>=32||!used.insert(U(unit)).second)continue;
             g.ActiveTexture(texture0+U(unit));I texture=0,original=0;
             g.GetIntegerv(0x8069,&texture);g.GetIntegerv(0x8919,&original);
-            if(!texture||g.attached(U(texture)))continue;
-            const I levels=g.mipLevels();if(levels<2)continue;
+            if(!texture)continue;
+            ++bound;if(g.attached(U(texture))){++feedback;continue;}
+            const I levels=g.mipLevels();if(levels<2){++noChain;continue;}
             Sampler sampler=g.readSampler(U(original));
             // GLES extension-only border/mirror-clamp state is not part of our
             // descriptor clone. Never silently replace it with default borders.
             const auto basicWrap=[](I wrap){return wrap==0x2901||wrap==0x8370||wrap==0x812f;};
-            if(g.es&&(!basicWrap(sampler.s)||!basicWrap(sampler.t)||!basicWrap(sampler.r)))continue;
-            if(g.minmax&&sampler.reduction!=0x9367)continue;
+            if(g.es&&(!basicWrap(sampler.s)||!basicWrap(sampler.t)||!basicWrap(sampler.r))){++descriptor;continue;}
+            if(g.minmax&&sampler.reduction!=0x9367){++descriptor;continue;}
             TextureQualityProof proof;proof.renderer=g.es?Renderer::OpenGLES:Renderer::OpenGL;
             proof.use=TextureUse::SampledColor;proof.gameSurfaceIdentified=proof.resourceOwnershipProven=true;
             proof.privateReplacementSupported=true;proof.externalOverridesReviewed=reviewed;proof.visibleMipLevels=U(levels);
             GlQualitySampler source;source.minimumFilter=sampler.min;source.comparisonMode=sampler.compare;
             source.minimumLod=sampler.lo;source.maximumLod=sampler.hi;source.lodBias=sampler.bias;source.maximumAnisotropy=sampler.anisotropy;
-            const auto plan=planGlTextureQuality(mode,proof,source,g.qualityCapabilities);if(!plan.changed())continue;
+            const auto plan=planGlTextureQuality(mode,proof,source,g.qualityCapabilities);if(!plan.changed()){++descriptor;continue;}
             sampler.lo=plan.descriptor.minimumLod;sampler.bias=plan.descriptor.lodBias;
-            const U replacement=g.privateSampler(sampler);if(!replacement)continue;
+            const U replacement=g.privateSampler(sampler);if(!replacement){++replacementFailure;continue;}
             g.changed.push_back({U(unit),U(original)});g.BindSampler(U(unit),replacement);
         }
     }
     if(detail){
         if(policy==TextureDrawPolicy::OwnedMipCompatibility)
-            *detail=g.changed.empty()?"Depth-independent Potato inspected this owned game draw but found no eligible mipmapped color sampler; native sampling retained.":"Depth-independent Potato prepared private coarser-mip samplers on the selected game drawable; original bindings restore after this draw. Opaque mipmapped HUD/RGB data maps may also change. Not measured game pixels/FPS.";
+            *detail=g.changed.empty()?"Depth-independent Potato inspected this owned game draw but found no eligible mipmapped color sampler; native sampling retained.":"Depth-independent Potato prepared private coarser-mip samplers for this qualified game draw; original bindings restore after this draw. Opaque mipmapped HUD/RGB data maps may also change. Not measured game pixels/FPS.";
         else *detail=g.changed.empty()?"No qualified scene-color mip sampler in this game draw; native sampling retained.":"Potato prepared private coarser-mip samplers for an owned game scene draw; original bindings restore immediately afterward. This is not a measurement of game output or FPS.";
+    }
+    if(detail&&g.changed.empty()){
+        char counts[384]{};
+        std::snprintf(counts,sizeof(counts)," sampler2D slots=%u; bound textures=%u; draw-attachment feedback=%u; ineligible mip/color/protection=%u; sampler-policy refusals=%u; private-sampler failures=%u.",samplers,bound,feedback,noChain,descriptor,replacementFailure);
+        *detail+=counts;
     }
     if(reason&&!g.changed.empty())*reason=TextureDrawReason::Prepared;
     inspection.keepBindings=true;

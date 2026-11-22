@@ -7,8 +7,8 @@ not just a static inspection. They changed LOD and authored mip pixels **with
 depth testing disabled**, and left application texture/sampler parameters
 persistently changed. See the [original measurements](POTATO-DLL-PROBE.md).
 
-Our latest installed-player report was **2,375 processed presentation frames,
-4,506 inspected calls, all 4,506 first-rejected as depth test disabled**, with
+The installed-player report that motivated this policy was **2,375 processed
+presentation frames, 4,506 inspected calls, all 4,506 first-rejected as depth test disabled**, with
 zero sampler inspection/preparation/bindings or nested calls. Depth was our
 conservative scene heuristic, **not an OpenGL mip-selection requirement**. The
 [initial bounded desktop-bias integration](POTATO-DESKTOP-BIAS.md) improved LOD
@@ -17,6 +17,12 @@ Zero later buckets in that report do not identify a missing mip chain, blending,
 a foreign producer or another renderer. The prior active-gameplay/Settings-closed
 confirmation stands; repeating Save, lowering resolution or requesting the same
 diagnostics is not the implementation change.
+
+The **subsequent** report is **1,326 grading frames / 2,652 sampler inspections,
+all NoSampler / zero prepared bindings**, with compatibility confirmed active.
+Depth rejection is no longer its blocker. See the [updated renderer analysis](FREE-FIRE-RENDERER-ANALYSIS.md)
+and [resource-linked producer repair](POTATO-RESOURCE-PRODUCERS.md). NoSampler
+alone does not identify the installed-game cause; grading is not working Potato.
 
 ## What the production path now does
 
@@ -32,7 +38,9 @@ For the exact owned game drawable already selected by presentation:
 
 1. Keep the existing provider/display/drawable/HWND authorization, protected
    EGL/GL checks and bounded draw detours. A new draw cannot claim another
-   presentation, offscreen/pbuffer producer or share group.
+   presentation or claim resource ownership from a context/share group alone.
+   The later resource-linked strategy adds only individually proven color-FBO
+   dependency producers; unknown offscreen/pbuffer/foreign routes stay native.
 2. Accept ordinary **unblended triangle calls without requiring depth testing,
    depth writes, a particular depth function or any depth attachment**. Do not
    change the application's depth state or pretend it passed scene validation.
@@ -65,8 +73,8 @@ instruction bytes, driver-profile reset or unrelated payload is incorporated.
 Depth independence is an intentional broader sampling contract. **Opaque
 mipmapped in-game HUD and RGB-packed data/normal maps can also change.** An RGB
 format cannot prove albedo semantics or an object's complete creation/sharing
-history. Separate Qt/Chrome surfaces, other providers/drawables, protected
-resources and blended draws remain excluded; this is not a claim that every
+history. Separate Qt/Chrome surfaces, other providers, unrelated drawables,
+protected resources and blended draws remain excluded; this is not a claim that every
 possible in-game UI/data resource can be recognized automatically.
 
 The Shaders explanation and Copy rendering status disclose this trade-off.
@@ -132,11 +140,12 @@ execution remain separate from software GL pixels and from a running player.
 
 ## What has not been established
 
-The previous installed-player result remains **not working**; this new
-compatibility implementation has not been deployed to that player or measured
-on its actual game textures. Removing the known early rejection does not prove
-the remaining bindings qualify, that every guest draw reaches this host route,
-or that unknown resources are safe to adopt. The original probe, desktop bias
+The subsequent installed-player report confirms this compatibility policy is
+active but remains **not working**: all **2,652** sampler-inspection calls have
+NoSampler and no preparation. Removing the known early rejection did not make
+those bindings qualify. This does not prove every guest draw reaches this host
+route or that unknown resources are safe to adopt. The later resource-linked
+repair has separate fixture evidence, not installed-game acceptance. The original probe, desktop bias
 math, new production software pixels, Windows dispatch doubles and eventual
 game acceptance are distinct evidence sets.
 

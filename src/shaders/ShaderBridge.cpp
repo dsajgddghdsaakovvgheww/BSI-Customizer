@@ -107,6 +107,9 @@ QVariantMap ShaderBridge::metrics()const{
             {"textureDepthMissingAttachment",depth(TextureDepthFailure::MissingAttachment)},{"textureDepthInsufficientPrecision",depth(TextureDepthFailure::InsufficientPrecision)},
             {"textureDepthUnspecified",depth(TextureDepthFailure::None)},
             {"textureNestedInspected",number(m.textureNestedInspected)},{"textureNestedDraws",number(m.textureNestedDraws)},
+            {"textureConsumerDraws",number(m.textureConsumerDraws)},{"textureConsumerInputs",number(m.textureConsumerInputs)},
+            {"textureProducerInspected",number(m.textureProducerInspected)},{"textureProducerDraws",number(m.textureProducerDraws)},
+            {"textureProducerBindings",number(m.textureProducerBindings)},
             {"textureLastBypass",QString::fromStdString(m.textureLastBypass)},
             {"vulkanLoaders",number(m.vulkan.loaders)},{"vulkanInstances",number(m.vulkan.instances)},
             {"vulkanDevices",number(m.vulkan.devices)},{"vulkanSurfaces",number(m.vulkan.surfaces)},
@@ -123,11 +126,14 @@ QString ShaderBridge::diagnostics()const{
              m.value("textureDepthNever").toString(),m.value("textureDepthAlways").toString(),
              m.value("textureDepthMissingAttachment").toString(),m.value("textureDepthInsufficientPrecision").toString(),
              m.value("textureDepthUnspecified").toString(),m.value("textureNestedInspected").toString(),m.value("textureNestedDraws").toString());
+    const auto producerReport=QStringLiteral("Presentation-input observations: draws=%1; color bindings=%2. Resource-linked FBO producers: inspected=%3; prepared=%4; private bindings=%5. Only recent input/output identity in the same or observed-successfully-shared namespace qualifies; unknown/foreign/protected routes stay native. These are binding observations, not measured texture pixels/FPS.")
+        .arg(m.value("textureConsumerDraws").toString(),m.value("textureConsumerInputs").toString(),
+             m.value("textureProducerInspected").toString(),m.value("textureProducerDraws").toString(),m.value("textureProducerBindings").toString());
     const auto inspectionReport=QStringLiteral("Texture inspection since the latest setting/source change: calls=%1; sampler-inspection calls=%2; conservative depth bypass=%3; blended bypass=%4; no eligible mip sampler=%5; other bypass=%6\nLatest bypass: %7\nOffscreen/pbuffer/foreign scene contexts are not inferred from presentation or a share group.")
         .arg(m.value("textureInspected").toString(),m.value("textureEligibleDraws").toString(),
              m.value("textureDepthBypasses").toString(),m.value("textureBlendBypasses").toString(),
              m.value("textureSamplerBypasses").toString(),m.value("textureOtherBypasses").toString(),
-             m.value("textureLastBypass").toString())+QLatin1Char('\n')+depthReport;
+             m.value("textureLastBypass").toString())+QLatin1Char('\n')+depthReport+QLatin1Char('\n')+producerReport;
     const auto policyReport=QStringLiteral("Texture sampling policy: %1. Compatibility inspects mipmapped color without a depth-test requirement; opaque mipmapped in-game HUD may also change, as may RGB-packed data maps.")
         .arg(m.value("texturePolicy").toString());
     return QStringLiteral("Requested API: %1\nObserved game API: %2\n%3\nProcessed game frames: %4\nGame surface observed: %5; processing active: %6\nVulkan capture: loaders=%7; instances=%8; devices=%9; Win32 surfaces=%10; swapchains=%11; presents=%12; missing queues=%13; excluded windows=%14\nLast hooked loader: %15\nQt bridge: %16; host: %17\n%18")

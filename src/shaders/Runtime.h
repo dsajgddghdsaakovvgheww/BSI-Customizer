@@ -27,9 +27,20 @@ struct Metrics {
     std::uint64_t textureDepthBypasses=0,textureBlendBypasses=0,textureSamplerBypasses=0,textureOtherBypasses=0;
     std::array<std::uint64_t,static_cast<std::size_t>(TextureDepthFailure::Count)> textureDepthReasons{};
     std::uint64_t textureNestedInspected=0,textureNestedDraws=0;
+    // Resource-link observations, not pixel consumption or successful effects.
+    std::uint64_t textureConsumerDraws=0,textureConsumerInputs=0;
+    std::uint64_t textureProducerInspected=0,textureProducerDraws=0,textureProducerBindings=0;
     std::string textureLastBypass;
     std::string textureStatus="Potato graphic is off; native texture sampling retained.";
     std::string status="Waiting for the game's presentation API. Multi-renderer support is not complete.";
+};
+// One mutex-consistent routing/settings snapshot. A draw cannot select a source
+// itself. Revision changes on every settings/source reset, including Off->On.
+struct TextureRoute {
+    TextureConfiguration configuration;
+    Renderer renderer=Renderer::Unknown;
+    std::uintptr_t object=0,window=0;
+    std::uint64_t revision=0;
 };
 // One state per HD-Player process; Qt objects never cross the render-thread
 // boundary. The settings bridge copies bounded values through this mutex.
@@ -57,9 +68,12 @@ public:
     Parameters settings();
     void setTexture(const TextureConfiguration &settings);
     TextureConfiguration texture();
+    TextureRoute textureRoute();
+    void textureConsumerReport(unsigned inputs,std::uint64_t revision);
     void textureReport(unsigned bindings,const std::string &detail,bool supported,
                        TextureDrawReason reason=TextureDrawReason::NotInspected,
-                       TextureDepthFailure depthFailure=TextureDepthFailure::None,bool nested=false);
+                       TextureDepthFailure depthFailure=TextureDepthFailure::None,bool nested=false,
+                       bool producer=false,std::uint64_t revision=0);
     Metrics metrics();
     void waiting(bool hooks,const std::string &status);
     void vulkanEvent(VulkanEvent event,const std::string &detail={});
@@ -77,6 +91,7 @@ private:
     TextureConfiguration currentTexture;
     Metrics state;
     std::uintptr_t host=0,presentationObject=0,presentationWindow=0;
+    std::uint64_t textureRevision=0;
 };
 void startPresentationHooks();
 void stopPresentationHooks();

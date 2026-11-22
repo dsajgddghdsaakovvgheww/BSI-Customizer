@@ -47,7 +47,8 @@ struct Fake {
     I extensionCount=0,illegalQueries=0,flagsQueries=0,textureProtectionQueries=0;
     I active=3,program=1,depthWrite=1,depthFunction=0x0203,depthBits=24,framebuffer=0;
     I depthWriteQueries=0,depthFunctionQueries=0,depthAttachmentQueries=0,shaderQueries=0;
-    bool depth=true,blend=false,mips=true;
+    bool depth=true,blend=false,mips=true,colorWrite=true,drawBufferNone=false;
+    U colorAttachment=99;
     I format=0x8058;
     std::array<Sampler,256> samplers{};
     std::array<U,4> bindings{{1,2,0,0}},textures{{1,2,0,0}};
@@ -74,6 +75,7 @@ void GL_CALL getInteger(U name,I *out){
     case 0x8069:*out=I(g.textures.at(std::size_t(g.active)));break;
     case 0x8919:*out=I(g.bindings.at(std::size_t(g.active)));break;
     case 0x8ca6:*out=g.framebuffer;break;
+    case 0x8825:*out=g.drawBufferNone?0:g.framebuffer?0x8ce0:0x0405;break;
     default:require(false,"unexpected integer query in sampler fixture");
     }
 }
@@ -81,7 +83,10 @@ void GL_CALL getFloat(U name,F *out){
     require(g.desktop&&name==0x84fd,"MAX_TEXTURE_LOD_BIAS is queried only on identified desktop GL");
     ++g.biasLimitQueries;*out=g.maximumBias;
 }
-void GL_CALL getBoolean(U name,B *out){require(name==0x0b72,"only inspect depth write mask");++g.depthWriteQueries;*out=B(g.depthWrite);}
+void GL_CALL getBoolean(U name,B *out){
+    if(name==0x0c23){std::fill_n(out,4,B(g.colorWrite));return;}
+    require(name==0x0b72,"only public color/depth write masks are inspected");++g.depthWriteQueries;*out=B(g.depthWrite);
+}
 B GL_CALL enabled(U name){return B(name==0x0b71?g.depth:name==0x0be2?g.blend:false);}
 void GL_CALL active(U unit){g.active=I(unit-0x84c0);g.refresh();}
 void GL_CALL program(U,U name,I *out){*out=name==0x8b86?2:128;}
@@ -117,6 +122,10 @@ void GL_CALL samplerFloat(U sampler,U name,F *out){
 }
 void GL_CALL textureFloat(U,U name,F *out){samplerFloat(0,name,out);}
 void GL_CALL attachment(U target,U attachment,U name,I *out){
+    if(target==0x8ca9&&g.framebuffer&&((attachment>=0x8ce0&&attachment<0x8ce4)||attachment==0x8d20)){
+        require(name==0x8cd0||name==0x8cd1,"public framebuffer texture type/name only");
+        *out=attachment==0x8ce0?(name==0x8cd0?0x1702:I(g.colorAttachment)):0;return;
+    }
     require(target==0x8ca9&&attachment==(g.framebuffer?0x8d00u:0x1801u),"use the legal FBO/default depth attachment enum");
     require(name==0x8cd0||name==0x8216,"only public depth type/bit-size queries");
     ++g.depthAttachmentQueries;
@@ -170,6 +179,49 @@ void operator delete[](void *ptr,std::size_t)noexcept{std::free(ptr);}
 #endif
 int main(){
     using namespace BsiShaders;
+    {
+        g.reset();g.depth=false;g.mips=false;GlTextureOverride quality;std::string error;GlTextureUsage usage;
+        require(!quality.usage(&usage),"an uninitialized inspector cannot capture resource dependencies");
+        require(quality.initialize(resolve,nullptr,&error)&&quality.usage(&usage),"read-only capture accepts a single-level compositor source without requiring scene depth/mips");
+        require(usage.defaultFramebuffer&&usage.readCount==2&&usage.reads[0]==1&&usage.reads[1]==2&&!usage.writeCount,
+                "capture only active sampler2D inputs and the actual default/FBO output kind");
+        unchanged();require(!g.creations&&!g.depthWriteQueries&&!g.depthFunctionQueries&&!g.depthAttachmentQueries,
+                "dependency observation neither creates/binds samplers nor invents/query scene depth");
+        TextureDrawReason reason;
+        require(!quality.begin(TextureQuality::Strong,true,4,&error,&reason,nullptr,TextureDrawPolicy::OwnedMipCompatibility)
+                &&reason==TextureDrawReason::NoSampler&&error.find("bound textures=2")!=std::string::npos
+                &&error.find("ineligible mip/color/protection=2")!=std::string::npos,
+                "single-level capture is NOT permission to reduce it; explain the real no-mip/color bucket");
+        unchanged();g.framebuffer=1;
+        require(quality.usage(&usage)&&!usage.defaultFramebuffer&&usage.writeCount==1&&usage.writes[0]==99&&usage.readCount==2,
+                "capture the actual COLOR_ATTACHMENT selected by draw buffer zero, not an arbitrary texture in the context");
+        g.colorAttachment=1;
+        require(quality.usage(&usage)&&usage.readCount==1&&usage.reads[0]==2,"attached feedback textures are not presented input evidence");
+        g.colorWrite=false;require(!quality.usage(&usage),"a zero-color-mask draw cannot seed a color dependency");
+        g.colorWrite=true;g.drawBufferNone=true;require(!quality.usage(&usage),"DRAW_BUFFER0 NONE cannot authorize a producer");
+        g.drawBufferNone=false;g.blend=true;require(!quality.usage(&usage),"blended UI/transparent draws do not seed producer evidence");
+        unchanged();quality.release();
+    }
+    {
+        g.reset();g.protectionExtension=true;g.extensionCount=1;g.protectedTexture=true;
+        GlTextureOverride quality;std::string error;GlTextureUsage usage;
+        require(quality.initialize(resolve,nullptr,&error)&&quality.usage(&usage)&&usage.readCount==1&&usage.reads[0]==2
+                &&g.textureProtectionQueries==2&&!g.illegalQueries,"protected textures never become dependency roots, even in a mixed unprotected context");
+        unchanged();quality.release();
+    }
+    {
+        g.reset();GlTextureOverride quality;std::string error;GlTextureUsage usage;
+        require(quality.initialize(resolve,nullptr,&error),"initialize read-only allocation rollback fixture");
+        bool success=false;unsigned failures=0;
+        for(int failure=0;failure<64;++failure){
+            failAfter=failure;bool threw=false;
+            try{success=quality.usage(&usage);}catch(const std::bad_alloc&){threw=true;}
+            failAfter=-1;unchanged();require(!g.creations&&!g.deletions,"usage exception cannot allocate a GL object or modify a source sampler");
+            if(threw)++failures;else break;
+        }
+        require(success&&failures>=4,"inject every read-only uniform-name allocation, including after changing the active unit");
+        quality.release();
+    }
     {
         g.reset();GlTextureOverride quality;std::string error;
         require(quality.initialize(resolve,nullptr,&error),"unprotected GLES with no protected-texture extension is supported without illegal enum queries");

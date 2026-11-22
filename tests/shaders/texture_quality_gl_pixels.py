@@ -322,6 +322,7 @@ def exercise(gl, policy, desktop, size, resolver):
     gl("glGenTextures", None, I, C.POINTER(U))(1, C.byref(color_target))
     gl("glBindTexture", None, U, U)(0x0DE1, color_target)
     upload(0x0DE1, 0, 0x8058, size, size, 0, 0x1908, 0x1401, None)
+    texture_i(0x0DE1, 0x813D, 0)  # a real single-level compositor input, not a material mip chain
     gl("glGenFramebuffers", None, I, C.POINTER(U))(1, C.byref(color_fbo))
     bind_framebuffer = gl("glBindFramebuffer", None, U, U)
     bind_framebuffer(0x8D40, color_fbo)
@@ -337,6 +338,89 @@ def exercise(gl, policy, desktop, size, resolver):
     assert color_only == (1, colors[3]), "compatibility coarsens real pixels with NO depth attachment"
     assert production(0, compatibility=True) == (0, native), "color-only compatibility Off restores exact pixels"
     assert source_lods() == saved_source_lods
+
+    # Reproduce compositor NoSampler while its material producer IS reducible:
+    # the presented input has ONE mip. The production read-only observer must
+    # learn that exact texture, then qualify only the FBO writing that output.
+    # Apply the private sampler to the upstream material draw, never a frame
+    # blur/resolution change or an override of the one-level compositor input.
+    policy.bsi_test_dependency_reset.argtypes = [U]
+    policy.bsi_test_dependency_consumer.restype = U
+    policy.bsi_test_dependency_producer_begin.argtypes = [I]
+    policy.bsi_test_dependency_producer_begin.restype = U
+    gl("glDisable", None, U)(0x0B71)
+    gl("glDepthMask", None, C.c_ubyte)(0)
+
+    def bind_input(name):
+        active(0x84C0)
+        gl("glBindTexture", None, U, U)(0x0DE1, name)
+        active(0x84C3)
+
+    def linked_producer(mode):
+        bind_framebuffer(0x8D40, color_fbo)
+        bind_input(texture)
+        count = policy.bsi_test_dependency_producer_begin(mode)
+        current = I()
+        get_int(0x84E0, C.byref(current))
+        assert current.value == 0x84C3, "read-only lineage observation must restore ACTIVE_TEXTURE before the original"
+        binding = I()
+        get_binding(binding)
+        assert (binding.value != native_binding) == bool(count)
+        draw(0x0004, 0, 3)
+        policy.bsi_test_quality_end()
+        get_binding(binding)
+        assert binding.value == native_binding, "a resource-linked producer must restore its exact source sampler"
+        pixel = (C.c_ubyte * 4)()
+        read(size // 2, size // 2, 1, 1, 0x1908, 0x1401, pixel)
+        assert source_lods() == saved_source_lods and get_error() == 0
+        return count, tuple(pixel)
+
+    def composite():
+        bind_framebuffer(0x8D40, 0)
+        bind_input(color_target)
+        return production(2, compatibility=True)
+
+    def root_pixels():
+        raw = (C.c_ubyte * (size * size * 4))()
+        read(0, 0, size, size, 0x1908, 0x1401, raw)
+        assert get_error() == 0
+        return bytes(raw)
+
+    policy.bsi_test_dependency_reset(1)
+    linked_native = linked_producer(2)
+    assert linked_native == (0, native), "a known context/output alone is not a resource link"
+    assert composite() == (0, native), "the single-level compositor really has NoSampler, not a reducible material"
+    root_native = root_pixels()
+    assert policy.bsi_test_dependency_consumer() == 1, "capture a real single-level input from its active sampler2D uniform"
+    linked_strong = linked_producer(2)
+    assert linked_strong == (1, colors[3]), "actual production capture + provenance must coarsen the producer's existing material mips"
+    assert composite() == (0, colors[3]), "changed producer pixels must propagate through an UNMODIFIED single-level compositor"
+    root_strong = root_pixels()
+    assert root_strong != root_native
+    assert policy.bsi_test_dependency_producer_begin(2) == 0, "a default framebuffer is not an offscreen texture producer"
+    assert linked_producer(0) == (0, native) and composite() == (0, native)
+    root_off = root_pixels()
+    assert root_off == root_native, "Off must restore the entire presented result byte for byte, not just a material-center pixel"
+    policy.bsi_test_dependency_reset(2)
+    assert linked_producer(2) == (0, native), "a setting/source revision revokes old producer evidence"
+    assert composite() == (0, native) and policy.bsi_test_dependency_consumer() == 1
+    for _ in range(3):
+        policy.bsi_test_dependency_frame()
+    assert linked_producer(2) == (0, native), "unrefreshed consumer evidence expires instead of permanently adopting its producers"
+    assert composite() == (0, native) and policy.bsi_test_dependency_consumer() == 1
+    assert linked_producer(2) == (1, colors[3]), "fresh presented input bindings can requalify the exact output"
+    bind_framebuffer(0x8D40, color_fbo)
+    gl("glColorMask", None, C.c_ubyte, C.c_ubyte, C.c_ubyte, C.c_ubyte)(0, 0, 0, 0)
+    assert policy.bsi_test_dependency_producer_begin(2) == 0, "a zero-color-mask draw must not qualify on stale FBO attachment names"
+    gl("glColorMask", None, C.c_ubyte, C.c_ubyte, C.c_ubyte, C.c_ubyte)(1, 1, 1, 1)
+    producer_evidence = {"singleLevelCompositorBindings": 0, "linkedProducerBindings": linked_strong[0],
+                         "nativeRGBA": linked_native[1], "strongRGBA": linked_strong[1],
+                         "presentedOffExact": root_off == root_native, "revisionExpiryMaskBypass": True,
+                         "nativeSha256": hashlib.sha256(root_native).hexdigest(),
+                         "strongSha256": hashlib.sha256(root_strong).hexdigest()}
+    bind_input(texture)
+    gl("glDepthMask", None, C.c_ubyte)(1)
+    gl("glEnable", None, U)(0x0B71)
     bind_framebuffer(0x8D40, 0)
     gl("glDeleteFramebuffers", None, I, C.POINTER(U))(1, C.byref(color_fbo))
     gl("glDeleteTextures", None, I, C.POINTER(U))(1, C.byref(color_target))
@@ -416,12 +500,13 @@ def exercise(gl, policy, desktop, size, resolver):
                 "renderer": gl("glGetString", C.c_char_p, U)(0x1F01).decode(), "maxBias": maximum_bias.value,
                 "offCycles": cycles, "depthIndependentCycles": 64, "depthTestAndWritesDisabled": True,
                 "noDepthAttachmentRGBA": color_only[1], "mipPixels": mip_evidence, "material": material_evidence,
+                "resourceLinkedProducer": producer_evidence,
                 "limit": "authored software resources; NOT player, physical GPU, allocated-memory or FPS evidence"}
     report = json.dumps(evidence, separators=(",", ":"))
     if os.environ.get("BSI_TEXTURE_PIXEL_ARTIFACT_DIR"):
         (folder / "evidence.json").write_text(json.dumps(evidence, indent=2) + "\n")
     print("PASS: production draw-scoped " + ("desktop OpenGL queried bias+floor" if desktop else "GLES 3 floor-only")
-          + " selects real test-owned mip colors at native lambda 0 AND 4 in both texture/sampler source modes; 128 exact Off/source-LOD cycles (64 depth-independent); color-only/no-depth-attachment pixels and full material-detail/Off images; legacy depth/blend/no-mip/override/review bypass and pending errors preserved")
+          + " selects real test-owned mip colors at native lambda 0 AND 4 in both texture/sampler source modes; 128 exact Off/source-LOD cycles (64 depth-independent); color-only/no-depth-attachment pixels, resource-linked material producer -> unchanged single-level compositor with exact full-frame Off, and full material-detail images; legacy depth/blend/no-mip/override/review bypass and pending errors preserved")
     print("Texture pixel evidence:", report)
     if os.environ.get("GITHUB_ACTIONS") == "true":
         # Keep measured SUCCESS evidence readable through GitHub's check API,

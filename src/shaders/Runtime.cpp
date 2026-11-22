@@ -11,11 +11,14 @@
 namespace BsiShaders {
 Runtime &Runtime::instance(){static auto *runtime=new Runtime;return *runtime;}
 void Runtime::resetTextureEvidence(){
+    ++textureRevision;
     state.textureSupported=false;
     state.textureDraws=state.textureBindings=state.textureInspected=state.textureSceneDraws=0;
     state.textureDepthBypasses=state.textureBlendBypasses=state.textureSamplerBypasses=state.textureOtherBypasses=0;
     state.textureDepthReasons.fill(0);
     state.textureNestedInspected=state.textureNestedDraws=0;
+    state.textureConsumerDraws=state.textureConsumerInputs=0;
+    state.textureProducerInspected=state.textureProducerDraws=state.textureProducerBindings=0;
     state.textureLastBypass.clear();
 }
 void Runtime::start(std::uintptr_t window){
@@ -114,13 +117,23 @@ void Runtime::setTexture(const TextureConfiguration &settings){
         "Potato graphic saved. Waiting for a qualified owned GL/GLES scene draw; no texture reduction is confirmed yet.";
 }
 TextureConfiguration Runtime::texture(){std::lock_guard<std::mutex> lock(mutex);return currentTexture;}
-void Runtime::textureReport(unsigned bindings,const std::string &detail,bool supported,TextureDrawReason reason,TextureDepthFailure depthFailure,bool nested){
+TextureRoute Runtime::textureRoute(){
     std::lock_guard<std::mutex> lock(mutex);
-    if(!currentTexture.enabled||!state.observed||family(state.renderer)!=RendererFamily::OpenGL)return;
+    return {currentTexture,state.renderer,state.observed?presentationObject:0,presentationWindow,textureRevision};
+}
+void Runtime::textureConsumerReport(unsigned inputs,std::uint64_t revision){
+    std::lock_guard<std::mutex> lock(mutex);
+    if(revision!=textureRevision||!currentTexture.enabled||!state.observed||family(state.renderer)!=RendererFamily::OpenGL)return;
+    ++state.textureConsumerDraws;state.textureConsumerInputs+=inputs;
+}
+void Runtime::textureReport(unsigned bindings,const std::string &detail,bool supported,TextureDrawReason reason,TextureDepthFailure depthFailure,bool nested,bool producer,std::uint64_t revision){
+    std::lock_guard<std::mutex> lock(mutex);
+    if((revision&&revision!=textureRevision)||!currentTexture.enabled||!state.observed||family(state.renderer)!=RendererFamily::OpenGL)return;
     state.textureSupported=supported;
     if(reason!=TextureDrawReason::NotInspected){
         ++state.textureInspected;
         if(nested)++state.textureNestedInspected;
+        if(producer)++state.textureProducerInspected;
         switch(reason){
         case TextureDrawReason::Depth:{
             ++state.textureDepthBypasses;
@@ -141,6 +154,7 @@ void Runtime::textureReport(unsigned bindings,const std::string &detail,bool sup
     if(bindings&&supported&&reason==TextureDrawReason::Prepared){
         ++state.textureDraws;state.textureBindings+=bindings;
         if(nested)++state.textureNestedDraws;
+        if(producer){++state.textureProducerDraws;state.textureProducerBindings+=bindings;}
     }
 }
 Metrics Runtime::metrics(){std::lock_guard<std::mutex> lock(mutex);return state;}

@@ -34,7 +34,22 @@ struct Fixture {
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
         require(originalPresentationFunction(reinterpret_cast<void*>(GetProcAddress(module,"eglSwapBuffers")))!=nullptr,"the actual EGL provider was hooked, not just a loaded GL/DX/Vulkan DLL");
     }
-    void *context(bool protectedContent=false){return function<void*(*)(int)>("bsiFixtureContext")(protectedContent);}
+    void *context(bool protectedContent=false,void *share=nullptr){
+        const int attributes[]{0x32c0,protectedContent,0x3038};
+        return function<void*(WINAPI*)(void*,void*,void*,const int*)>("eglCreateContext")(display,nullptr,share,attributes);
+    }
+    void *pbuffer(bool protectedContent=false){
+        const int attributes[]{0x32c0,protectedContent,0x3038};
+        return function<void*(WINAPI*)(void*,void*,const int*)>("eglCreatePbufferSurface")(display,nullptr,attributes);
+    }
+    void resource(unsigned mode,unsigned output=50){function<void(*)(unsigned,unsigned)>("bsiFixtureResourceState")(mode,output);}
+    void deleteTexture(unsigned name){
+        const auto entry=function<void*(WINAPI*)(const char*)>("eglGetProcAddress")("glDeleteTextures");
+        require(entry!=nullptr,"driver-shaped texture deletion entry");
+        const auto before=count("bsiFixtureTextureDeletes");
+        reinterpret_cast<void(WINAPI*)(int,const unsigned*)>(entry)(1,&name);
+        require(count("bsiFixtureTextureDeletes")==before+1,"original texture deletion executes exactly once");
+    }
     void *surface(HWND window,int variant=0,bool protectedContent=false){
         const int attrs[]{0x32c0,protectedContent,0x3038};
         if(variant==1){const std::intptr_t wide[]{0x32c0,protectedContent,0x3038};return function<void*(WINAPI*)(void*,void*,void*,const std::intptr_t*)>("eglCreatePlatformWindowSurface")(display,nullptr,window,wide);}
@@ -245,10 +260,69 @@ int main(int argc,char **argv){
             "live compatibility bindings keep their recursion lease; a nested alias borrows them without double counting/preparation");
     runtime.setTexture({false,true,TextureDrawPolicy::OwnedMipCompatibility});b.draw(GlDrawKind::ElementsBaseVertex,0,0);
     require(!runtime.metrics().textureDraws&&!runtime.metrics().textureInspected,"compatibility Off restores native originals and clears evidence");
+
+    // Independent reproduction of the latest NoSampler symptom: the selected
+    // compositor samples one-level texture 50; material mips 1/2 are used ONLY
+    // in a known pbuffer FBO which writes that exact presentation dependency.
+    const auto offscreen=b.pbuffer(),unknownPbuffer=b.function<void*(*)()>("bsiFixtureUnknownPbuffer")();
+    const auto protectedPbuffer=b.pbuffer(true),uiB=b.surface(ui);
+    require(offscreen&&unknownPbuffer&&protectedPbuffer&&uiB,"observed, unobserved, protected and excluded offscreen-route fixtures");
+    runtime.setTexture({true,true,TextureDrawPolicy::OwnedMipCompatibility});
+    b.current(offscreen,second);b.resource(2);b.draw(GlDrawKind::Arrays,0,0);
+    require(!runtime.metrics().textureInspected,"a known pbuffer/context/FBO cannot seed its own ownership");
+    b.current(secondTarget,second);b.resource(1);b.draw(GlDrawKind::Arrays,0,0);
+    m=runtime.metrics();
+    require(m.textureSamplerBypasses==1&&m.textureConsumerDraws==1&&m.textureConsumerInputs==1&&!m.textureDraws,
+            "a genuinely single-level compositor remains NoSampler while recording its active input binding, NOT a texture success");
+    b.current(offscreen,second);b.resource(2);b.draw();
+    m=runtime.metrics();
+    require(m.textureProducerInspected==1&&m.textureProducerDraws==1&&m.textureProducerBindings==2&&m.processed==0,
+            "the SAME context's actual FBO producer receives private mips INSIDE its original without claiming another presentation or grading frame");
+    auto producerInspected=m.textureProducerInspected;
+    b.resource(2,51);b.draw(GlDrawKind::Arrays,0,0);
+    b.current(unknownPbuffer,second);b.resource(2);b.draw(GlDrawKind::Arrays,0,0);
+    b.current(protectedPbuffer,second);b.draw(GlDrawKind::Arrays,0,0);
+    b.current(uiB,second);b.draw(GlDrawKind::Arrays,0,0);
+    require(runtime.metrics().textureProducerInspected==producerInspected,
+            "unrelated FBO output, unmapped/pbuffer, protected and Qt surfaces never qualify from a context or sharing alone");
+
+    const auto shared=b.context(false,second),isolated=b.context(),sharedProtected=b.context(true,second);
+    require(shared&&isolated&&sharedProtected,"successful explicit native sharing and isolated/protected context fixtures");
+    // Sharing merges invalidate old name evidence; re-observe the real source.
+    b.current(secondTarget,second);b.resource(1);b.draw(GlDrawKind::Arrays,0,0);
+    b.current(offscreen,isolated);b.resource(2);b.draw(GlDrawKind::Arrays,0,0);
+    b.current(offscreen,sharedProtected);b.resource(2);
+    const auto queriesBefore=b.count("bsiFixtureGlQueries");b.draw(GlDrawKind::Arrays,0,0);
+    require(b.count("bsiFixtureGlQueries")==queriesBefore&&runtime.metrics().textureProducerInspected==producerInspected,
+            "equal names in another namespace and protected explicitly shared contexts are rejected BEFORE optional GL initialization");
+    b.current(offscreen,shared);b.resource(2);b.draw();
+    require(runtime.metrics().textureProducerDraws==2&&runtime.metrics().textureProducerBindings==4,
+            "an observed SUCCESSFUL native share plus fresh presentation consumption and matching color output qualifies the exact producer");
+    b.deleteTexture(50);b.draw(GlDrawKind::Arrays,0,0);
+    require(runtime.metrics().textureProducerDraws==2,"texture deletion/name reuse cannot inherit a previous dependency proof");
+    b.current(secondTarget,second);b.resource(1);b.draw(GlDrawKind::Arrays,0,0);
+    for(unsigned i=0;i<3;++i)b.swap(secondTarget); // no new consumer draw, real frame lifetime expires
+    b.current(offscreen,shared);b.resource(2);b.draw(GlDrawKind::Arrays,0,0);
+    require(runtime.metrics().textureProducerDraws==2,"a producer cannot keep itself permanently adopted after consumer evidence expires");
+    b.current(secondTarget,second);b.resource(1);b.draw(GlDrawKind::Arrays,0,0);
+    b.current(offscreen,shared);b.resource(2);b.draw();
+    require(runtime.metrics().textureProducerDraws==3,"a new selected consumer can renew the exact producer after expiry");
+    runtime.setTexture({false,true,TextureDrawPolicy::OwnedMipCompatibility});
+    runtime.setTexture({true,true,TextureDrawPolicy::OwnedMipCompatibility});
+    b.draw(GlDrawKind::Arrays,0,0);
+    require(!runtime.metrics().textureInspected&&!runtime.metrics().textureProducerDraws,"Off->On revokes old dependencies even with the same presentation/context");
+    b.current(secondTarget,second);b.resource(1);b.draw(GlDrawKind::Arrays,0,0);
+    b.current(offscreen,shared);b.resource(2);b.draw();
+    b.removeSurface(secondTarget);b.draw(GlDrawKind::Arrays,0,0);
+    require(!runtime.metrics().observed&&!runtime.metrics().textureProducerDraws&&!runtime.metrics().textureInspected,
+            "destroying the selected surface immediately revokes all resource-linked producers without adopting their pbuffer as a new presentation");
+    runtime.setTexture({false,true,TextureDrawPolicy::OwnedMipCompatibility});
+    b.removeContext(shared);b.removeContext(isolated);b.removeContext(sharedProtected);
+    b.removeSurface(offscreen);b.removeSurface(unknownPbuffer);b.removeSurface(protectedPbuffer);b.removeSurface(uiB);
     b.removeContext(compatProtected);b.removeSurface(incompatibleDrawable);b.removeSurface(compatSecret);
-    b.removeContext(second);b.removeSurface(secondTarget);a.removeContext(uiContext);a.removeSurface(uiTarget);
+    b.removeContext(second);a.removeContext(uiContext);a.removeSurface(uiTarget);
     require(!runtime.metrics().observed&&!runtime.metrics().textureDraws&&!a.count("bsiFixtureInvalidGl")&&!b.count("bsiFixtureInvalidGl"),"teardown and dispatch fixtures leave no stale presentation/texture success or invalid GL state");
     runtime.setTexture({});runtime.stop();DestroyWindow(ui);DestroyWindow(game);DestroyWindow(root);UnregisterClassW(cls.lpszClassName,cls.hInstance);
-    std::printf("PASS: production EGL/MinHook lifecycle plus %u draw signature/alias detours; exact arguments/once-only native draws, private samplers DURING base-vertex/multi/indirect/instanced draws, zero-binding wrapper -> nested scene versus live-override guards, precise first depth blockers, alternate context on the exact owned drawable, UI/protection/pbuffer/foreign-drawable refusal, reset and teardown\n",variants);
+    std::printf("PASS: production EGL/MinHook lifecycle plus %u draw signature/alias detours; exact arguments/once-only native draws, private samplers DURING base-vertex/multi/indirect/instanced draws, zero-binding wrapper -> nested scene versus live-override guards, precise first depth blockers, exact owned drawable plus proven same/explicit-share color-FBO dependency producers, unrelated/UI/protected/unmapped routes excluded, texture deletion, expiry, Off/source reset and teardown\n",variants);
     std::puts("LIMIT: authored EGL/GL state doubles only, no GL driver/game pixels, protected GPU memory or physical GPU/player certification");
 }

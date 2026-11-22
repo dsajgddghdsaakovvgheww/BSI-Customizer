@@ -5,7 +5,12 @@
 #include <memory>
 
 // Test-only C bridge to the production pipeline, not a reimplementation.
-namespace { std::unique_ptr<BsiShaders::GlPipeline> pipeline; std::unique_ptr<BsiShaders::GlTextureOverride> quality; }
+namespace {
+std::unique_ptr<BsiShaders::GlPipeline> pipeline;
+std::unique_ptr<BsiShaders::GlTextureOverride> quality;
+BsiShaders::GlTextureProvenance dependencies;
+constexpr BsiShaders::GlContextIdentity authoredContext{1,1,1};
+}
 extern "C" {
 int bsi_test_initialize(BsiShaders::ResolveGl resolve,void *user,char *message,int capacity){
     pipeline=std::make_unique<BsiShaders::GlPipeline>();std::string error;
@@ -50,6 +55,21 @@ unsigned bsi_test_quality_begin_compatibility(int mode,int reviewed,unsigned pri
     const auto count=quality->begin(static_cast<BsiShaders::TextureQuality>(mode),reviewed!=0,primitive,&detail,
                                     nullptr,nullptr,BsiShaders::TextureDrawPolicy::OwnedMipCompatibility);
     if(capacity>0){std::strncpy(message,detail.c_str(),capacity-1);message[capacity-1]=0;}return count;
+}
+// Actual API observations + production dependency policy. The caller owns this
+// fixture context; these exports are NEVER part of the deployed module.
+void bsi_test_dependency_reset(unsigned revision){dependencies.synchronize(1,revision);}
+void bsi_test_dependency_frame(){dependencies.nextFrame();}
+unsigned bsi_test_dependency_consumer(){
+    BsiShaders::GlTextureUsage usage;
+    return quality->usage(&usage)&&usage.defaultFramebuffer?dependencies.observe(authoredContext,usage,true):0;
+}
+unsigned bsi_test_dependency_producer_begin(int mode){
+    BsiShaders::GlTextureUsage usage;
+    if(!quality->usage(&usage)||!dependencies.producer(authoredContext,usage))return 0;
+    dependencies.observe(authoredContext,usage,false);std::string detail;
+    return quality->begin(static_cast<BsiShaders::TextureQuality>(mode),true,4,&detail,nullptr,nullptr,
+                          BsiShaders::TextureDrawPolicy::OwnedMipCompatibility);
 }
 void bsi_test_quality_end(){quality->end();}
 void bsi_test_quality_release(){if(quality)quality->release();quality.reset();}

@@ -18,13 +18,14 @@ struct Sampler {
 struct State {
     std::array<Sampler,128> samplers{};
     std::array<U,4> bindings{{1,2,0,0}},textures{{1,2,0,0}};
-    I active=3,depthFunction=0x0203,depthBits=24;
-    bool depth=true,depthWrite=true,blend=false,mips=true,protectedTexture=false;
+    I active=3,depthFunction=0x0203,depthBits=24,framebuffer=0;
+    U output=50;
+    bool depth=true,depthWrite=true,blend=false,mips=true,protectedTexture=false,colorWrite=true;
     U next=16;
 };
 State &state();
 bool protectedContext();
-inline volatile LONG draws=0,privateDraws=0,invalid=0;
+inline volatile LONG draws=0,privateDraws=0,invalid=0,textureDeletes=0;
 inline std::uint64_t expectedHash=0,lastHash=0;
 inline U lastPrivateBindings=0,nestedPrivateBindings=0,nestedMode=0;
 inline bool nestedArgumentsIntact=true;
@@ -40,10 +41,14 @@ inline void WINAPI getInteger(U name,I *out){
     case 0x0b74:*out=g.depthFunction;break;case 0x84e0:*out=0x84c0+g.active;break;
     case 0x8069:*out=I(g.textures.at(std::size_t(g.active)));break;
     case 0x8919:*out=I(g.bindings.at(std::size_t(g.active)));break;
-    case 0x8ca6:*out=0;break;default:*out=0;bad();break;
+    case 0x8ca6:*out=g.framebuffer;break;case 0x8825:*out=g.framebuffer?0x8ce0:0x0405;break;
+    default:*out=0;bad();break;
     }
 }
-inline void WINAPI getBoolean(U name,B *out){if(name!=0x0b72)bad();*out=B(state().depthWrite);}
+inline void WINAPI getBoolean(U name,B *out){
+    if(name==0x0c23){for(unsigned i=0;i<4;++i)out[i]=B(state().colorWrite);return;}
+    if(name!=0x0b72)bad();*out=B(state().depthWrite);
+}
 inline B WINAPI enabled(U name){return B(name==0x0b71?state().depth:name==0x0be2?state().blend:false);}
 inline void WINAPI active(U unit){state().active=I(unit-0x84c0);}
 inline void WINAPI program(U,U name,I *out){*out=name==0x8b86?2:128;}
@@ -68,11 +73,18 @@ inline void WINAPI samplerInt(U sampler,U name,I *out){samplerInteger(state().sa
 inline void WINAPI samplerFloat(U sampler,U name,F *out){const auto &s=state().samplers.at(sampler);*out=name==0x813a?s.low:name==0x813b?s.high:1;}
 inline void WINAPI textureFloat(U,U name,F *out){samplerFloat(0,name,out);}
 inline void WINAPI attachment(U target,U slot,U name,I *out){
-    if(target!=0x8ca9||slot!=0x1801||(name!=0x8cd0&&name!=0x8216))bad();
-    *out=name==0x8cd0?(state().depthBits?0x8218:0):state().depthBits;
+    auto &g=state();
+    if(target!=0x8ca9){bad();*out=0;return;}
+    if(g.framebuffer&&((slot>=0x8ce0&&slot<0x8ce4)||slot==0x8d20)){
+        if(name!=0x8cd0&&name!=0x8cd1)bad();
+        *out=slot==0x8ce0?(name==0x8cd0?0x1702:I(g.output)):0;return;
+    }
+    if(slot!=(g.framebuffer?0x8d00u:0x1801u)||(name!=0x8cd0&&name!=0x8216))bad();
+    *out=name==0x8cd0?(g.depthBits?(g.framebuffer?0x8d41:0x8218):0):g.depthBits;
 }
 inline void WINAPI gen(I count,U *out){for(I i=0;i<count;++i){auto &g=state();if(g.next>=g.samplers.size()){bad();out[i]=0;}else out[i]=g.next++;}}
 inline void WINAPI remove(I,const U*){}
+inline void WINAPI deleteTextures(I count,const U*){InterlockedExchangeAdd(&textureDeletes,count);}
 inline void WINAPI parameterInt(U sampler,U name,I value){
     auto &s=state().samplers.at(sampler);
     switch(name){case 0x2801:s.min=value;break;case 0x2800:s.mag=value;break;case 0x2802:s.s=value;break;
@@ -119,7 +131,7 @@ inline void *resolve(const char *name){
     ENTRY(GetUniformLocation,location);ENTRY(GetUniformiv,uniformValue);ENTRY(GetTexLevelParameteriv,level);
     ENTRY(GetTexParameteriv,textureInteger);ENTRY(GetTexParameterfv,textureFloat);ENTRY(GetSamplerParameteriv,samplerInt);
     ENTRY(GetSamplerParameterfv,samplerFloat);ENTRY(GetFramebufferAttachmentParameteriv,attachment);ENTRY(GenSamplers,gen);
-    ENTRY(DeleteSamplers,remove);ENTRY(SamplerParameteri,parameterInt);ENTRY(SamplerParameterf,parameterFloat);
+    ENTRY(DeleteSamplers,remove);ENTRY(DeleteTextures,deleteTextures);ENTRY(SamplerParameteri,parameterInt);ENTRY(SamplerParameterf,parameterFloat);
     ENTRY(SamplerParameterfv,parameterVector);ENTRY(BindSampler,bind);
 #undef ENTRY
     for(U kind=0;kind<BsiShaders::glDrawKinds;++kind)for(U alias=0;alias<BsiShaders::glDrawAliases;++alias)

@@ -157,9 +157,23 @@ int main(){
             &&!m.textureDepthBypasses&&m.textureDepthReasons==decltype(m.textureDepthReasons){}
             &&m.processed==framesBeforePolicy&&runtime.isPresentation(Renderer::OpenGLES,901,window),
             "policy-only change resets texture evidence atomically, preserves the exact selected source and does not invent presentation frames");
-    runtime.textureReport(2,"depth-independent private mip preparation",true,TextureDrawReason::Prepared);
-    require(runtime.metrics().textureDraws==1&&runtime.metrics().textureDepthBypasses==0,
-            "compatibility preparation is sampler evidence, not a manufactured passed depth check");
+    const auto route=runtime.textureRoute();
+    require(route.configuration.enabled&&route.renderer==Renderer::OpenGLES&&route.object==901&&route.window==window,
+            "dependency routing has one mutex-consistent settings/source identity, never a draw-selected presentation");
+    runtime.textureConsumerReport(1,route.revision);
+    runtime.textureReport(2,"depth-independent private mip preparation",true,TextureDrawReason::Prepared,TextureDepthFailure::None,false,true,route.revision);
+    m=runtime.metrics();
+    require(m.textureDraws==1&&m.textureDepthBypasses==0&&m.textureConsumerDraws==1&&m.textureConsumerInputs==1
+            &&m.textureProducerInspected==1&&m.textureProducerDraws==1&&m.textureProducerBindings==2,
+            "producer bindings are a separate subset of sampler evidence, not a manufactured depth predicate or processed frame");
+    runtime.setTexture({false,true,TextureDrawPolicy::OwnedMipCompatibility});
+    runtime.setTexture({true,true,TextureDrawPolicy::OwnedMipCompatibility});
+    require(runtime.textureRoute().revision!=route.revision,"Off->On changes dependency revision even when the exact same source/settings resume");
+    runtime.textureConsumerReport(1,route.revision);
+    runtime.textureReport(2,"stale asynchronous producer result",true,TextureDrawReason::Prepared,TextureDepthFailure::None,false,true,route.revision);
+    m=runtime.metrics();
+    require(!m.textureInspected&&!m.textureConsumerDraws&&!m.textureConsumerInputs&&!m.textureProducerInspected
+            &&!m.textureProducerDraws&&!m.textureProducerBindings,"old-revision reports cannot resurrect dependency/preparation evidence after Off->On");
     runtime.setTexture({true,true});
     require(runtime.metrics().texturePolicy==TextureDrawPolicy::DepthQualifiedScene&&!runtime.metrics().textureInspected,
             "changing back to conservative scope also starts a new evidence interval");
