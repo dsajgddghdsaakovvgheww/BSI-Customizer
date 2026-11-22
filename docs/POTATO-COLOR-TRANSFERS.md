@@ -1,6 +1,19 @@
 # Potato: follow native pbuffer outputs through color copies/resolves
 
-## Installed failure remains the starting point
+## Newer installed result and eligibility follow-up
+
+The `ab8b27e` implementation below passed all six shader CI jobs, actual Mesa
+desktop/GLES transfer pixels and Windows package verification. Its subsequent
+installed report nevertheless has **1,812 grading frames, 3,624 sampler
+inspections/all NoSampler, 3,622 selected inputs, TWO resource-linked producer
+inspections but zero replacements, and zero qualified transfer observations**.
+The [immutable-mip qualification follow-up](POTATO-MIP-QUALIFICATION.md) repairs
+another independently reproduced false rejection and retains the producer's own
+reason. It does not diagnose this game as using that storage or relabel the
+negative result as working Potato. This document retains the transfer mechanism
+and its original validation scope; newer exact-head evidence belongs on PR121.
+
+## Previous installed failure that motivated the transfer repair
 
 The user reported **1,794 working OpenGL grading frames, 1,657 compatibility
 sampler inspections/NoSampler, 1,657 presentation-input draws/color bindings,

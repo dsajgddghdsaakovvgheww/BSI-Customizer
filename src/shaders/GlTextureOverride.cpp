@@ -72,8 +72,27 @@ struct GlTextureOverride::Impl {
     GL_FUNCTION(void,BindSampler,(U,U))
 #undef GL_FUNCTION
     bool ready=false,es=false,anisotropic=false,srgbDecode=false,minmax=false,protectedTextures=false;
+    bool immutableFormatQuery=false,immutableLevelsQuery=false,viewLevelsQuery=false;
     GlQualityCapabilities qualityCapabilities;
-    I units=0,attachments=0,extensionCount=0;
+    I units=0,attachments=0,extensionCount=0,maximumLevel=0;
+    enum class MipRefusal { None, Protection, Range, Dimensions, Format, Incomplete, SingleLevel, Storage, Count };
+    struct MipInspection {
+        MipRefusal refusal=MipRefusal::None;
+        I levels=0,base=-1,last=-1,immutable=-1,storage=-1,view=-1,effectiveBase=-1,effectiveLast=-1;
+        I width=-1,height=-1,format=0,failedLevel=-1;
+    };
+    static const char *mipDiagnostic(MipRefusal refusal){
+        switch(refusal){
+        case MipRefusal::Protection:return "protected texture";
+        case MipRefusal::Range:return "unqualified base/max level range";
+        case MipRefusal::Dimensions:return "unqualified base image dimensions";
+        case MipRefusal::Format:return "unsupported color internal format";
+        case MipRefusal::Incomplete:return "undefined or mismatched REQUIRED mip level";
+        case MipRefusal::SingleLevel:return "only one effective mip level";
+        case MipRefusal::Storage:return "unqualified immutable storage/view metadata";
+        default:return "qualified mip chain";
+        }
+    }
     std::map<std::array<F,17>,U> cache;
     struct Binding {U unit,original;};
     std::vector<Binding> changed;
@@ -163,23 +182,55 @@ struct GlTextureOverride::Impl {
         GetFramebufferAttachmentParameteriv(0x8ca9,attachment,0x8216,&bits);
         return bits>=16?TextureDepthFailure::None:TextureDepthFailure::InsufficientPrecision;
     }
-    I mipLevels(){
-        if(protectedTextures){I protectedContent=1;GetTexParameteriv(texture2d,0x8bfa,&protectedContent);if(protectedContent)return 0;}
-        I base=0,last=0;GetTexParameteriv(texture2d,0x813c,&base);GetTexParameteriv(texture2d,0x813d,&last);
-        if(base<0||base>30||last<=base||last>1000)return 0;
-        I width=0,height=0,format=0;
-        GetTexLevelParameteriv(texture2d,base,0x1000,&width);GetTexLevelParameteriv(texture2d,base,0x1001,&height);
-        GetTexLevelParameteriv(texture2d,base,0x1003,&format);
-        if(width<64||height<64||width>16384||height>16384||!colorFormat(format))return 0;
-        I levels=1;
+    MipInspection inspectMips(){
+        MipInspection result;
+        const auto refuse=[&](MipRefusal reason){result.refusal=reason;result.levels=0;return result;};
+        if(protectedTextures){I secret=1;GetTexParameteriv(texture2d,0x8bfa,&secret);if(secret)return refuse(MipRefusal::Protection);}
+        GetTexParameteriv(texture2d,0x813c,&result.base);GetTexParameteriv(texture2d,0x813d,&result.last);
+        if(result.base<0||result.last<0)return refuse(MipRefusal::Range);
+        if(immutableFormatQuery){
+            GetTexParameteriv(texture2d,0x912f,&result.immutable); // IMMUTABLE_FORMAT
+            if(result.immutable!=0&&result.immutable!=1)return refuse(MipRefusal::Storage);
+        }
+        I base=result.base,last=result.last;
+        if(result.immutable==1&&immutableLevelsQuery){
+            GetTexParameteriv(texture2d,0x82df,&result.storage); // IMMUTABLE_LEVELS
+            if(result.storage<1||result.storage>maximumLevel+1)return refuse(MipRefusal::Storage);
+            result.view=result.storage;
+            if(viewLevelsQuery)GetTexParameteriv(texture2d,0x82dc,&result.view); // VIEW_NUM_LEVELS, NOT parent's storage count
+            if(result.view<1||result.view>result.storage)return refuse(MipRefusal::Storage);
+            // Immutable base/max parameters are STORED unclamped. Sampling
+            // clamps them to the actual storage/view, even with MAX_LEVEL=1000
+            // or BASE_LEVEL beyond the last allocated image. Never edit either.
+            base=(std::min)(base,result.view-1);
+            last=(std::max)(base,(std::min)(last,result.view-1));
+        }
+        result.effectiveBase=base;result.effectiveLast=last;
+        // Querying an image above log2(MAX_TEXTURE_SIZE) is itself an API error,
+        // even though storing such a BASE_LEVEL can be legal. Fail before it.
+        if(base>maximumLevel||last<base)return refuse(MipRefusal::Range);
+        GetTexLevelParameteriv(texture2d,base,0x1000,&result.width);GetTexLevelParameteriv(texture2d,base,0x1001,&result.height);
+        GetTexLevelParameteriv(texture2d,base,0x1003,&result.format);
+        if(result.width<64||result.height<64||result.width>16384||result.height>16384)return refuse(MipRefusal::Dimensions);
+        if(!colorFormat(result.format))return refuse(MipRefusal::Format);
+        I width=result.width,height=result.height,levels=1;
         while((width>1||height>1)&&base+levels<=last&&levels<16){
+            const auto level=base+levels;result.failedLevel=level;
+            if(level>maximumLevel)return refuse(MipRefusal::Range);
             width=(std::max)(1,width/2);height=(std::max)(1,height/2);
-            I w=0,h=0,f=0;GetTexLevelParameteriv(texture2d,base+levels,0x1000,&w);
-            GetTexLevelParameteriv(texture2d,base+levels,0x1001,&h);GetTexLevelParameteriv(texture2d,base+levels,0x1003,&f);
-            if(w!=width||h!=height||f!=format)return 0;
+            I w=0,h=0,f=0;GetTexLevelParameteriv(texture2d,level,0x1000,&w);
+            GetTexLevelParameteriv(texture2d,level,0x1001,&h);GetTexLevelParameteriv(texture2d,level,0x1003,&f);
+            // GL 4.2 / ARB/EXT_texture_storage exposes IMMUTABLE_FORMAT but
+            // not IMMUTABLE_LEVELS (introduced by texture_view). Immutability
+            // guarantees contiguous storage: an undefined terminal image ends
+            // that chain. NEVER accept a missing tail on a mutable texture.
+            if(result.immutable==1&&!immutableLevelsQuery&&!w&&!h)break;
+            if(w!=width||h!=height||f!=result.format)return refuse(MipRefusal::Incomplete);
             ++levels;
         }
-        return levels;
+        result.failedLevel=-1;result.levels=levels;
+        if(levels<2)result.refusal=MipRefusal::SingleLevel;
+        return result;
     }
 };
 GlTextureOverride::GlTextureOverride():impl(std::make_unique<Impl>()){}
@@ -211,6 +262,14 @@ bool GlTextureOverride::initialize(ResolveGl resolve,void *user,std::string *err
     g.protectedTextures=g.extension("GL_EXT_protected_textures");
     if(externalProtectionPossible&&!g.protectedTextures)return fail("Protected EGL resources are possible but per-texture protection inspection is unavailable; native sampling retained.");
     if(g.protectedTextures){I flags=0;g.GetIntegerv(0x821e,&flags);if(flags&0x10)return fail("Protected GL contexts are never modified by Potato.");}
+    const bool coreStorage=!g.es&&(major>4||(major==4&&minor>=2));
+    const bool coreViews=!g.es&&(major>4||(major==4&&minor>=3));
+    g.viewLevelsQuery=coreViews||g.extension("GL_ARB_texture_view")||g.extension("GL_EXT_texture_view")||g.extension("GL_OES_texture_view");
+    g.immutableLevelsQuery=g.es||g.viewLevelsQuery;
+    g.immutableFormatQuery=g.immutableLevelsQuery||coreStorage||g.extension("GL_ARB_texture_storage")||g.extension("GL_EXT_texture_storage");
+    I maximumSize=0;g.GetIntegerv(0x0d33,&maximumSize); // MAX_TEXTURE_SIZE, core on every supported API
+    if(maximumSize<64||maximumSize>(1<<30))return fail("Texture image query limits could not be qualified; native sampling retained.");
+    g.maximumLevel=0;for(I size=maximumSize;size>1;size/=2)++g.maximumLevel;
     g.qualityCapabilities={};
     if(!g.es){
         // Desktop sampler bias is legal here; NEVER query this enum on GLES.
@@ -268,7 +327,7 @@ bool GlTextureOverride::usage(GlTextureUsage *out){
             if(!texture||g.attached(U(texture)))continue;
             if(g.protectedTextures){I secret=1;g.GetTexParameteriv(texture2d,0x8bfa,&secret);if(secret)continue;}
             I base=0,width=0,height=0,format=0,compare=0;
-            g.GetTexParameteriv(texture2d,0x813c,&base);if(base<0||base>30)continue;
+            g.GetTexParameteriv(texture2d,0x813c,&base);if(base<0||base>g.maximumLevel)continue;
             g.GetTexLevelParameteriv(texture2d,base,0x1000,&width);g.GetTexLevelParameteriv(texture2d,base,0x1001,&height);
             g.GetTexLevelParameteriv(texture2d,base,0x1003,&format);g.integer(U(sampler),0x884c,&compare);
             if(width<1||height<1||width>16384||height>16384||!colorFormat(format)||compare)continue;
@@ -371,6 +430,8 @@ unsigned GlTextureOverride::begin(TextureQuality mode,bool reviewed,U primitive,
     if(count<0||count>256||maxName<0||maxName>512)return fail(TextureDrawReason::NoSampler,"Potato bypass: shader uniform layout exceeds safe inspection bounds.");
     Impl::Inspection inspection(g);
     unsigned samplers=0,bound=0,feedback=0,noChain=0,descriptor=0,replacementFailure=0;
+    std::array<unsigned,static_cast<std::size_t>(Impl::MipRefusal::Count)> mipRefusals{};
+    Impl::MipInspection firstMipRefusal;
     std::set<U> used;
     for(I i=0;i<count;++i){
         char name[512]{};I length=0,size=0;U type=0;
@@ -388,7 +449,11 @@ unsigned GlTextureOverride::begin(TextureQuality mode,bool reviewed,U primitive,
             g.GetIntegerv(0x8069,&texture);g.GetIntegerv(0x8919,&original);
             if(!texture)continue;
             ++bound;if(g.attached(U(texture))){++feedback;continue;}
-            const I levels=g.mipLevels();if(levels<2){++noChain;continue;}
+            const auto mip=g.inspectMips();const I levels=mip.levels;
+            if(levels<2){
+                if(!noChain)firstMipRefusal=mip;
+                ++noChain;++mipRefusals[static_cast<std::size_t>(mip.refusal)];continue;
+            }
             Sampler sampler=g.readSampler(U(original));
             // GLES extension-only border/mirror-clamp state is not part of our
             // descriptor clone. Never silently replace it with default borders.
@@ -415,6 +480,15 @@ unsigned GlTextureOverride::begin(TextureQuality mode,bool reviewed,U primitive,
         char counts[384]{};
         std::snprintf(counts,sizeof(counts)," sampler2D slots=%u; bound textures=%u; draw-attachment feedback=%u; ineligible mip/color/protection=%u; sampler-policy refusals=%u; private-sampler failures=%u.",samplers,bound,feedback,noChain,descriptor,replacementFailure);
         *detail+=counts;
+        if(noChain){
+            const auto count=[&](Impl::MipRefusal why){return mipRefusals[static_cast<std::size_t>(why)];};
+            const auto &m=firstMipRefusal;char state[768]{};
+            std::snprintf(state,sizeof(state)," Mip first blockers: protected=%u; range=%u; dimensions=%u; format=%u; incomplete-required-level=%u; single-level=%u; storage-metadata=%u. First: %s; base/max=%d/%d; immutable=%d; storage/view-levels=%d/%d; effective-base/max=%d/%d; size=%dx%d; internal-format=0x%x; failed-level=%d. Unqueried range/dimension fields are -1; internal-format=0 means not inspected.",
+                count(Impl::MipRefusal::Protection),count(Impl::MipRefusal::Range),count(Impl::MipRefusal::Dimensions),
+                count(Impl::MipRefusal::Format),count(Impl::MipRefusal::Incomplete),count(Impl::MipRefusal::SingleLevel),count(Impl::MipRefusal::Storage),
+                Impl::mipDiagnostic(m.refusal),m.base,m.last,m.immutable,m.storage,m.view,m.effectiveBase,m.effectiveLast,m.width,m.height,U(m.format),m.failedLevel);
+            *detail+=state;
+        }
     }
     if(reason&&!g.changed.empty())*reason=TextureDrawReason::Prepared;
     inspection.keepBindings=true;

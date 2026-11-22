@@ -165,8 +165,14 @@ int main(){
     m=runtime.metrics();
     require(m.textureDraws==1&&m.textureDepthBypasses==0&&m.textureConsumerDraws==1&&m.textureConsumerInputs==1
             &&m.textureProducerInspected==1&&m.textureProducerDraws==1&&m.textureProducerBindings==2
-            &&m.textureTransferCalls==1&&m.textureTransferInputs==1&&m.processed==framesBeforePolicy,
+            &&m.textureTransferCalls==1&&m.textureTransferInputs==1&&m.processed==framesBeforePolicy
+            &&m.textureProducerStatus=="depth-independent private mip preparation",
             "submitted color transfers and producer bindings are separate evidence, not extra draws, a manufactured depth predicate or processed frame");
+    runtime.textureReport(0,"producer: unsupported color internal format",true,TextureDrawReason::NoSampler,TextureDepthFailure::None,false,true,route.revision);
+    runtime.textureReport(0,"later compositor: single level",true,TextureDrawReason::NoSampler,TextureDepthFailure::None,false,false,route.revision);
+    require(runtime.metrics().textureProducerStatus=="producer: unsupported color internal format"
+            &&runtime.metrics().textureProducerInspected==2&&runtime.metrics().textureLastBypass=="later compositor: single level",
+            "retain the real producer's precise refusal separately; a later compositor must not overwrite it with a misleading no-mip diagnosis");
     runtime.setTexture({false,true,TextureDrawPolicy::OwnedMipCompatibility});
     runtime.setTexture({true,true,TextureDrawPolicy::OwnedMipCompatibility});
     require(runtime.textureRoute().revision!=route.revision,"Off->On changes dependency revision even when the exact same source/settings resume");
@@ -174,8 +180,8 @@ int main(){
     runtime.textureReport(2,"stale asynchronous producer result",true,TextureDrawReason::Prepared,TextureDepthFailure::None,false,true,route.revision);
     m=runtime.metrics();
     require(!m.textureInspected&&!m.textureConsumerDraws&&!m.textureConsumerInputs&&!m.textureProducerInspected
-            &&!m.textureProducerDraws&&!m.textureProducerBindings&&!m.textureTransferCalls&&!m.textureTransferInputs,
-            "old-revision reports cannot resurrect transfer/dependency/preparation evidence after Off->On");
+            &&!m.textureProducerDraws&&!m.textureProducerBindings&&!m.textureTransferCalls&&!m.textureTransferInputs&&m.textureProducerStatus.empty(),
+            "old-revision reports cannot resurrect transfer/dependency/preparation evidence or a stale producer diagnosis after Off->On");
     runtime.setTexture({true,true});
     require(runtime.metrics().texturePolicy==TextureDrawPolicy::DepthQualifiedScene&&!runtime.metrics().textureInspected,
             "changing back to conservative scope also starts a new evidence interval");
@@ -187,11 +193,12 @@ int main(){
     runtime.setTexture({true,true});runtime.textureReport(1,"new enabled preparation",true,TextureDrawReason::Prepared,TextureDepthFailure::None,true);
     runtime.textureReport(0,"new source depth bypass",true,TextureDrawReason::Depth,TextureDepthFailure::Always,true);
     require(runtime.metrics().textureDraws==1&&runtime.metrics().textureNestedInspected==2,"on starts a new evidence interval");
+    runtime.textureReport(0,"new source producer refusal",true,TextureDrawReason::NoSampler,TextureDepthFailure::None,false,true);
     runtime.releasePresentation(Renderer::OpenGLES,901);
     m=runtime.metrics();
     require(!runtime.isPresentation(Renderer::OpenGLES,901,window)&&!m.textureDraws&&!m.textureBindings
             &&!m.textureNestedInspected&&!m.textureNestedDraws&&m.textureDepthReasons==decltype(m.textureDepthReasons){}
-            &&m.textureLastBypass.empty(),"source destruction revokes scene authorization and every depth/nested/preparation counter/last bypass");
+            &&m.textureLastBypass.empty()&&m.textureProducerStatus.empty(),"source destruction revokes scene authorization and every depth/nested/preparation counter/last bypass/producer diagnosis");
     require(runtime.claimPresentation(Renderer::Direct3D11,903,window),"another actual renderer can replace the destroyed GL source");
     runtime.textureReport(4,"a presentation shader is not a D3D texture implementation",true,TextureDrawReason::Prepared);
     require(!runtime.metrics().textureDraws&&!runtime.metrics().textureSupported,"missing D3D/Vulkan texture binding implementation cannot be reported as successful");

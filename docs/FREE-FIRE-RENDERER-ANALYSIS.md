@@ -1,9 +1,61 @@
 # Free Fire: host presentation is not scene-texture capture
 
-## Latest installed-player follow-up: 1,657 inputs, zero linked producers
+## Latest installed-player follow-up: 3,622 inputs, two producers, zero replacements
 
-The latest **still-not-working** result was supplied after delivery of the
-`e68e030` resource-producer candidate. It supersedes the 1,326/2,652 report:
+After the `ab8b27e` native-pbuffer/color-transfer candidate the user again reports
+that the original DLL works while our Potato does not:
+
+```text
+Requested API: Automatic; configured / observed host API: OpenGL / OpenGL
+Processed presentation-shader frames: 1812
+Texture calls / sampler-inspection calls / NoSampler: 3624 / 3624 / 3624
+Prepared draws / overridden bindings: 0 / 0
+Depth / blended / other / nested: all 0
+Latest sampler2D slots / bound textures: 1 / 1
+Feedback / sampler-policy / private-sampler failures: 0 / 0 / 0
+Ineligible mip/color/protection: 1
+Presentation-input observations: 3622 draws / 3622 color bindings
+Resource-linked FBO/pbuffer producers: 2 inspected / 0 prepared / 0 bindings
+Qualified color transfers: 0 calls / 0 inputs
+Vulkan: 1 loader, 1 instance, 1 device; 0 surfaces/swapchains/presents
+Qt bridge / host: 5.15.2 / 5.15.4
+```
+
+**Still no genuine game-texture change.** Two producer candidates now reach
+sampler inspection, unlike the preceding report, but neither qualifies. Most
+counted draws are on the selected presentation route. The final combined
+mip/color/protection rejection does not reveal the two producers' own first
+blockers, prove absent mips, or establish complete material-draw coverage. Zero
+qualified transfer observations is not proof that no copy/blit API was called.
+This is not an unsaved-setting, depth, inactivity, Qt-patch or GPU-vendor diagnosis.
+No installed hash, exact texture/Off or FPS acceptance was supplied; a stale
+installation is not inferred either.
+
+## Current repair: correct valid immutable storage/view qualification
+
+The original DLL's measured bind/draw mutations persist and do not use our
+complete-mip/resource classifier. Its broader reach can affect later sampling
+that our draw-scoped path never captures. This is a real mechanism difference,
+not permission to delete protection/ownership boundaries.
+
+An additional **incorrect eligibility check** has now been independently
+reproduced on an actual driver: a valid 64x64 immutable texture with four mip
+levels keeps stored MAX_LEVEL=1000. Native OpenGL clamps sampling to those four
+images, but our code demanded the nonexistent tail to 1x1 and refused it. The
+new real-driver regression fails the intended material-mip assertion before
+the change and passes afterward. The [mip qualification repair](POTATO-MIP-QUALIFICATION.md)
+uses actual immutable storage/view bounds, preserves complete mutable-chain
+checks, queries only supported enums, clamps private LODs to exposed levels and
+restores exact Off/source state. It also retains the real producer's reason
+separately from later presentation refusals and splits the combined mip bucket.
+**The report does not prove immutable storage is this game's cause.** Capturing
+the remaining upstream path and actual game texture acceptance remain unproved.
+
+## Previous installed-player follow-up: 1,657 inputs, zero linked producers
+
+This preceding **still-not-working** result was supplied after delivery of the
+`e68e030` resource-producer candidate. It superseded the 1,326/2,652 report and
+is now superseded by the 1,812/3,624 result above:
 
 ```text
 Requested API: Automatic; configured / observed host API: OpenGL / OpenGL
@@ -30,7 +82,7 @@ texture reduction. No installed module hash, exact in-game Off, texture-change
 or FPS acceptance was supplied; neither a stale installation nor a particular
 unobserved game renderer is inferred from that absence.
 
-## Current repair: native pbuffer outputs and color-transfer dependencies
+## Previous repair: native pbuffer outputs and color-transfer dependencies
 
 The previous implementation could only trace sampler2D draw inputs to
 texture-backed `DRAW_BUFFER0` FBO outputs. It excluded **all WGL pbuffers**, did

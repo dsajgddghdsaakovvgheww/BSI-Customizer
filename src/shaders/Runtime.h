@@ -32,6 +32,9 @@ struct Metrics {
     std::uint64_t textureProducerInspected=0,textureProducerDraws=0,textureProducerBindings=0;
     std::uint64_t textureTransferCalls=0,textureTransferInputs=0;
     std::string textureLastBypass;
+    // Retain the actual producer's detail across later compositor inspections.
+    // A final presentation-only refusal must not hide the upstream blocker.
+    std::string textureProducerStatus;
     std::string textureStatus="Potato graphic is off; native texture sampling retained.";
     std::string status="Waiting for the game's presentation API. Multi-renderer support is not complete.";
 };

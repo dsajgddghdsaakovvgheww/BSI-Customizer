@@ -41,6 +41,7 @@ inline void WINAPI getInteger(U name,I *out){
     switch(name){
     case 0x821d:*out=g.protectionExtension?1:0;break;case 0x821e:if(!g.protectionExtension)bad();*out=protectedContext()?0x10:0;break;
     case 0x8b4d:case 0x8cdf:*out=4;break;case 0x8b8d:*out=1;break;
+    case 0x0d33:*out=16384;break;
     case 0x0b74:*out=g.depthFunction;break;case 0x84e0:*out=0x84c0+g.active;break;
     case 0x8069:*out=I(g.textures.at(std::size_t(g.active)));break;
     case 0x8919:*out=I(g.bindings.at(std::size_t(g.active)));break;
@@ -72,6 +73,7 @@ inline void samplerInteger(const Sampler &s,U name,I *out){
 inline void WINAPI textureInteger(U,U name,I *out){
     if(name==0x8bfa){if(!state().protectionExtension)bad();*out=state().protectedTexture;return;}
     if(name==0x813c){*out=0;return;}if(name==0x813d){*out=1000;return;}
+    if(name==0x912f){*out=0;return;} // current authored resources are mutable
     samplerInteger(Sampler{},name,out);
 }
 inline void WINAPI samplerInt(U sampler,U name,I *out){samplerInteger(state().samplers.at(sampler),name,out);}

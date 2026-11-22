@@ -2,13 +2,21 @@
 
 ## Latest result and follow-up
 
+After the subsequent `ab8b27e` transfer/pbuffer candidate the latest game report
+is **1,812 grading frames, 3,624 sampler inspections/all NoSampler, 3,622 selected
+inputs, TWO linked producer inspections but zero replacements, and zero qualified
+transfers**. This is still a negative texture result. The [current mip qualification
+repair](POTATO-MIP-QUALIFICATION.md) reproduces and fixes a valid immutable-storage
+false rejection; it does not establish this game's storage/path or bypass the
+resource proof. Producer detail now survives later presentation refusals.
+
 The first resource-producer candidate, `e68e030`, passed shader/software-pixel
 and Windows hook/Qt CI. The next installed report nevertheless has **1,794
 grading frames, 1,657 sampler inspections/NoSampler, 1,657 presentation-input
 draws/bindings, and ZERO linked producer inspections/preparations**. Its latest
 bound sampler is rejected by the combined mip/color/protection bucket, not by
 descriptor planning. No absent-mip, depth, stale-install or texture-success
-diagnosis follows. The [current color-transfer/pbuffer repair](POTATO-COLOR-TRANSFERS.md)
+diagnosis follows. The [color-transfer/pbuffer repair](POTATO-COLOR-TRANSFERS.md)
 adds supported missing output/transfer paths; this page retains the original
 texture-FBO mechanism and its separately tested evidence.
 

@@ -109,7 +109,7 @@ QVariantMap ShaderBridge::metrics()const{
             {"textureNestedInspected",number(m.textureNestedInspected)},{"textureNestedDraws",number(m.textureNestedDraws)},
             {"textureConsumerDraws",number(m.textureConsumerDraws)},{"textureConsumerInputs",number(m.textureConsumerInputs)},
             {"textureProducerInspected",number(m.textureProducerInspected)},{"textureProducerDraws",number(m.textureProducerDraws)},
-            {"textureProducerBindings",number(m.textureProducerBindings)},
+            {"textureProducerBindings",number(m.textureProducerBindings)},{"textureProducerStatus",QString::fromStdString(m.textureProducerStatus)},
             {"textureTransferCalls",number(m.textureTransferCalls)},{"textureTransferInputs",number(m.textureTransferInputs)},
             {"textureLastBypass",QString::fromStdString(m.textureLastBypass)},
             {"vulkanLoaders",number(m.vulkan.loaders)},{"vulkanInstances",number(m.vulkan.instances)},
@@ -130,7 +130,9 @@ QString ShaderBridge::diagnostics()const{
     const auto producerReport=QStringLiteral("Presentation-input observations: draws=%1; color bindings=%2. Resource-linked FBO/pbuffer producers: inspected=%3; prepared=%4; private bindings=%5. Color transfer observations: calls=%6; linked inputs=%7. Only recent typed input/output identity in the same or observed-successfully-shared namespace qualifies; observed native pbuffer identity alone is not ownership. Unknown/foreign/protected routes stay native. Bindings/submitted copies are not measured texture pixels, driver success or FPS.")
         .arg(m.value("textureConsumerDraws").toString(),m.value("textureConsumerInputs").toString(),
              m.value("textureProducerInspected").toString(),m.value("textureProducerDraws").toString(),m.value("textureProducerBindings").toString(),
-             m.value("textureTransferCalls").toString(),m.value("textureTransferInputs").toString());
+             m.value("textureTransferCalls").toString(),m.value("textureTransferInputs").toString())
+        +QStringLiteral("\nLatest resource-linked producer inspection: %1")
+             .arg(m.value("textureProducerStatus").toString().isEmpty()?QStringLiteral("no detail recorded since the latest setting/source change"):m.value("textureProducerStatus").toString());
     const auto inspectionReport=QStringLiteral("Texture inspection since the latest setting/source change: calls=%1; sampler-inspection calls=%2; conservative depth bypass=%3; blended bypass=%4; no eligible mip sampler=%5; other bypass=%6\nLatest bypass: %7\nOffscreen/pbuffer/foreign scene contexts are not inferred from presentation or a share group.")
         .arg(m.value("textureInspected").toString(),m.value("textureEligibleDraws").toString(),
              m.value("textureDepthBypasses").toString(),m.value("textureBlendBypasses").toString(),

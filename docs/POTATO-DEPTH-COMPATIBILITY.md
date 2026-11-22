@@ -18,15 +18,17 @@ a foreign producer or another renderer. The prior active-gameplay/Settings-close
 confirmation stands; repeating Save, lowering resolution or requesting the same
 diagnostics is not the implementation change.
 
-The subsequent report had **1,326 grading frames / 2,652 sampler inspections,
-all NoSampler / zero prepared bindings**. After the resource-producer candidate,
-the latest report is **1,794 grading frames / 1,657 NoSampler, 1,657 observed
-presentation inputs, ZERO linked producers/preparations**. Compatibility is
-active; depth rejection is no longer the blocker. The latest bound sampler's
-combined mip/color/protection refusal does not prove absent mips. See the
-[renderer evidence](FREE-FIRE-RENDERER-ANALYSIS.md), [first resource-linked repair](POTATO-RESOURCE-PRODUCERS.md)
-and [current pbuffer/color-transfer follow-up](POTATO-COLOR-TRANSFERS.md).
-Grading and tracking are not working Potato textures.
+Subsequent reports had **1,326 grading frames / 2,652 NoSampler**, then
+**1,794 frames / 1,657 NoSampler / 1,657 inputs / ZERO producers**. After the
+transfer/pbuffer candidate the latest result is **1,812 frames / 3,624 NoSampler /
+3,622 inputs / TWO producer inspections but zero replacements or qualified
+transfers**. Compatibility is active; depth is not the blocker. The latest
+combined mip/color/protection refusal does not prove absent mips or identify the
+producers' own reasons. See [renderer evidence](FREE-FIRE-RENDERER-ANALYSIS.md),
+[first resource repair](POTATO-RESOURCE-PRODUCERS.md), [pbuffer/color transfers](POTATO-COLOR-TRANSFERS.md)
+and the [current immutable mip/view qualification repair](POTATO-MIP-QUALIFICATION.md).
+The latter fixes an independently reproduced false rejection, not a diagnosed
+game root cause. Grading and tracking are not working Potato textures.
 
 ## What the production path now does
 

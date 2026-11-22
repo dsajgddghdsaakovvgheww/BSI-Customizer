@@ -189,7 +189,7 @@ def exercise(gl, policy, desktop, size, resolver):
     active(0x84C3)
     native_binding = samplers[0]
 
-    def production(mode, reviewed=1, primitive=0x0004, compatibility=False):
+    def production(mode, reviewed=1, primitive=0x0004, compatibility=False, expected_floor=None):
         before, after = I(), I()
         get_binding(before)
         begin = policy.bsi_test_quality_begin_compatibility if compatibility else policy.bsi_test_quality_begin
@@ -199,10 +199,15 @@ def exercise(gl, policy, desktop, size, resolver):
         assert current.value == 0x84C3, "inspection must restore ACTIVE_TEXTURE before the actual draw"
         get_binding(after)
         assert (after.value != before.value) == bool(count), message.value.decode()
-        if count and desktop:
-            actual_bias = F()
-            get_sampler(after.value, 0x8501, C.byref(actual_bias))
-            assert actual_bias.value == min(1.5 if mode == 1 else 3, maximum_bias.value), "production private bias is bounded by the queried device limit"
+        if count:
+            floor = (1.5 if mode == 1 else 3) if expected_floor is None else expected_floor
+            actual_floor = F()
+            get_sampler(after.value, 0x813A, C.byref(actual_floor))
+            assert actual_floor.value == floor, "production private floor is bounded by the actual exposed view"
+            if desktop:
+                actual_bias = F()
+                get_sampler(after.value, 0x8501, C.byref(actual_bias))
+                assert actual_bias.value == min(floor, maximum_bias.value), "production private bias is bounded by the queried device limit AND actual exposed view"
         draw(primitive, 0, 3)
         policy.bsi_test_quality_end()
         get_binding(after)
@@ -307,6 +312,106 @@ def exercise(gl, policy, desktop, size, resolver):
     sample_scale(scale_location, 1)
     native_binding = samplers[0]
     bind_sampler(0, native_binding)
+
+    # A valid immutable texture need NOT allocate down to 1x1. MAX_LEVEL
+    # remains its API default (1000); native sampling clamps to storage. The
+    # old production inspector demanded the nonexistent tail and rejected it.
+    extension_count = I()
+    get_int(0x821D, C.byref(extension_count))
+    extensions = {gl("glGetStringi", C.c_char_p, U, U)(0x1F03, n).decode() for n in range(extension_count.value)}
+    assert not desktop or actual >= (4, 2) or "GL_ARB_texture_storage" in extensions, "this software regression requires real immutable texture storage"
+    view_entry = ("glTextureView" if actual >= (4, 3) or "GL_ARB_texture_view" in extensions else None) if desktop else (
+        "glTextureViewOES" if "GL_OES_texture_view" in extensions else "glTextureViewEXT" if "GL_EXT_texture_view" in extensions else None)
+    count_query = not desktop or view_entry is not None
+    storage = gl("glTexStorage2D", None, U, I, U, I, I)
+    subimage = gl("glTexSubImage2D", None, U, I, I, I, I, I, U, U, P)
+    texture_param = gl("glGetTexParameteriv", None, U, U, C.POINTER(I))
+
+    def configure_immutable():
+        for key, value in ((0x2801, 0x2703), (0x2800, 0x2600), (0x2802, 0x812F), (0x2803, 0x812F)):
+            texture_i(0x0DE1, key, value)
+        texture_f(0x0DE1, 0x813A, -1000)
+        texture_f(0x0DE1, 0x813B, 6)
+
+    def immutable_texture(levels, extent=64):
+        obj = U()
+        active(0x84C0)
+        gl("glGenTextures", None, I, C.POINTER(U))(1, C.byref(obj))
+        gl("glBindTexture", None, U, U)(0x0DE1, obj)
+        storage(0x0DE1, levels, 0x8058, extent, extent)
+        for level in range(levels):
+            width = max(1, extent >> level)
+            data = (C.c_ubyte * (width * width * 4)).from_buffer_copy(bytes(colors[level]) * (width * width))
+            subimage(0x0DE1, level, 0, 0, width, width, 0x1908, 0x1401, data)
+        configure_immutable()
+        return obj
+
+    def immutable_state():
+        active(0x84C0)
+        result = []
+        for key in (0x813C, 0x813D, 0x912F) + ((0x82DF,) if count_query else ()) + ((0x82DC,) if view_entry else ()):
+            value = I(-1)
+            texture_param(0x0DE1, key, C.byref(value))
+            result.append(value.value)
+        active(0x84C3)
+        return tuple(result)
+
+    def immutable_frame():
+        image = (C.c_ubyte * (size * size * 4))()
+        read(0, 0, size, size, 0x1908, 0x1401, image)
+        return bytes(image)
+
+    immutable_evidence = []
+    for label, levels, base, last, extent in (("storage4", 4, 0, 1000, 64), ("storage2", 2, 0, 1000, 64),
+                                               ("base1", 4, 1, 1000, 128), ("max1", 4, 0, 1, 64),
+                                               ("single", 1, 0, 1000, 64), ("view3of7", 7, 0, 1000, 64)):
+        if label == "view3of7" and not view_entry:
+            continue  # optional extension only; immutable storage cases above are mandatory
+        obj = immutable_texture(levels, extent)
+        view = U()
+        visible = levels
+        if label == "view3of7":
+            gl("glGenTextures", None, I, C.POINTER(U))(1, C.byref(view))
+            gl(view_entry, None, U, U, U, U, U, U, U, U)(view, 0x0DE1, obj, 0x8058, 0, 3, 0, 1)
+            gl("glBindTexture", None, U, U)(0x0DE1, view)
+            configure_immutable()
+            visible = 3
+        texture_i(0x0DE1, 0x813C, base)
+        texture_i(0x0DE1, 0x813D, last)
+        state_before = immutable_state()
+        assert state_before[:3] == (base, last, 1) and (not count_query or state_before[3] == levels) and get_error() == 0
+        if view.value:
+            assert state_before[-1] == 3 and levels == 7, "the view must really expose fewer levels than its parent's inherited IMMUTABLE_LEVELS"
+        floor = min(3, min(last, visible - 1) - base)
+        for native_binding in (samplers[0], 0):
+            bind_sampler(0, native_binding)
+            assert production(0, compatibility=True) == (0, colors[base]), "the driver must really sample native truncated immutable/view storage"
+            native_image = immutable_frame()
+            gl("glEnable", None, U)(0xDEADBEEF)  # preserve the application's pending error through our new query path
+            immutable_result = production(2, compatibility=True, expected_floor=floor)
+            assert immutable_result == (int(floor > 0), colors[base + floor]), "VALID immutable partial mip chains must reach real coarser material pixels, not NoSampler"
+            strong_image = immutable_frame()
+            assert get_error() == 0x0500 and get_error() == 0, "immutable/view inspection must preserve, not consume or add to, application errors"
+            assert production(0, compatibility=True) == (0, colors[base])
+            off_image = immutable_frame()
+            assert off_image == native_image and (strong_image != native_image) == (floor > 0), "ENTIRE immutable/view Off frame must match native, not only a center pixel"
+            assert immutable_state() == state_before and source_lods() == saved_source_lods and get_error() == 0, "inspection must not repair MAX_LEVEL or mutate any source texture/sampler state"
+            artifacts = os.environ.get("BSI_TEXTURE_PIXEL_ARTIFACT_DIR")
+            if artifacts and native_binding and label in ("storage4", "view3of7"):
+                folder = Path(artifacts) / ("desktop" if desktop else "gles")
+                for suffix, rgba in (("native", native_image), ("strong", strong_image), ("off", off_image)):
+                    save_rgba(folder / ("immutable-" + label + "-" + suffix + ".png"), rgba, size)
+        immutable_evidence.append({"case": label, "floor": floor, "native": list(colors[base]), "strong": list(colors[base + floor]), "offExact": True})
+        active(0x84C0)
+        gl("glBindTexture", None, U, U)(0x0DE1, texture)
+        if view.value:
+            gl("glDeleteTextures", None, I, C.POINTER(U))(1, C.byref(view))
+        gl("glDeleteTextures", None, I, C.POINTER(U))(1, C.byref(obj))
+    native_binding = samplers[0]
+    bind_sampler(0, native_binding)
+    active(0x84C3)
+    assert get_error() == 0
+
     assert production(2, reviewed=0, compatibility=True) == (0, native), "compatibility still requires driver review"
     gl("glEnable", None, U)(0x0BE2)
     assert production(2, compatibility=True) == (0, native), "compatibility still excludes blended UI"
@@ -589,12 +694,13 @@ def exercise(gl, policy, desktop, size, resolver):
                 "offCycles": cycles, "depthIndependentCycles": 64, "depthTestAndWritesDisabled": True,
                 "noDepthAttachmentRGBA": color_only[1], "mipPixels": mip_evidence, "material": material_evidence,
                 "resourceLinkedProducer": producer_evidence, "colorTransfers": transfer_evidence,
+                "immutableMips": {"sourceModes": 2, "cases": immutable_evidence, "pendingErrorAndSourceState": True},
                 "limit": "authored software resources; NOT player, physical GPU, allocated-memory or FPS evidence"}
     report = json.dumps(evidence, separators=(",", ":"))
     if os.environ.get("BSI_TEXTURE_PIXEL_ARTIFACT_DIR"):
         (folder / "evidence.json").write_text(json.dumps(evidence, indent=2) + "\n")
     print("PASS: production draw-scoped " + ("desktop OpenGL queried bias+floor" if desktop else "GLES 3 floor-only")
-          + " selects real test-owned mip colors at native lambda 0 AND 4 in both texture/sampler source modes; 128 exact Off/source-LOD cycles (64 depth-independent); color-only/no-depth-attachment pixels, direct FBO plus renderbuffer-blit and default-pbuffer-copy material producers -> unchanged single-level compositor with exact full-frame Off/expiry, and full material-detail images; legacy depth/blend/no-mip/override/review bypass and pending errors preserved")
+          + " selects real test-owned mip colors at native lambda 0 AND 4 in both texture/sampler source modes; 128 exact Off/source-LOD cycles (64 depth-independent); valid partial immutable chains/nonzero base/max/view bounds with exact full-frame Off and pending errors; color-only/no-depth-attachment pixels, direct FBO plus renderbuffer-blit and default-pbuffer-copy material producers -> unchanged single-level compositor with exact full-frame Off/expiry, and full material-detail images; legacy depth/blend/no-mip/override/review bypass preserved")
     print("Texture pixel evidence:", report)
     if os.environ.get("GITHUB_ACTIONS") == "true":
         # Keep measured SUCCESS evidence readable through GitHub's check API,

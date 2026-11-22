@@ -20,7 +20,7 @@ void Runtime::resetTextureEvidence(){
     state.textureConsumerDraws=state.textureConsumerInputs=0;
     state.textureProducerInspected=state.textureProducerDraws=state.textureProducerBindings=0;
     state.textureTransferCalls=state.textureTransferInputs=0;
-    state.textureLastBypass.clear();
+    state.textureLastBypass.clear();state.textureProducerStatus.clear();
 }
 void Runtime::start(std::uintptr_t window){
     setWindow(window);
@@ -139,7 +139,7 @@ void Runtime::textureReport(unsigned bindings,const std::string &detail,bool sup
     if(reason!=TextureDrawReason::NotInspected){
         ++state.textureInspected;
         if(nested)++state.textureNestedInspected;
-        if(producer)++state.textureProducerInspected;
+        if(producer){++state.textureProducerInspected;if(!detail.empty())state.textureProducerStatus=detail;}
         switch(reason){
         case TextureDrawReason::Depth:{
             ++state.textureDepthBypasses;

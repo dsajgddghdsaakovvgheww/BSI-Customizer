@@ -11,6 +11,7 @@
 #include <limits>
 #include <new>
 #include <string>
+#include <utility>
 
 #ifdef _WIN32
 #define GL_CALL __stdcall
@@ -41,7 +42,11 @@ struct Sampler {
     }
 };
 struct Fake {
-    bool desktop=false,missingBiasQuery=false;
+    bool desktop=false,missingBiasQuery=false,storageExtension=false,viewExtension=false;
+    I desktopVersion=45,maximumTextureSize=16384;
+    bool immutable=false;
+    I storageLevels=7,viewLevels=7,imageLevels=7,maximumMip=1000,extent=64,mismatchedLevel=-1;
+    I immutableQueries=0,storageQueries=0,viewQueries=0,highestLevel=-1;
     F maximumBias=16;I biasLimitQueries=0;
     bool protectionExtension=false,protectedContext=false,protectedTexture=false,incompleteExtensions=false;
     I extensionCount=0,illegalQueries=0,flagsQueries=0,textureProtectionQueries=0;
@@ -61,16 +66,20 @@ struct Fake {
     void refresh(){activeChanged=active!=3;privateBound=bindings[0]>=16||bindings[1]>=16;}
 } g;
 const unsigned char *GL_CALL getString(U name){
-    return reinterpret_cast<const unsigned char*>(name==0x1f02?(g.desktop?"4.5 BSI desktop bias fixture":"OpenGL ES 3.1 BSI protection fixture"):"");
+    return reinterpret_cast<const unsigned char*>(name==0x1f02?(g.desktop?(g.desktopVersion==33?"3.3 BSI fixture":g.desktopVersion==42?"4.2 BSI fixture":"4.5 BSI desktop bias fixture"):"OpenGL ES 3.1 BSI protection fixture"):"");
 }
-const unsigned char *GL_CALL getStringi(U,U){
-    return g.incompleteExtensions?nullptr:reinterpret_cast<const unsigned char*>("GL_EXT_protected_textures");
+const unsigned char *GL_CALL getStringi(U,U index){
+    if(g.incompleteExtensions)return nullptr;
+    for(const auto &entry:std::array<std::pair<bool,const char*>,3>{{{g.protectionExtension,"GL_EXT_protected_textures"},{g.storageExtension,"GL_ARB_texture_storage"},{g.viewExtension,g.desktop?"GL_ARB_texture_view":"GL_OES_texture_view"}}})
+        if(entry.first){if(!index)return reinterpret_cast<const unsigned char*>(entry.second);--index;}
+    require(false,"fixture extension count must match its actual list");return nullptr;
 }
 void GL_CALL getInteger(U name,I *out){
     switch(name){
     case 0x821d:*out=g.extensionCount;break;
     case 0x821e:++g.flagsQueries;if(!g.protectionExtension)++g.illegalQueries;*out=g.protectedContext?0x10:0;break;
     case 0x8b4d:case 0x8cdf:*out=4;break;
+    case 0x0d33:*out=g.maximumTextureSize;break;
     case 0x8b8d:++g.shaderQueries;*out=g.program;break;
     case 0x0b74:++g.depthFunctionQueries;*out=g.depthFunction;break;
     case 0x84e0:*out=0x84c0+g.active;break;
@@ -99,7 +108,13 @@ void GL_CALL uniform(U,U index,I,I *length,I *size,U *type,char *name){
 }
 I GL_CALL location(U,const char *name){return std::strcmp(name,uniforms[0])==0?0:std::strcmp(name,uniforms[1])==0?1:-1;}
 void GL_CALL uniformValue(U,I location,I *out){*out=location;}
-void GL_CALL level(U,I level,U name,I *out){*out=name==0x1003?g.format:level<=6&&(g.mips||!level)?(64>>level):0;}
+void GL_CALL level(U,I level,U name,I *out){
+    I maximum=0;for(I size=g.maximumTextureSize;size>1;size/=2)++maximum;
+    require(level>=0&&level<=maximum,"never query an image above log2(MAX_TEXTURE_SIZE), including an incomplete texture's legal stored BASE_LEVEL");
+    g.highestLevel=(std::max)(g.highestLevel,level);
+    const bool defined=level<g.imageLevels&&(g.mips||!level);
+    *out=!defined?0:name==0x1003?g.format:(std::max)(1,g.extent>>level)+(level==g.mismatchedLevel?1:0);
+}
 void samplerInteger(const Sampler &s,U name,I *out){
     switch(name){
     case 0x2801:*out=s.min;break;case 0x2800:*out=s.mag;break;
@@ -113,7 +128,19 @@ void GL_CALL textureInteger(U,U name,I *out){
         ++g.textureProtectionQueries;if(!g.protectionExtension)++g.illegalQueries;
         *out=g.protectedTexture&&g.textures.at(std::size_t(g.active))==1;return;
     }
-    if(name==0x813c){*out=g.baseLevel;return;}if(name==0x813d){*out=1000;return;}
+    if(name==0x813c){*out=g.baseLevel;return;}if(name==0x813d){*out=g.maximumMip;return;}
+    if(name==0x912f){
+        require(!g.desktop||g.desktopVersion>=42||g.storageExtension||g.viewExtension,"IMMUTABLE_FORMAT needs core/extension support, never speculative enums on GL3.3");
+        ++g.immutableQueries;*out=g.immutable;return;
+    }
+    if(name==0x82df){
+        require(!g.desktop||g.desktopVersion>=43||g.viewExtension,"texture_storage alone does NOT legalize IMMUTABLE_LEVELS on desktop");
+        ++g.storageQueries;*out=g.storageLevels;return;
+    }
+    if(name==0x82dc){
+        require((g.desktop&&g.desktopVersion>=43)||g.viewExtension,"VIEW_NUM_LEVELS is not a core GLES3.1 query");
+        ++g.viewQueries;*out=g.viewLevels;return;
+    }
     samplerInteger(Sampler{},name,out);
 }
 void GL_CALL samplerInt(U sampler,U name,I *out){samplerInteger(g.samplers.at(sampler),name,out);}
@@ -300,6 +327,105 @@ int main(){
         require(g.flagsQueries==0&&g.textureProtectionQueries==0&&g.illegalQueries==0&&g.biasLimitQueries==0,
                 "GLES never queries desktop bias or absent extension enums");
         quality.end();unchanged();quality.release();require(g.creations==g.deletions,"release all owned sampler names");
+    }
+    for(bool desktop:{false,true})for(I count:{2,4}){
+        g.reset();g.desktop=desktop;g.immutable=true;g.storageLevels=g.viewLevels=g.imageLevels=count;
+        GlTextureOverride quality;std::string error;
+        require(quality.initialize(resolve,nullptr,&error)&&quality.begin(TextureQuality::Strong,true,4,&error)==2,
+                "VALID truncated immutable mip chains qualify with the original MAX_LEVEL=1000; no demand for unallocated 1x1 tail");
+        const auto floor=F((std::min)(3,count-1));
+        require(g.samplers[g.bindings[0]].low==floor&&g.samplers[g.bindings[0]].bias==(desktop?floor:0)
+                &&g.highestLevel==count-1&&g.maximumMip==1000&&g.storageQueries==2,
+                "private LODs clamp to actual immutable storage and never query outside it or edit MAX_LEVEL");
+        quality.end();unchanged();quality.release();
+    }
+    for(bool desktop:{false,true}){
+        g.reset();g.desktop=desktop;g.maximumMip=std::numeric_limits<I>::max();
+        GlTextureOverride quality;std::string error;
+        require(quality.initialize(resolve,nullptr,&error)&&quality.begin(TextureQuality::Strong,true,4,&error)==2&&g.highestLevel==6,
+                "a legal large stored MAX_LEVEL is not itself a bad chain; bounded actual image dimensions still terminate validation");
+        quality.end();unchanged();quality.release();
+    }
+    {
+        g.reset();g.maximumTextureSize=0;GlTextureOverride quality;std::string error;
+        require(!quality.initialize(resolve,nullptr,&error)&&g.highestLevel==-1&&!g.creations,
+                "an unavailable image-query limit fails before inspection instead of guessing a safe level bound");
+        unchanged();quality.release();
+    }
+    for(bool desktop:{false,true}){
+        g.reset();g.desktop=desktop;g.immutable=true;g.storageLevels=7;g.viewLevels=g.imageLevels=3;
+        g.viewExtension=true;g.extensionCount=1;
+        GlTextureOverride quality;std::string error;
+        require(quality.initialize(resolve,nullptr,&error)&&quality.begin(TextureQuality::Strong,true,4,&error)==2
+                &&g.samplers[g.bindings[0]].low==2&&g.highestLevel==2&&g.viewQueries==2,
+                "a texture VIEW's exposed levels, not the parent's inherited IMMUTABLE_LEVELS, limit both validation and private LOD");
+        quality.end();unchanged();quality.release();
+    }
+    for(I version:{33,42}){
+        g.reset();g.desktop=true;g.desktopVersion=version;g.immutable=true;g.storageLevels=g.viewLevels=g.imageLevels=4;
+        g.storageExtension=version==33;g.extensionCount=g.storageExtension?1:0;
+        GlTextureOverride quality;std::string error;
+        require(quality.initialize(resolve,nullptr,&error)&&quality.begin(TextureQuality::Strong,true,4,&error)==2
+                &&g.immutableQueries==2&&!g.storageQueries&&!g.viewQueries&&g.highestLevel==4,
+                "GL4.2/ARB_texture_storage-only uses its immutable defined prefix, never the illegal texture_view-only IMMUTABLE_LEVELS enum");
+        quality.end();unchanged();quality.release();
+    }
+    {
+        g.reset();g.desktop=true;g.desktopVersion=33;GlTextureOverride quality;std::string error;
+        require(quality.initialize(resolve,nullptr,&error)&&quality.begin(TextureQuality::Strong,true,4,&error)==2
+                &&!g.immutableQueries&&!g.storageQueries&&!g.viewQueries,
+                "plain GL3.3 mutable chains still work without querying ANY absent immutable-storage enum");
+        quality.end();unchanged();quality.release();
+    }
+    for(bool immutable:{false,true}){
+        g.reset();g.immutable=immutable;g.storageLevels=g.viewLevels=g.imageLevels=4;
+        g.baseLevel=2;g.extent=256;
+        GlTextureOverride quality;std::string error;
+        require(quality.initialize(resolve,nullptr,&error),"initialize a nonzero-base chain");
+        if(immutable){
+            require(quality.begin(TextureQuality::Strong,true,4,&error)==2&&g.samplers[g.bindings[0]].low==1&&g.highestLevel==3,
+                    "immutable effective base is relative to storage; only the TWO exposed levels authorize floor1");
+        }else{
+            require(!quality.begin(TextureQuality::Strong,true,4,&error)&&error.find("incomplete-required-level=2")!=std::string::npos,
+                    "an incomplete MUTABLE tail is still rejected, not reinterpreted as immutable storage");
+            g.maximumMip=3;require(quality.begin(TextureQuality::Strong,true,4,&error)==2&&g.samplers[g.bindings[0]].low==1,
+                    "a mutable chain explicitly bounded by MAX_LEVEL remains valid");
+        }
+        quality.end();unchanged();quality.release();
+    }
+    for(bool immutable:{false,true}){
+        g.reset();g.immutable=immutable;g.storageLevels=g.viewLevels=g.imageLevels=4;
+        g.baseLevel=std::numeric_limits<I>::max();g.extent=512;
+        GlTextureOverride quality;std::string error;GlTextureUsage usage;
+        require(quality.initialize(resolve,nullptr,&error),"initialize legal stored but non-queryable base level");
+        require(quality.usage(&usage)&&!usage.readCount&&g.highestLevel==-1,"dependency observation never queries a non-queryable stored base image");
+        require(!quality.begin(TextureQuality::Strong,true,4,&error),"a single/incomplete effective base cannot be reduced");
+        require(immutable?(g.highestLevel==3&&error.find("single-level=2")!=std::string::npos)
+                         :(g.highestLevel==-1&&error.find("range=2")!=std::string::npos),
+                "immutable base clamps before querying; mutable out-of-limit base fails before injecting a GL error");
+        unchanged();quality.release();
+    }
+    for(I invalid:{0,1,2,3}){
+        g.reset();g.desktop=true;g.immutable=true;
+        if(invalid==0)g.storageLevels=0;
+        if(invalid==1)g.storageLevels=16;
+        if(invalid==2)g.viewLevels=0;
+        if(invalid==3)g.viewLevels=8;
+        GlTextureOverride quality;std::string error;
+        require(quality.initialize(resolve,nullptr,&error)&&!quality.begin(TextureQuality::Strong,true,4,&error)
+                &&!g.creations&&g.highestLevel==-1&&error.find("storage-metadata=2")!=std::string::npos,
+                "unqualified immutable/view metadata fails before image queries, never defaults to mutable or parent storage");
+        unchanged();quality.release();
+    }
+    {
+        g.reset();g.mismatchedLevel=3;GlTextureOverride quality;std::string error;
+        require(quality.initialize(resolve,nullptr,&error)&&!quality.begin(TextureQuality::Strong,true,4,&error)
+                &&error.find("incomplete-required-level=2")!=std::string::npos&&error.find("failed-level=3")!=std::string::npos,
+                "mismatched mutable level dimensions retain an exact first blocker, distinct from protection and unsupported formats");
+        g.mismatchedLevel=-1;g.format=0x81a6;
+        require(!quality.begin(TextureQuality::Strong,true,4,&error)&&error.find("format=2")!=std::string::npos,
+                "a depth format is not misreported as evidence of absent mipmaps");
+        unchanged();quality.release();
     }
     for(float limit:{1.f,16.f}){
         g.reset();g.desktop=true;g.maximumBias=limit;g.samplers[1].border={{.125f,.25f,.5f,1.f}};
