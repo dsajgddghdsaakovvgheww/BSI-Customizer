@@ -1,4 +1,4 @@
-"""VOID OLED Studio 11: full eligible native-QML visual pass, using pinned transactions.
+"""VOID OLED Studio 12: full eligible native-QML visual pass, using pinned transactions.
 No resource scanning occurs on import. Check/Apply/Export are explicit commands.
 """
 import argparse
@@ -63,7 +63,7 @@ def runtime():
             raise RuntimeError('Pinned replacement hook changed; review required.')
         text = text.replace(before, after, 1)
     text = text.replace('Settings now uses the reference shell and contains the VOID Optimizer tab.', 'Settings now uses OLED Studio with live Appearance controls (no optimizer).')
-    text=text.replace('VOID FULL UI V5 — Carbon palette / incremental styling / native session tools; boot logic protected','VOID OLED STUDIO 11 - six dark presets / native UI / no optimizer')
+    text=text.replace('VOID FULL UI V5 — Carbon palette / incremental styling / native session tools; boot logic protected','VOID OLED STUDIO 12 - six dark presets / native UI / no optimizer')
     exec(compile(text, 'pinned-void-ui-engine.py', 'exec'), module.__dict__)
     module.live_names=set()
     module.live_coverage=[]
@@ -173,7 +173,7 @@ def runtime():
             item = rows.setdefault(row['name'], {})
             item.update(row)
             item.setdefault('status', 'changed' if row['changed'] else 'verified')
-        report['suite'] = 'VOID OLED Studio 11'
+        report['suite'] = 'VOID OLED Studio 12'
         report['live_theme_bindings']=module.live_coverage
         report['theme_presets']=[entry['name'] for entry in json.loads(assets['themes.json'])]
         report['all_ui_runtime_certified'] = False
@@ -451,7 +451,7 @@ def native_section_sources(module, desired, url):
     """Style real page groups in place. Inverse proof retains every original byte.
     No surrogate input models, Save action or fabricated allocation/FPS values.
     """
-    result=dict(desired);manager=module.manager();marker='// VOID NATIVE SECTION CARDS 11'
+    result=dict(desired);manager=module.manager();marker='// VOID NATIVE SECTION CARDS 12'
     for name in module.PAGE_NAMES:
         if name not in result:continue
         body=result[name];source=body.decode('utf-8-sig')
@@ -473,13 +473,43 @@ def native_section_sources(module, desired, url):
             bindings=scope['bindings']
             # An existing custom background is preserved, not treated as a card.
             if any(key in bindings for key in ('padding','leftPadding','color','objectName')):continue
-            block='\n'+marker+'\nproperty bool pVoidSectionCard: true\npadding:20\ncolor:VoidLiveTheme.Theme.surface\nradius:VoidLiveTheme.Theme.corner\nborder.width:1\nborder.color:VoidLiveTheme.Theme.border\n'
+            block='\n'+marker+'\nproperty bool pVoidSectionCard: true\npadding:12\ncolor:VoidLiveTheme.Theme.surface\nradius:VoidLiveTheme.Theme.corner\nborder.width:1\nborder.color:VoidLiveTheme.Theme.border\n'
             if 'Layout.fillWidth' not in bindings:block+='Layout.fillWidth:true\n'
             edits.append((tokens[opening].end,tokens[opening].end,block));count+=1
         if not count:continue
         for opening in content:
             span=scopes[opening]['bindings'].get('width')
             if span:edits.append((tokens[span[0]].start,tokens[span[1]-1].end,'Math.max(0, '+root_id+'.width - 16)'))
+        if name=='UiPerformanceSetting.qml' and len(content)==1:
+            content_key=next(iter(content));content_id=identity(scopes[content_key])
+            direct=[key for key,value in scopes.items() if value['parent']==content_key]
+            groups=[key for key in direct if scopes[key]['type']=='UiColumnLayout']
+            # CPU and RAM share a resource row. Warnings stay visible below it;
+            # renderer/mode/FPS sections span the complete remaining workspace.
+            if len(groups)==4 and content_id:
+                edits.append((tokens[content_key-1].start,tokens[content_key-1].end,'VoidLiveTheme.NativeSectionGrid'))
+                spacing=scopes[content_key]['bindings'].get('spacing')
+                if spacing:edits.append((tokens[spacing[0]].start,tokens[spacing[1]-1].end,'12'))
+                row=0
+                for key in direct:
+                    bindings=scopes[key]['bindings']
+                    manager.require(not any(role in bindings for role in ('Layout.row','Layout.column','Layout.columnSpan')),'Unexpected native grid position.')
+                    height=bindings.get('Layout.preferredHeight')
+                    if scopes[key]['type']=='Rectangle' and height and tokens[height[0]].text=='1':
+                        shown=bindings.get('visible')
+                        if shown:edits.append((tokens[shown[0]].start,tokens[shown[1]-1].end,'false'))
+                        else:edits.append((tokens[key].end,tokens[key].end,'\nvisible:false\n'))
+                        continue
+                    if key==groups[0]:fields='Layout.row:0\nLayout.column:0\nLayout.preferredWidth:1\n'
+                    elif key==groups[1]:fields='Layout.row:'+content_id+'.columns===2?0:1\nLayout.column:'+content_id+'.columns-1\nLayout.preferredWidth:1\n'
+                    else:
+                        fields='Layout.row:('+content_id+'.columns===2?1:2)+'+str(row)+'\nLayout.column:0\nLayout.columnSpan:'+content_id+'.columns\n';row+=1
+                    if scopes[key]['type'] in ('Text','UiTextUrl') and 'wrapMode' not in bindings:fields+='wrapMode:Text.Wrap\n'
+                    edits.append((tokens[key].end,tokens[key].end,'\n'+fields))
+                for key,value in scopes.items():
+                    if value['type'] not in ('UiComboBox','UiTextField'):continue
+                    span=value['bindings'].get('Layout.preferredWidth')
+                    if span and tokens[span[0]].text=='200':edits.append((tokens[span[0]].start,tokens[span[1]-1].end,'164'))
         for opening,scope in scopes.items():
             if scope['type']!='UiButton':continue
             span=scope['bindings'].get('text')
@@ -669,7 +699,7 @@ def main(argv=None):
     module.replacing_ui = '--replace-ui' in argv
     if module.replacing_ui:
         print('REPLACE UI: old UI files/state will be replaced; apps/data and independent helpers are not removed.')
-    print('VOID OLED STUDIO 11 - live native appearance / six presets / custom colors')
+    print('VOID OLED STUDIO 12 - live native appearance / six presets / custom colors')
     if '--export-sources' in argv:
         parser = argparse.ArgumentParser()
         parser.add_argument('--export-sources', type=Path, required=True)

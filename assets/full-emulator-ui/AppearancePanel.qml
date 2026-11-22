@@ -12,24 +12,24 @@ Item {
     onVisibleChanged:if(visible)loadDraft()
     ColumnLayout {
         anchors.fill:parent
-        spacing: 16
+        spacing: 10
         ScrollView {
             Layout.fillWidth:true;Layout.fillHeight:true;clip:true
             contentWidth:availableWidth
             ScrollBar.vertical:ScrollBar {policy:ScrollBar.AlwaysOn;palette.mid:Theme.border;palette.dark:Theme.accent}
             ColumnLayout {
                 width:parent.width
-                spacing:18
+                spacing:12
                 Label {Layout.fillWidth:true;wrapMode:Text.Wrap;color:Theme.warning;visible:!Theme.persistenceAvailable;text:Theme.persistenceNotice}
                 GridLayout {
-                    columns:panel.width>920?3:2;columnSpacing:14;rowSpacing:10;Layout.fillWidth:true
+                    columns:panel.width>=660?3:2;columnSpacing:10;rowSpacing:8;Layout.fillWidth:true
                     Repeater {
                         model:Theme.presets
                         delegate: AbstractButton {
                             id: card
                             objectName:"themePreset_"+modelData.id
-                            Layout.fillWidth:true;implicitHeight:112
-                            hoverEnabled:true;padding:18
+                            Layout.fillWidth:true;implicitHeight:82
+                            hoverEnabled:true;padding:12
                             onClicked:{Theme.choose(modelData.id);panel.loadDraft()}
                             scale:down?0.98:1
                             Behavior on scale {enabled:Theme.motionEnabled;NumberAnimation {duration:Theme.duration;easing.type:Easing.OutCubic}}
@@ -39,13 +39,13 @@ Item {
                                 border.color:Theme.selectedId===modelData.id?modelData.palette.accent:card.hovered?Theme.muted:modelData.palette.border
                             }
                             contentItem: ColumnLayout {
-                                anchors.margins:13;spacing:5
+                                anchors.margins:8;spacing:4
                                 RowLayout {
-                                    Label {text:modelData.name;color:modelData.palette.text;font.bold:true;font.pixelSize:14}
+                                    Label {text:modelData.name;color:modelData.palette.text;font.bold:true;font.pixelSize:12}
                                     Item {Layout.fillWidth:true}
                                     Rectangle {width:8;height:8;radius:4;color:modelData.palette.accent;visible:Theme.selectedId===modelData.id}
                                 }
-                                Label {Layout.fillWidth:true;elide:Text.ElideRight;text:modelData.description;color:modelData.palette.muted;font.pixelSize:11}
+                                Label {Layout.fillWidth:true;elide:Text.ElideRight;text:modelData.description;color:modelData.palette.muted;font.pixelSize:10}
                                 Row {
                                     spacing:4
                                     Repeater {model:[modelData.palette.surface,modelData.palette.raised,modelData.palette.border,modelData.palette.accent];Rectangle {width:26;height:5;radius:2;color:modelData}}

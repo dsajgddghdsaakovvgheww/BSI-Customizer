@@ -129,13 +129,22 @@ Window {
     component=QQmlComponent(engine,QUrl.fromLocalFile(str(temp/'Window.qml')))
     assert not component.isError(),'\n'.join(e.toString() for e in component.errors())
     window=component.create();assert window,'\n'.join(e.toString() for e in component.errors())
-    settle();root=window.contentItem();page=visual(root,'fixtureSectionPage')
+    settle()
+    assert window.width()<=1000 and window.height()<=680,"Settings still opens oversized"
+    # Render the normal 1000px design even on Qt offscreen's 800px virtual screen.
+    window.setWidth(1000);window.setHeight(680);settle()
+    root=window.contentItem();page=visual(root,'fixtureSectionPage')
     assert page is not None
     cards=[visual(root,name) for name in ('fixtureCpuCard','fixtureRamCard','fixtureModeCard','fixtureFpsCard')]
-    assert all(card is not None and card.width()>600 and card.height()>95 for card in cards),[(c.width(),c.height()) if c else None for c in cards]
+    assert all(card is not None and card.width()>330 and card.height()>65 for card in cards),[(c.width(),c.height()) if c else None for c in cards]
     points=[card.mapToScene(QPointF(0,0)) for card in cards]
-    for i in range(3):assert points[i+1].y()>=points[i].y()+cards[i].height()+15,'native section cards overlap'
-    assert visual(root,'voidNativeResourceSummary').isVisible(),'wide native selections summary missing'
+    assert abs(points[0].y()-points[1].y())<1,'CPU/RAM are still the old vertical alignment'
+    assert points[1].x()>=points[0].x()+cards[0].width()+11,'paired resources overlap'
+    assert abs(cards[0].width()-cards[1].width())<2,'resource columns are unbalanced'
+    assert points[2].y()>=points[0].y()+max(cards[0].height(),cards[1].height())+11
+    assert points[3].y()>=points[2].y()+cards[2].height()+11
+    assert cards[2].width()>cards[0].width()*1.9,'mode card must span both columns'
+    assert visual(root,'voidNativeResourceSummary').isVisible(),'compact selections line missing'
     for preset in json.loads((ROOT/'assets/full-emulator-ui/themes.json').read_text()):
         window.setProperty('requested',preset['id']);QMetaObject.invokeMethod(window,'choose');settle()
         for card in cards:
@@ -149,9 +158,11 @@ Window {
     assert page.property('saved')==1,'native Save callback lost under primary visuals'
     output=ROOT/'.cache/full-ui/sections-fixture.png';output.parent.mkdir(parents=True,exist_ok=True)
     assert window.grabWindow().save(str(output))
-    window.setWidth(940);settle()
-    assert not visual(root,'voidNativeResourceSummary').isVisible(),'wide-only summary covered narrow controls'
+    window.setWidth(720);settle()
+    assert not visual(root,'voidNativeResourceSummary').isVisible(),'summary crowded narrow controls'
     assert all(card.width()>500 for card in cards)
+    points=[card.mapToScene(QPointF(0,0)) for card in cards]
+    assert points[1].y()>=points[0].y()+cards[0].height()+11,"paired cards did not stack on a narrow screen"
     assert not warnings,'\n'.join(warnings)
     window.setVisible(False);window.deleteLater();settle()
-print('PASS: generated native cards render without overlap using src-code layout wrappers; six palettes/corners, primary Save callback/contrast, wide-only real-selection summary. Native input doubles, NOT live OEM certification.')
+print('PASS: generated native cards render without overlap using src-code layout wrappers; six palettes/corners, primary Save callback/contrast, compact real-selection line + responsive resource grid. Native input doubles, NOT live OEM certification.')
