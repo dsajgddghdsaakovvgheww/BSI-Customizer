@@ -56,6 +56,24 @@ QtObject {
     readonly property color accent_transparent: Qt.rgba(accent.r,accent.g,accent.b,0.14)
     readonly property real textContrast: contrast(colors.background,colors.text)
 
+    function exportState() {
+        return JSON.stringify({preset:preferences.selectedPreset,custom:preferences.customJson,font:preferences.chosenFont,radius:preferences.radiusOverride,duration:preferences.durationOverride,motion:preferences.motion})
+    }
+    function importState(value) {
+        try {
+            if(typeof value!=="string" || value.length>16384)return false
+            var next=JSON.parse(value)
+            if(!next || Object.keys(next).length!==6 || typeof next.preset!=="string" || (next.preset!=="custom" && findPreset(next.preset).id!==next.preset))return false
+            if(typeof next.custom!=="string" || (next.custom.length && !validPalette(JSON.parse(next.custom))))return false
+            if(next.preset==="custom" && !next.custom.length)return false
+            if(typeof next.font!=="string" || !/^[A-Za-z0-9 _-]{1,64}$/.test(next.font))return false
+            if(typeof next.motion!=="boolean" || !Number.isInteger(next.radius) || next.radius< -1 || next.radius>24 || !Number.isInteger(next.duration) || next.duration< -1 || next.duration>400)return false
+            preferences.customJson=next.custom;preferences.chosenFont=next.font
+            preferences.radiusOverride=next.radius;preferences.durationOverride=next.duration
+            preferences.motion=next.motion;preferences.selectedPreset=next.preset
+            persist();return true
+        } catch(error) {return false}
+    }
     function findPreset(id) {
         for(var i=0;i<presets.length;++i) if(presets[i].id===id)return presets[i]
         return presets[0]

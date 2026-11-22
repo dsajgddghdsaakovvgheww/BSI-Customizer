@@ -1,4 +1,4 @@
-# VOID OLED Studio 10 — six live native themes
+# VOID OLED Studio 11 — six live native themes
 
 **𝓥𝓞𝓘𝓓 · Developed By NOVA XIS · https://www.youtube.com/@nova_xis20**
 
@@ -6,7 +6,7 @@ This changes the emulator, not the customizer. It is not another optimizer-only
 ZIP or a set of disconnected mock QML screens. Actual mapped native sources and
 their compiled-cache owners are patched in the established backed-up transaction.
 
-## Studio 10 — first-frame chrome and unified command rail
+## Studio 11 — first-frame chrome and unified command rail
 
 - Replaces the pack-owned legacy inline sidebar bridge that still referenced a
   fixed `C:/Program Files/.../BSISidebarVisual.qml`. The actual rail and its inline
@@ -53,9 +53,9 @@ changed, protected, verified/unchanged resources and unsupported visual bindings
 missing resources are not silently advertised as redesigned. The source-only test
 snapshot does not prove compatibility or exact appearance on a live OEM player.
 
-## OLED Studio 10 — live native Appearance
+## OLED Studio 11 — live native Appearance
 
-Open native **Settings → Themes** (top-right). Choose **OLED Black** (default),
+Open native **Settings → Appearance** in the **left sidebar**. Choose **OLED Black** (default),
 **Midnight Blue**, **Amethyst**, **Forest**, **Ember**, or **Rose Noir**. These are
 six different background/surface/text/border/accent palettes, not six accents on
 one Carbon skin. Each also has its own corner and transition defaults.
@@ -67,7 +67,9 @@ one Carbon skin. Each also has its own corner and transition defaults.
   the shared 57-name Icons.js contract is unchanged. Unknown native icons remain.
 - Already-open integrated controls, dialogs, editor cards/key chips and popups
   bind to the active theme in the same QML engine. A separately loaded engine
-  reads the persisted choice when its window reopens. No polling is added.
+  exchanges validated appearance state with its transient parent through an
+  event-driven QObject relay; detached windows read persisted choices on reopen.
+  This fixes the Settings/main-sidebar engine split without idle polling.
 - When the emulator ships Qt.labs.settings, choices persist per Windows user in Qt's GenericConfigLocation under
   `VOID-Emulator-Themes-v9.ini`, separate from tracked UI asset files. Therefore
   changing a theme does not invalidate the install record. Undo restores UI files,
@@ -81,9 +83,23 @@ one Carbon skin. Each also has its own corner and transition defaults.
 - `UI-COVERAGE.json` includes `live_theme_bindings` and `theme_presets`. Unsupported
   native expressions/artwork are reported rather than globally overwritten.
 
+### Reference-inspired native Settings workspace
+
+- Larger Studio header, workspace navigation with palette-following active bar,
+  breadcrumb and page-specific heading; Appearance is a normal sidebar page.
+- Roomier rounded section cards are applied **in place** to reviewed native page
+  groups. Original models, validators, callbacks and native Save remain in charge.
+- Wide Performance windows show a read-only summary from actual selected CPU,
+  RAM and FPS values, never invented hardware stats. Narrow windows omit it.
+- Native unsaved edits stay alive while Appearance is open. Returning to a
+  different native tab still goes through the original unsaved-change guard.
+- Theme transitions, pressed-card feedback and page reveals respect reduced
+  motion. Mapped stock backgrounds/icons are suppressed, not layered visibly
+  behind replacements. Unknown essentials, boot/login and business logic remain.
+
 ### Native window/dialog coverage retained
 
-The Settings badge is **OLED STUDIO 10**. Native surface handling includes:
+The Settings badge is **OLED STUDIO 11**. Native surface handling includes:
 
 - Native Window/Popup `contentItem` and separate Dialog header/footer are visited.
   Previously a Window-root editor could get source colors but no control adapter.
@@ -150,7 +166,7 @@ No optimizer or helper is installed.
    permission elevation, if required, uses the existing explicit installer flow.
    Nothing disables security controls. Backup/journal and read-back checks cover
    every changed binary, external asset and the UI state.
-6. Restart the player. Settings must show **OLED STUDIO 10**. Test every native
+6. Restart the player. Settings must show **OLED STUDIO 11**. Test every native
    page's controls/Save/discard, sidebar/topbar, volume/game-controls/exit popups,
    controls editor. Boot/auth must behave exactly as before.
 7. If a different/cached page appears or any safety check refuses, STOP. Run

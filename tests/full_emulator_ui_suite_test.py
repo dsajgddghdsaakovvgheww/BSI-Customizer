@@ -69,8 +69,10 @@ class SuiteTests(unittest.TestCase):
             self.assertIn(b'asynchronous: false',after['UiSettingsWindow.qml'])
             self.assertNotIn(b'Component.onCompleted: setSource(',after['UiSettingsWindow.qml'])
             self.assertIn(b'VoidLiveTheme.Theme.',after['UiPerformanceSetting.qml'])
+            self.assertIn(b'pVoidSectionCard: true',after['UiPerformanceSetting.qml'])
+            self.assertIn(b'pVoidPrimaryAction: true',after['UiPerformanceSetting.qml'])
             self.assertNotIn(b'VoidLiveTheme.Theme.',after['UiDialog.qml'])
-            self.assertIn(b'OLED STUDIO 10',(root/'Assets/VOIDReferenceUI/SettingsShell.qml').read_bytes())
+            self.assertIn(b'OLED STUDIO 11',(root/'Assets/VOIDReferenceUI/SettingsShell.qml').read_bytes())
             self.assertFalse((root/'Assets/VOIDReferenceUI/OptimizerPage.qml').exists())
             for name in ('UiSettingsWindow.qml', 'PlrSidebar.qml'):
                 for token in (b'voidOptimizer', b'pVoidOptimizer', b'VoidUiNav', b'F9'):
@@ -80,6 +82,21 @@ class SuiteTests(unittest.TestCase):
             E.restore(backup,root)
             self.assertEqual((root/'HD-Player.exe').read_bytes(),original)
             self.assertFalse((root/U.UI_STATE).exists())
+
+    def test_native_section_cards_are_additive_and_use_real_native_values(self):
+        original={name:U.payload()['baseline/pages/'+name] for name in U.PAGE_NAMES}
+        styled=S.native_section_sources(U,original,'file:///Skin/')
+        self.assertEqual(S.native_section_sources(U,styled,'file:///Skin/'),styled)
+        performance=styled['UiPerformanceSetting.qml']
+        self.assertEqual(performance.count(b'pVoidSectionCard: true'),4)
+        self.assertIn(b'pVoidFps:iFrameRateSlider.value',performance)
+        self.assertIn(b'pVoidPrimaryAction: true',performance)
+        # Every original callback and QML token remains in order; only reviewed
+        # width expressions plus additive card fields/read-only summary aliases.
+        for name in original:
+            self.assertEqual(styled[name].count(b'onActivated:'),original[name].count(b'onActivated:'))
+            self.assertEqual(styled[name].count(b'uiBackend.'),original[name].count(b'uiBackend.'))
+        self.assertEqual(styled['PlrShortcutsSetting.qml'],original['PlrShortcutsSetting.qml'])
 
     def test_upgrade_tracked_v5_with_current_optimizer_and_exact_undo(self):
         source=(ROOT/'reference/full-emulator-ui/legacy_installer.py').read_bytes()
@@ -166,7 +183,7 @@ class SuiteTests(unittest.TestCase):
             self.assertTrue(any(change.relative.endswith('old-optimizer.qml') and change.after is None for change in planned.changes))
             backup=E.commit(planned)
             self.assertFalse(old.exists())
-            self.assertIn(b'OLED STUDIO 10',shell.read_bytes())
+            self.assertIn(b'OLED STUDIO 11',shell.read_bytes())
             self.assertEqual(U.plan_install(root)[0].changes,[])
             E.restore(backup,root)
             for name,digest in before.items():self.assertEqual(S.sha((root/name).read_bytes()),digest,name)

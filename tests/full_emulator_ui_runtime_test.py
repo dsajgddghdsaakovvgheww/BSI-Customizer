@@ -127,7 +127,7 @@ Window {
     assert isinstance(window,QQuickWindow),type(window)
     root=window.contentItem();shell=visual(root,'bsiSettingsShell');page=visual(root,'testNativePage')
     assert page is not None
-    p=page.mapToScene(QPointF(0,0));assert abs(p.x()-224)<1 and abs(p.y()-88)<1,(p.x(),p.y())
+    p=page.mapToScene(QPointF(0,0));assert abs(p.x()-(16+shell.property("bsiRailWidth")+32))<1 and abs(p.y()-220)<1,(p.x(),p.y())
     click(visual(root,'testSave'));assert window.property('saved')==1
     switch=visual(root,'testSwitch');click(switch);assert switch.property('checked')
     check=visual(root,'testCheck');click(check);assert check.property('checked')
@@ -161,14 +161,27 @@ Window {
         assert window.property('themeName')==preset['name']
         assert window.property('themeSurface').name()==preset['palette']['surface']
         assert slider.property('pColor').property('sliderFill').name()==preset['palette']['accent']
-    # Open the real Appearance popup and use its preset card, not an independent mock.
-    click(visual(root,'openAppearance'))
+    # Sidebar colors must follow every palette without relying on hover/recreation.
+        selected=visual(root,'bsiSettingsTab_1')
+        assert visual(selected,'voidSettingsNavIcon').property('tint').name()==preset['palette']['accent']
+    # Embedded Appearance never touches the backend tab index or its pending edits.
+    assert visual(root,'openAppearance') is None
+    window.setProperty('blockSwitch',True)
+    requested=window.property('requested');index=window.property('pCurrentTabIndex')
+    click(visual(root,'bsiSettingsAppearance'))
+    assert shell.property('appearanceOpen') and window.property('requested')==requested
+    assert window.property('pCurrentTabIndex')==index and not page.isVisible()
+
     card=visual(root,'themePreset_forest');assert card is not None,str(warnings)
     click(card);assert window.property('themeName')=='Forest'
     assert slider.property('pColor').property('sliderFill').name()=='#82dfb1'
     appearance_capture=ROOT/'.cache/full-ui/appearance-fixture.png';appearance_capture.parent.mkdir(parents=True,exist_ok=True)
     assert window.grabWindow().save(str(appearance_capture))
-    click(visual(root,'closeAppearance'))
+    click(visual(root,'bsiSettingsTab_0'))
+    assert not shell.property('appearanceOpen') and page.isVisible()
+    assert window.property('pCurrentTabIndex')==index,'unsaved-change guard bypassed returning from Appearance'
+    assert field.property('text')=='native','Appearance destroyed native pending edits'
+    window.setProperty('blockSwitch',False)
     QMetaObject.invokeMethod(window,'customAppearance');settle()
     assert window.property('themeName')=='My theme'
     assert slider.property('pColor').property('sliderFill').name()=='#70ddb0'
@@ -196,6 +209,35 @@ QtObject {
     assert probe.property('surface').name()=='#101820'
     assert probe.property('corner')==21 and not probe.property('motion')
     probe.deleteLater();settle();probe_engine.deleteLater();settle()
+    # A real second QQmlEngine, separate settings file, and transient window:
+    # state must propagate live through QObject signals, not incidental shared disk.
+    peer_engine=QQmlEngine()
+    peer_engine.warnings.connect(lambda errors:warnings.extend(e.toString() for e in errors if "Settings type from Qt.labs.settings is deprecated" not in e.toString()))
+    peer_component=QQmlComponent(peer_engine)
+    peer_source='''import QtQuick 2.15
+import QtQuick.Window 2.15
+import "ASSETS" as Skin
+Window {
+ id:peerHost;width:400;height:300
+ property string selected:Skin.Theme.selectedId
+ property color accent:Skin.Theme.accent
+ property string requestedTheme:"ember"
+ function choose(){Skin.Theme.choose(requestedTheme)}
+ Component.onCompleted:{Skin.Theme.preferencesFile="PEER_INI";Skin.Theme.reset()}
+ Skin.ThemeRelay {hostWindow:peerHost}
+}'''.replace('ASSETS',url).replace('PEER_INI',str(temp/'separate-peer.ini').replace('\\','/'))
+    peer_component.setData(peer_source.encode(),QUrl.fromLocalFile(str(temp/'Peer.qml')))
+    peer=peer_component.create();assert peer,'\n'.join(e.toString() for e in peer_component.errors())
+    peer.setTransientParent(window);settle()
+    assert peer.property('selected')=='custom','transient engine failed initial theme handshake'
+    for preset in json.loads((ROOT/'assets/full-emulator-ui/themes.json').read_text()):
+        peer.setProperty('requestedTheme',preset['id']);QMetaObject.invokeMethod(peer,'choose');settle()
+        assert window.property('themeName')==preset['name'],'separate engine did not update main theme'
+        assert visual(face,'bsiOutlineGlyph').property('tint').name()==preset['palette']['accent']
+        assert visual(visual(root,'bsiSettingsTab_1'),'voidSettingsNavIcon').property('tint').name()==preset['palette']['accent']
+    QMetaObject.invokeMethod(window,'forestAppearance');settle()
+    assert peer.property('selected')=='forest' and peer.property('accent').name()=='#82dfb1'
+    peer.setTransientParent(None);peer.deleteLater();settle();peer_engine.deleteLater();settle()
     fallback_dir=temp/'without-settings-plugin';fallback_dir.mkdir()
     (fallback_dir/'Theme.qml').write_bytes((ROOT/'assets/full-emulator-ui/Theme.qml').read_bytes())
     (fallback_dir/'qmldir').write_text('singleton Theme 1.0 Theme.qml\n')

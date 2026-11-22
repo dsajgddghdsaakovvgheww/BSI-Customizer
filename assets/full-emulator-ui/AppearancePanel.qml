@@ -2,34 +2,17 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 
-Popup {
+Item {
     id: panel
     objectName: "voidAppearancePanel"
-    width: Math.min(700,parent ? parent.width-32 : 700)
-    height: Math.min(650,parent ? parent.height-32 : 650)
-    padding: 24
-    modal: true
-    focus: true
-    closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
     property var draft: ({})
     property string errorText: ""
     function loadDraft() {draft=JSON.parse(JSON.stringify(Theme.colors));errorText=""}
-    onOpened: {Theme.sync();loadDraft()}
-    background: Rectangle {color:Theme.background;radius:Theme.corner;border.width:1;border.color:Theme.border}
-    enter: Transition {enabled:Theme.motionEnabled;ParallelAnimation {NumberAnimation {property:"opacity";from:0;to:1;duration:Theme.duration} NumberAnimation {property:"scale";from:0.97;to:1;duration:Theme.duration;easing.type:Easing.OutCubic}}}
-    exit: Transition {enabled:Theme.motionEnabled;NumberAnimation {property:"opacity";from:1;to:0;duration:Math.min(120,Theme.duration)}}
-    contentItem: ColumnLayout {
+    Component.onCompleted:loadDraft()
+    onVisibleChanged:if(visible)loadDraft()
+    ColumnLayout {
+        anchors.fill:parent
         spacing: 16
-        RowLayout {
-            Layout.fillWidth:true
-            ColumnLayout {
-                spacing:3
-                Label {text:"Appearance";color:Theme.text;font.family:Theme.fontFamily;font.pixelSize:23;font.bold:true}
-                Label {text:"Six dark worlds. Your colors. The whole native interface.";color:Theme.muted;font.pixelSize:12}
-            }
-            Item {Layout.fillWidth:true}
-            ToolButton {id:closeAppearance;objectName:"closeAppearance";text:"×";width:32;height:32;hoverEnabled:true;palette.buttonText:Theme.text;onClicked:panel.close();background:Rectangle {radius:8;color:closeAppearance.hovered?Theme.raised:Theme.surface;border.width:1;border.color:Theme.border}}
-        }
         ScrollView {
             Layout.fillWidth:true;Layout.fillHeight:true;clip:true
             contentWidth:availableWidth
@@ -39,19 +22,19 @@ Popup {
                 spacing:18
                 Label {Layout.fillWidth:true;wrapMode:Text.Wrap;color:Theme.warning;visible:!Theme.persistenceAvailable;text:Theme.persistenceNotice}
                 GridLayout {
-                    columns:2;columnSpacing:10;rowSpacing:10;Layout.fillWidth:true
+                    columns:panel.width>920?3:2;columnSpacing:14;rowSpacing:10;Layout.fillWidth:true
                     Repeater {
                         model:Theme.presets
                         delegate: AbstractButton {
                             id: card
                             objectName:"themePreset_"+modelData.id
-                            Layout.fillWidth:true;implicitHeight:94
-                            hoverEnabled:true;padding:13
+                            Layout.fillWidth:true;implicitHeight:112
+                            hoverEnabled:true;padding:18
                             onClicked:{Theme.choose(modelData.id);panel.loadDraft()}
                             scale:down?0.98:1
                             Behavior on scale {enabled:Theme.motionEnabled;NumberAnimation {duration:Theme.duration;easing.type:Easing.OutCubic}}
                             background: Rectangle {
-                                color:modelData.palette.background;radius:12
+                                color:modelData.palette.background;radius:Theme.corner
                                 border.width:Theme.selectedId===modelData.id?2:1
                                 border.color:Theme.selectedId===modelData.id?modelData.palette.accent:card.hovered?Theme.muted:modelData.palette.border
                             }

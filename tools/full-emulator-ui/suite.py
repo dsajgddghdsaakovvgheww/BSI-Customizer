@@ -1,4 +1,4 @@
-"""VOID OLED Studio 10: full eligible native-QML visual pass, using pinned transactions.
+"""VOID OLED Studio 11: full eligible native-QML visual pass, using pinned transactions.
 No resource scanning occurs on import. Check/Apply/Export are explicit commands.
 """
 import argparse
@@ -63,11 +63,11 @@ def runtime():
             raise RuntimeError('Pinned replacement hook changed; review required.')
         text = text.replace(before, after, 1)
     text = text.replace('Settings now uses the reference shell and contains the VOID Optimizer tab.', 'Settings now uses OLED Studio with live Appearance controls (no optimizer).')
-    text=text.replace('VOID FULL UI V5 — Carbon palette / incremental styling / native session tools; boot logic protected','VOID OLED STUDIO 10 - six dark presets / native UI / no optimizer')
+    text=text.replace('VOID FULL UI V5 — Carbon palette / incremental styling / native session tools; boot logic protected','VOID OLED STUDIO 11 - six dark presets / native UI / no optimizer')
     exec(compile(text, 'pinned-void-ui-engine.py', 'exec'), module.__dict__)
     module.live_names=set()
     module.live_coverage=[]
-    module.remove_optimizer = lambda desired, url: live_theme_sources(module, first_frame_sources(module, without_optimizer(module, desired, url), url), url)
+    module.remove_optimizer = lambda desired, url: native_section_sources(module, live_theme_sources(module, first_frame_sources(module, without_optimizer(module, desired, url), url), url), url)
     module.replacing_ui = False
     module.replacement_state = lambda root, current, owners, url: replacement_state(module, root, current, owners, url)
     packed = module.payload()
@@ -173,7 +173,7 @@ def runtime():
             item = rows.setdefault(row['name'], {})
             item.update(row)
             item.setdefault('status', 'changed' if row['changed'] else 'verified')
-        report['suite'] = 'VOID OLED Studio 10'
+        report['suite'] = 'VOID OLED Studio 11'
         report['live_theme_bindings']=module.live_coverage
         report['theme_presets']=[entry['name'] for entry in json.loads(assets['themes.json'])]
         report['all_ui_runtime_certified'] = False
@@ -447,6 +447,62 @@ def first_frame_sources(module, desired, url):
     return result
 
 
+def native_section_sources(module, desired, url):
+    """Style real page groups in place. Inverse proof retains every original byte.
+    No surrogate input models, Save action or fabricated allocation/FPS values.
+    """
+    result=dict(desired);manager=module.manager();marker='// VOID NATIVE SECTION CARDS 11'
+    for name in module.PAGE_NAMES:
+        if name not in result:continue
+        body=result[name];source=body.decode('utf-8-sig')
+        if marker in source:continue
+        tokens,scopes=manager.scopes_and_bindings(source);edits=[];count=0
+        def identity(scope):
+            span=scope['bindings'].get('id')
+            return tokens[span[0]].text if span and span[1]==span[0]+1 else ''
+        root=next((key for key,value in scopes.items() if value['type']=='Item' and value['parent'] is None),None)
+        if root is None:continue
+        root_id=identity(scopes[root])
+        if not root_id:
+            root_id='voidNativeSectionPageRoot'
+            manager.require(root_id not in source,'Native section id collision: '+name)
+            edits.append((tokens[root].end,tokens[root].end,'\nid:'+root_id+'\n'))
+        content={key for key,value in scopes.items() if value['type']=='UiColumnLayout' and identity(value) in ('iContentLayout','iMainContentLayout')}
+        for opening,scope in scopes.items():
+            if scope['type']!='UiColumnLayout' or scope['parent'] not in content:continue
+            bindings=scope['bindings']
+            # An existing custom background is preserved, not treated as a card.
+            if any(key in bindings for key in ('padding','leftPadding','color','objectName')):continue
+            block='\n'+marker+'\nproperty bool pVoidSectionCard: true\npadding:20\ncolor:VoidLiveTheme.Theme.surface\nradius:VoidLiveTheme.Theme.corner\nborder.width:1\nborder.color:VoidLiveTheme.Theme.border\n'
+            if 'Layout.fillWidth' not in bindings:block+='Layout.fillWidth:true\n'
+            edits.append((tokens[opening].end,tokens[opening].end,block));count+=1
+        if not count:continue
+        for opening in content:
+            span=scopes[opening]['bindings'].get('width')
+            if span:edits.append((tokens[span[0]].start,tokens[span[1]-1].end,'Math.max(0, '+root_id+'.width - 16)'))
+        for opening,scope in scopes.items():
+            if scope['type']!='UiButton':continue
+            span=scope['bindings'].get('text')
+            if span and any(token.kind=='string' and token.text[1:-1]=='Save changes' for token in tokens[span[0]:span[1]]):
+                edits.append((tokens[opening].end,tokens[opening].end,'\nproperty bool pVoidPrimaryAction: true\n'))
+        if name=='UiPerformanceSetting.qml':
+            ids={identity(value) for value in scopes.values()}
+            if {'iFrameRateSlider','iRamCombobox','iCustomRamTextField'}<=ids:
+                edits.append((tokens[root].end,tokens[root].end,'\nreadonly property real pVoidFps:iFrameRateSlider.value\nreadonly property int pVoidRam:(iRamCombobox.currentValue === "*" ? parseInt(iCustomRamTextField.text) : parseInt(iRamCombobox.currentValue)) || 0\n'))
+        after=manager.substitute(source,edits)
+        # Prove no callback/model/validation/source byte was lost under styling.
+        offset=0;inverse=[]
+        for a,b,value in sorted(edits):
+            inverse.append((a+offset,a+offset+len(value),source[a:b]));offset+=len(value)-(b-a)
+        manager.require(manager.substitute(after,inverse)==source,'Native section inverse proof failed: '+name)
+        imported='import '+json.dumps(url)+' as VoidLiveTheme\n'
+        if imported not in after:
+            imports=list(re.finditer(r'^import[^\r\n]*[\r\n]+',after,re.M));at=imports[-1].end();after=after[:at]+imported+after[at:]
+        module.scan(manager,after)
+        result[name]=(('\ufeff' if body.startswith(b'\xef\xbb\xbf') else '')+after).encode('utf-8')
+    return result
+
+
 def configure(design, original):
     if set(design) != {'format', 'name', 'font', 'radius', 'motion', 'durationMs', 'palette'} or design['format'] != 1:
         raise RuntimeError('Unsupported design schema.')
@@ -613,7 +669,7 @@ def main(argv=None):
     module.replacing_ui = '--replace-ui' in argv
     if module.replacing_ui:
         print('REPLACE UI: old UI files/state will be replaced; apps/data and independent helpers are not removed.')
-    print('VOID OLED STUDIO 10 - live native appearance / six presets / custom colors')
+    print('VOID OLED STUDIO 11 - live native appearance / six presets / custom colors')
     if '--export-sources' in argv:
         parser = argparse.ArgumentParser()
         parser.add_argument('--export-sources', type=Path, required=True)

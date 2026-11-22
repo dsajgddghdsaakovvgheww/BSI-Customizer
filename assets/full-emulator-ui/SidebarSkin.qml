@@ -10,6 +10,7 @@ Item {
     property bool scheduled: false
     property int visitedNodes: 0
     property bool initialized: false
+    ThemeRelay {hostWindow:skin.host ? skin.host.Window.window : null}
     function enqueue(item) {
         if (!item) return
         pendingNodes.add(item)

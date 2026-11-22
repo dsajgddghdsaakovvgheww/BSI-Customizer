@@ -162,7 +162,7 @@ Item {
             item.color=Qt.binding(function(){return item.pMouseArea.containsMouse ? Theme.raised : Theme.surface})
             item.border.color=Qt.binding(function(){return item.pMouseArea.containsMouse ? Theme.muted : Theme.border})
             item.border.width=1
-        } else if (stylePanels && /UiColumnLayout|UiRowLayout/.test(name) && item.color !== undefined && item.radius !== undefined && item.color.a > 0.9) {
+        } else if (stylePanels && item.pVoidSectionCard!==true && /UiColumnLayout|UiRowLayout/.test(name) && item.color !== undefined && item.radius !== undefined && item.color.a > 0.9) {
             // Only opaque neutral native layout panels, never game/canvas overlays.
             var c=item.color
             if (Math.max(c.r,c.g,c.b)-Math.min(c.r,c.g,c.b)<0.16 && Math.max(c.r,c.g,c.b)<0.4) {
@@ -179,7 +179,7 @@ Item {
             }
         }
         if (stylePanels && /UiButton/.test(name) && !/UiImageButton/.test(name) && item.pColor)
-            item.pColor=buttonColor.createObject(item)
+            item.pColor=buttonColor.createObject(item,{primary:item.pVoidPrimaryAction===true})
         if (stylePanels && /Text/.test(name) && item.font !== undefined)
             item.font.family=Qt.binding(function(){return Theme.fontFamily})
         if (/UiSlider/.test(name) && item.pSelectedValueText!==undefined && item.pSize && item.pColor) {
@@ -241,24 +241,26 @@ Item {
         property color notice:base.notice !== undefined ? base.notice : Theme.muted
     } }
     Component { id:buttonColor; QtObject {
+        id:buttonPalette
+        property bool primary:false
         property QtObject normal:QtObject {
-            property color background:Theme.surface
+            property color background:buttonPalette.primary?Theme.accent:Theme.surface
             property color borderColor:Theme.border
-            property color textColor:Theme.text
+            property color textColor:buttonPalette.primary?Theme.background:Theme.text
             property color subTextColor:Theme.muted
             property Gradient borderGradient:null
         }
         property QtObject hover:QtObject {
-            property color background:Theme.raised
+            property color background:buttonPalette.primary?Theme.accent_hover:Theme.raised
             property color borderColor:Theme.muted
-            property color textColor:Theme.text
+            property color textColor:buttonPalette.primary?Theme.background:Theme.text
             property color subTextColor:Theme.muted
             property Gradient borderGradient:null
         }
         property QtObject click:QtObject {
-            property color background:Theme.raised
+            property color background:buttonPalette.primary?Theme.accent_hover:Theme.raised
             property color borderColor:Theme.text
-            property color textColor:Theme.text
+            property color textColor:buttonPalette.primary?Theme.background:Theme.text
             property color subTextColor:Theme.muted
             property Gradient borderGradient:null
         }
@@ -340,13 +342,14 @@ Item {
             property var cleanup
             Component.onDestruction: if (cleanup) cleanup()
             property string visualKind
+            readonly property bool primary:control.pVoidPrimaryAction===true
             objectName: "voidReferenceVisualBackground"
             x: targetVisual.x; y: targetVisual.y; width: targetVisual.width; height: targetVisual.height
             z: targetVisual.z + 0.01; visible: targetVisual.visible
             radius: visualKind === "popup" || visualKind === "dialog" ? Theme.corner : Math.max(0,Theme.corner-3)
             gradient: Gradient {
-                GradientStop { position: 0; color: visualKind === "dialog" ? Theme.background : visualKind === "button" ? (control.down ? Theme.raised : control.hovered ? Theme.raised : Theme.surface) : Theme.surface }
-                GradientStop { position: 1; color: visualKind === "dialog" ? Theme.background : visualKind === "button" ? Theme.raised : Theme.surface }
+                GradientStop { position: 0; color: primary ? (control.down?Theme.accent_pressed:control.hovered?Theme.accent_hover:Theme.accent) : visualKind === "dialog" ? Theme.background : visualKind === "button" ? (control.down ? Theme.raised : control.hovered ? Theme.raised : Theme.surface) : Theme.surface }
+                GradientStop { position: 1; color: primary ? (control.down?Theme.accent_pressed:control.hovered?Theme.accent_hover:Theme.accent) : visualKind === "dialog" ? Theme.background : visualKind === "button" ? Theme.raised : Theme.surface }
             }
             border.width: 1; border.color: control.activeFocus ? Theme.accent : control.hovered ? Theme.muted : Theme.border
             opacity: control.enabled === false ? 0.5 : 1
