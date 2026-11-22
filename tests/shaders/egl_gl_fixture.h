@@ -21,6 +21,7 @@ struct State {
     I active=3,depthFunction=0x0203,depthBits=24,framebuffer=0;
     U output=50,readOutput=70;
     I readFramebuffer=0,outputType=0x1702,readOutputType=0x1702;
+    I defaultDrawBuffer=0x0405,defaultReadBuffer=0x0405;
     bool desktop=false,protectionExtension=true,readComplete=true,drawComplete=true;
     bool depth=true,depthWrite=true,blend=false,mips=true,protectedTexture=false,colorWrite=true;
     U next=16;
@@ -46,8 +47,8 @@ inline void WINAPI getInteger(U name,I *out){
     case 0x0b74:*out=g.depthFunction;break;case 0x84e0:*out=0x84c0+g.active;break;
     case 0x8069:*out=I(g.textures.at(std::size_t(g.active)));break;
     case 0x8919:*out=I(g.bindings.at(std::size_t(g.active)));break;
-    case 0x8ca6:*out=g.framebuffer;break;case 0x8825:*out=g.framebuffer?0x8ce0:0x0405;break;
-    case 0x8caa:*out=g.readFramebuffer;break;case 0x0c02:*out=g.readFramebuffer?0x8ce0:0x0405;break;
+    case 0x8ca6:*out=g.framebuffer;break;case 0x8825:*out=g.framebuffer?0x8ce0:g.defaultDrawBuffer;break;
+    case 0x8caa:*out=g.readFramebuffer;break;case 0x0c02:*out=g.readFramebuffer?0x8ce0:g.defaultReadBuffer;break;
     default:*out=0;bad();break;
     }
 }

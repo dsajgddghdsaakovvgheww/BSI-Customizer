@@ -126,9 +126,12 @@ requires explicit review of existing driver LOD/AA overrides, and currently has
 a GL 3.3/GLES 3.1 draw-time path only. No supplied DLL is installed. See
 [exact coverage and resource-provenance limits](TEXTURE-QUALITY-PORTABILITY.md).
 
-**Latest reported result remains not working:** 1,812 OpenGL grading frames;
-3,624 NoSampler inspections; two resource-linked producers inspected, zero
-prepared draws/private bindings and zero qualified recorded transfers. This is
+**Latest reported result remains not working:** 2,107 OpenGL grading frames;
+1,456 NoSampler inspections, zero resource-linked producers inspected/prepared,
+zero private bindings and zero captured transfers, with saved strength 100%.
+The inspected mutable RGB 256x256 image first fails level 1; the
+[native image binding follow-up](POTATO-NATIVE-IMAGE-BINDINGS.md) distinguishes
+a legal non-mip filter and adds a separately tested native pbuffer output route. This is
 not a small Potato effect. Grading activity and saved/armed state are not game
 texture changes. See the [producer and immutable-mip repair evidence](POTATO-MIP-QUALIFICATION.md)
 and [strength/status semantics](POTATO-STRENGTH.md). The reproduced immutable

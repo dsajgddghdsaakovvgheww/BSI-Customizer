@@ -39,6 +39,10 @@ public:
         for(auto &entry:entries_)if(entry.pbuffer==pbuffer){const auto generation=entry.generation;entry={};return generation;}
         return 0;
     }
+    std::uintptr_t generation(std::uintptr_t pbuffer)const{
+        if(pbuffer)for(const auto &entry:entries_)if(entry.pbuffer==pbuffer)return entry.generation;
+        return 0;
+    }
     std::uintptr_t resource(std::uintptr_t dc)const{
         if(dc)for(const auto &entry:entries_)if(entry.dc==dc&&entry.leases)return entry.generation;
         return 0;

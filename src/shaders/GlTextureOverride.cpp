@@ -75,11 +75,11 @@ struct GlTextureOverride::Impl {
     bool immutableFormatQuery=false,immutableLevelsQuery=false,viewLevelsQuery=false;
     GlQualityCapabilities qualityCapabilities;
     I units=0,attachments=0,extensionCount=0,maximumLevel=0;
-    enum class MipRefusal { None, Protection, Range, Dimensions, Format, Incomplete, SingleLevel, Storage, Count };
+    enum class MipRefusal { None, Protection, Range, Dimensions, Format, Incomplete, SingleLevel, Storage, NonMipFilter, Count };
     struct MipInspection {
         MipRefusal refusal=MipRefusal::None;
         I levels=0,base=-1,last=-1,immutable=-1,storage=-1,view=-1,effectiveBase=-1,effectiveLast=-1;
-        I width=-1,height=-1,format=0,failedLevel=-1;
+        I width=-1,height=-1,format=0,failedLevel=-1,filter=0;
     };
     static const char *mipDiagnostic(MipRefusal refusal){
         switch(refusal){
@@ -88,6 +88,7 @@ struct GlTextureOverride::Impl {
         case MipRefusal::Dimensions:return "unqualified base image dimensions";
         case MipRefusal::Format:return "unsupported color internal format";
         case MipRefusal::Incomplete:return "undefined or mismatched REQUIRED mip level";
+        case MipRefusal::NonMipFilter:return "non-mipmapped source minification filter (base image only; missing higher mips are legal)";
         case MipRefusal::SingleLevel:return "only one effective mip level";
         case MipRefusal::Storage:return "unqualified immutable storage/view metadata";
         default:return "qualified mip chain";
@@ -184,8 +185,8 @@ struct GlTextureOverride::Impl {
         GetFramebufferAttachmentParameteriv(0x8ca9,attachment,0x8216,&bits);
         return bits>=16?TextureDepthFailure::None:TextureDepthFailure::InsufficientPrecision;
     }
-    MipInspection inspectMips(){
-        MipInspection result;
+    MipInspection inspectMips(I minimumFilter){
+        MipInspection result;result.filter=minimumFilter;
         const auto refuse=[&](MipRefusal reason){result.refusal=reason;result.levels=0;return result;};
         if(protectedTextures){I secret=1;GetTexParameteriv(texture2d,0x8bfa,&secret);if(secret)return refuse(MipRefusal::Protection);}
         GetTexParameteriv(texture2d,0x813c,&result.base);GetTexParameteriv(texture2d,0x813d,&result.last);
@@ -215,6 +216,10 @@ struct GlTextureOverride::Impl {
         GetTexLevelParameteriv(texture2d,base,0x1003,&result.format);
         if(result.width<64||result.height<64||result.width>16384||result.height>16384)return refuse(MipRefusal::Dimensions);
         if(!colorFormat(result.format))return refuse(MipRefusal::Format);
+        // A non-mipmapped LINEAR/NEAREST sampler legally uses only the base
+        // image, irrespective of stored MAX_LEVEL=1000. Do not falsely call
+        // level 1 REQUIRED, and do not invent mips/blur that compositor input.
+        if(minimumFilter==0x2600||minimumFilter==0x2601)return refuse(MipRefusal::NonMipFilter);
         I width=result.width,height=result.height,levels=1;
         while((width>1||height>1)&&base+levels<=last&&levels<16){
             const auto level=base+levels;result.failedLevel=level;
@@ -298,6 +303,7 @@ bool GlTextureOverride::usage(GlTextureUsage *out){
     if(!mask[0]&&!mask[1]&&!mask[2]&&!mask[3])return false;
     I framebuffer=0,slot=0;g.GetIntegerv(0x8ca6,&framebuffer);out->defaultFramebuffer=framebuffer==0;
     g.GetIntegerv(0x8825,&slot);if(!slot)return false; // DRAW_BUFFER0, legal in GL3/ES3
+    if(out->defaultFramebuffer)out->nativeColorBuffer=g.es?U(slot):slot==0x0405?0x0402u:slot==0x0404?0x0400u:U(slot);
     if(framebuffer&&slot>=0x8ce0&&slot<0x8ce0+g.attachments){
         // Capture only buffer 0, whose mask is known on BOTH APIs. Do not
         // authorize other MRT attachments using buffer 0's indexed mask.
@@ -338,6 +344,20 @@ bool GlTextureOverride::usage(GlTextureUsage *out){
     }
     return true;
 }
+bool GlTextureOverride::textureBinding(GlTextureBinding *out,bool requireColorImage){
+    if(!out)return false;
+    *out={};auto &g=*impl;if(!g.ready)return false;
+    I active=0,texture=0;g.GetIntegerv(0x84e0,&active);g.GetIntegerv(0x8069,&texture);
+    if(active<I(texture0)||active>=I(texture0)+g.units||texture<=0)return false;
+    if(g.protectedTextures){I secret=1;g.GetTexParameteriv(texture2d,0x8bfa,&secret);if(secret)return false;}
+    if(requireColorImage){
+        I base=-1,w=0,h=0,format=0;g.GetTexParameteriv(texture2d,0x813c,&base);if(base!=0)return false;
+        g.GetTexLevelParameteriv(texture2d,0,0x1000,&w);g.GetTexLevelParameteriv(texture2d,0,0x1001,&h);
+        g.GetTexLevelParameteriv(texture2d,0,0x1003,&format);
+        if(w<1||h<1||w>16384||h>16384||!colorFormat(format))return false;
+    }
+    *out={U(active-I(texture0)),U(texture)};return true;
+}
 bool GlTextureOverride::transfer(const GlColorTransfer &call,GlTextureUsage *out){
     if(!out)return false;
     *out={};auto &g=*impl;if(!g.ready||!g.CheckFramebufferStatus)return false;
@@ -360,7 +380,7 @@ bool GlTextureOverride::transfer(const GlColorTransfer &call,GlTextureUsage *out
             // FRONT/BACK_LEFT/RIGHT attachment, not the Draw/ReadBuffer alias.
             const U color=g.es?0x0405:slot==0x0405?0x0402:slot==0x0404?0x0400:U(slot);
             if((g.es&&slot!=0x0405)||(!g.es&&(color<0x0400||color>0x0403))||!normalized(color))return false;
-            *resource=GlColorResource::pbuffer(0);return true;
+            *resource=GlColorResource::pbuffer(0,color);return true;
         }
         if(slot<0x8ce0||slot>=0x8ce0+g.attachments||g.protectedTextures)return false;
         // Core GLES has no binding-free per-attachment protection query. Do
@@ -458,7 +478,8 @@ unsigned GlTextureOverride::begin(TextureQuality mode,bool reviewed,U primitive,
             g.GetIntegerv(0x8069,&texture);g.GetIntegerv(0x8919,&original);
             if(!texture)continue;
             ++bound;if(g.attached(U(texture))){++feedback;continue;}
-            const auto mip=g.inspectMips();const I levels=mip.levels;
+            I minimumFilter=0;g.integer(U(original),0x2801,&minimumFilter);
+            const auto mip=g.inspectMips(minimumFilter);const I levels=mip.levels;
             if(levels<2){
                 if(!noChain)firstMipRefusal=mip;
                 ++noChain;++mipRefusals[static_cast<std::size_t>(mip.refusal)];continue;
@@ -492,10 +513,10 @@ unsigned GlTextureOverride::begin(TextureQuality mode,bool reviewed,U primitive,
         if(noChain){
             const auto count=[&](Impl::MipRefusal why){return mipRefusals[static_cast<std::size_t>(why)];};
             const auto &m=firstMipRefusal;char state[768]{};
-            std::snprintf(state,sizeof(state)," Mip first blockers: protected=%u; range=%u; dimensions=%u; format=%u; incomplete-required-level=%u; single-level=%u; storage-metadata=%u. First: %s; base/max=%d/%d; immutable=%d; storage/view-levels=%d/%d; effective-base/max=%d/%d; size=%dx%d; internal-format=0x%x; failed-level=%d. Unqueried range/dimension fields are -1; internal-format=0 means not inspected.",
+            std::snprintf(state,sizeof(state)," Mip first blockers: protected=%u; range=%u; dimensions=%u; format=%u; incomplete-required-level=%u; single-level=%u; storage-metadata=%u; non-mip-filter=%u. First: %s; base/max=%d/%d; immutable=%d; storage/view-levels=%d/%d; effective-base/max=%d/%d; size=%dx%d; internal-format=0x%x; failed-level=%d; source-min-filter=0x%x. Unqueried range/dimension fields are -1; internal-format=0 means not inspected.",
                 count(Impl::MipRefusal::Protection),count(Impl::MipRefusal::Range),count(Impl::MipRefusal::Dimensions),
-                count(Impl::MipRefusal::Format),count(Impl::MipRefusal::Incomplete),count(Impl::MipRefusal::SingleLevel),count(Impl::MipRefusal::Storage),
-                Impl::mipDiagnostic(m.refusal),m.base,m.last,m.immutable,m.storage,m.view,m.effectiveBase,m.effectiveLast,m.width,m.height,U(m.format),m.failedLevel);
+                count(Impl::MipRefusal::Format),count(Impl::MipRefusal::Incomplete),count(Impl::MipRefusal::SingleLevel),count(Impl::MipRefusal::Storage),count(Impl::MipRefusal::NonMipFilter),
+                Impl::mipDiagnostic(m.refusal),m.base,m.last,m.immutable,m.storage,m.view,m.effectiveBase,m.effectiveLast,m.width,m.height,U(m.format),m.failedLevel,U(m.filter));
             *detail+=state;
         }
     }

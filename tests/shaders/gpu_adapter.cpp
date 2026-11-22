@@ -7,7 +7,11 @@
 // Test-only C bridge to the production pipeline, not a reimplementation.
 namespace {
 std::unique_ptr<BsiShaders::GlPipeline> pipeline;
-std::unique_ptr<BsiShaders::GlTextureOverride> quality;
+std::unique_ptr<BsiShaders::GlTextureOverride> quality,nativeQuality;
+BsiShaders::GlTextureBinding pendingImageBinding;
+bool imageCaptured=false;
+constexpr BsiShaders::GlContextIdentity nativeContext{1,1,2};
+constexpr auto nativePbuffer=BsiShaders::GlColorResource::pbuffer(1000002,0x0405);
 BsiShaders::GlTextureProvenance dependencies;
 constexpr BsiShaders::GlContextIdentity authoredContext{1,1,1};
 constexpr auto authoredPbuffer=BsiShaders::GlColorResource::pbuffer(1000001);
@@ -102,6 +106,33 @@ unsigned bsi_test_dependency_transfer_complete(){
     if(!transferCaptured)return 0;
     transferCaptured=false;return dependencies.observe(authoredContext,pendingTransfer,pendingTransfer.defaultFramebuffer);
 }
+// The real EGL fixture creates a NONSHARING producer context and a native
+// texture-capable pbuffer, calls the actual native bind between these exports,
+// and runs the actual production observers/policy/private draw samplers.
+unsigned bsi_test_native_binding_capture(){imageCaptured=quality->textureBinding(&pendingImageBinding);return imageCaptured;}
+unsigned bsi_test_native_binding_complete(int nativeSuccess){
+    if(!imageCaptured)return 0;
+    imageCaptured=false;
+    BsiShaders::GlTextureBinding now;
+    if(!nativeSuccess||!quality->textureBinding(&now,true)||!(now==pendingImageBinding))return 0;
+    BsiShaders::GlTextureUsage usage;usage.reads[usage.readCount++]=nativePbuffer;usage.writes[usage.writeCount++]=now.texture;
+    return dependencies.observe(authoredContext,usage,false);
+}
+int bsi_test_native_producer_initialize(BsiShaders::ResolveGl resolve,void *user){
+    nativeQuality=std::make_unique<BsiShaders::GlTextureOverride>();std::string error;
+    return nativeQuality->initialize(resolve,user,&error);
+}
+unsigned bsi_test_native_producer_begin(int mode,int strength){
+    BsiShaders::GlTextureUsage usage;
+    if(!nativeQuality->usage(&usage)||!usage.defaultFramebuffer||usage.nativeColorBuffer!=nativePbuffer.colorBuffer)return 0;
+    usage.writes[0]=nativePbuffer;usage.writeCount=1;
+    if(!dependencies.producer(nativeContext,usage))return 0;
+    dependencies.observe(nativeContext,usage,false);std::string detail;
+    return nativeQuality->begin(static_cast<BsiShaders::TextureQuality>(mode),true,4,&detail,nullptr,nullptr,
+                               BsiShaders::TextureDrawPolicy::OwnedMipCompatibility,strength);
+}
+void bsi_test_native_producer_end(){nativeQuality->end();}
+void bsi_test_native_producer_release(){if(nativeQuality)nativeQuality->release();nativeQuality.reset();}
 void bsi_test_quality_end(){quality->end();}
 void bsi_test_quality_release(){if(quality)quality->release();quality.reset();}
 void bsi_test_release(){if(pipeline)pipeline->release();pipeline.reset();}

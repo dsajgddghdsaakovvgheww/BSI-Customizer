@@ -64,6 +64,14 @@ struct Fixture {
         const auto before=count("bsiFixtureTransferCalls");function<void(*)(unsigned,unsigned)>("bsiFixtureTransfer")(copy,alias);
         require(count("bsiFixtureTransferCalls")==before+1&&count("bsiFixtureTransferArgumentsIntact")&&count("bsiFixtureBindingsRestored")&&!count("bsiFixtureInvalidGl"),"native WGL-dispatched copy/resolve runs once with exact arguments and no borrowed sampler/state changes");
     }
+    void nativeTarget(unsigned name){function<void(*)(unsigned)>("bsiFixtureNativeTextureTarget")(name);}
+    void bindImage(void *p,BOOL expected=TRUE,int buffer=0x2083){
+        const auto bind=proc<BOOL(WINAPI*)(void*,int)>("wglBindTexImageARB");const auto before=count("bsiFixtureImageBinds");
+        SetLastError(0x667788);const auto result=bind(p,buffer);const auto nativeError=GetLastError();
+        require(result==expected&&nativeError==0x1a2b3c&&count("bsiFixtureImageBinds")==before+1,
+                "native wglBindTexImageARB forwards original pbuffer/buffer once, native return and Win32 LastError unchanged");
+        require(count("bsiFixtureBindingsRestored")&&!count("bsiFixtureInvalidGl"),"native binding observation cannot borrow samplers/change active unit");
+    }
     void remove(HGLRC context){require(function<BOOL(WINAPI*)(HGLRC)>("wglDeleteContext")(context)!=FALSE,"native WGL context teardown");}
 };
 }
@@ -133,6 +141,27 @@ int main(int argc,char **argv){
     for(unsigned alias=0;alias<4;++alias){f.transferState(2,70);f.transfer(false,alias);}
     f.resource(3,70);f.draw(2);
     require(runtime.metrics().textureTransferCalls==4&&runtime.metrics().textureTransferInputs==4&&runtime.metrics().textureProducerDraws==1,"desktop core/EXT/ANGLE/NV transfer detours follow a typed renderbuffer resolve, then override its material draw");
+    // Render-to-texture binds the pbuffer image without a GL copy. Unlike GL
+    // names, the observed native lifetime/color buffer is exact across separate
+    // namespaces. Keep unknown/FBO/share-group-only routes rejected above.
+    const auto nativeScene=f.context(gameDc);require(nativeScene!=nullptr,"independent nonsharing native pbuffer renderer");
+    consume();f.nativeTarget(50);f.bindImage(pb);
+    require(runtime.metrics().textureTransferCalls==1&&runtime.metrics().textureTransferInputs==1,
+            "successful native WGL image binding publishes an exact pbuffer-color -> consumed-texture link");
+    f.current(pbDc,nativeScene);f.resource(4);f.draw(2);f.resource(2,50);f.draw(0);
+    require(runtime.metrics().textureProducerDraws==1,"nonsharing renderer can write the exact native default output, but never inherits texture/RBO names from the consumer");
+    for(unsigned flags:{32u,64u,128u,256u,512u}){
+        consume();f.nativeTarget(50);f.failures(flags);f.bindImage(pb,flags==32?FALSE:TRUE);f.failures(0);
+        f.current(pbDc,nativeScene);f.resource(4);f.draw(0);
+        require(!runtime.metrics().textureTransferCalls&&!runtime.metrics().textureProducerDraws,
+                "failed native bind/query, cubemap/noncolor and nonzero mip cannot create image-binding evidence");
+    }
+    consume();f.nativeTarget(50);f.bindImage(pb,TRUE,0x2085); // BACK_LEFT, not this single-buffer pbuffer's FRONT_LEFT
+    f.current(pbDc,nativeScene);f.resource(4);f.draw(0);
+    require(!runtime.metrics().textureProducerDraws,"different FRONT/BACK color buffers of the SAME native pbuffer are not the same output");
+    consume();f.nativeTarget(50);f.bindImage(unknownRead);f.bindImage(pb,FALSE,0);
+    require(!runtime.metrics().textureTransferCalls,"unobserved pbuffer lifetime/unsupported buffer cannot publish an image link");
+    consume();f.nativeTarget(50);f.bindImage(pb);f.current(pbDc,nativeScene);f.resource(4);f.draw(2);
     f.current(gameDc,presenter);for(unsigned i=0;i<3;++i)f.swap(gameDc);
     f.current(pbDc,scene);f.resource(3,70);f.draw(0);
     runtime.setTexture({false,true,TextureDrawPolicy::OwnedMipCompatibility});f.draw(0);
@@ -140,7 +169,7 @@ int main(int argc,char **argv){
     runtime.setTexture({true,true,TextureDrawPolicy::OwnedMipCompatibility});f.current(gameDc,presenter);f.resource(1);f.draw(0);
     f.remove(presenter);f.current(pbDc,scene);f.resource(2);f.draw(0);
     require(!runtime.metrics().observed&&!runtime.metrics().textureInspected,"presenter destruction revokes WGL pbuffer producers; none may select presentation from a draw");
-    f.current(nullptr,nullptr);f.remove(scene);f.remove(isolated);f.destroy(pb);f.destroy(hidden);f.destroy(reused);f.destroy(readPb);f.destroy(unknownRead);
+    f.current(nullptr,nullptr);f.remove(scene);f.remove(isolated);f.remove(nativeScene);f.destroy(pb);f.destroy(hidden);f.destroy(reused);f.destroy(readPb);f.destroy(unknownRead);
     runtime.setTexture({});runtime.stop();
     require(!f.count("bsiFixtureInvalidGl"),"no optional GL query/state failure in WGL fixture");
     ReleaseDC(game,gameDc);ReleaseDC(foreign,foreignDc);ReleaseDC(ui,uiDc);DestroyWindow(ui);DestroyWindow(foreign);DestroyWindow(game);DestroyWindow(root);UnregisterClassW(cls.lpszClassName,cls.hInstance);

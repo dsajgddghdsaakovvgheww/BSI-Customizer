@@ -11,13 +11,13 @@ int main(){
     WglPbufferRegistry p;
     require(!p.resource(100)&&!p.acquired(0,100)&&!p.acquired(1,0),"unknown/null DCs are not inferred to be pbuffers");
     require(p.acquired(1,100),"successful native acquisition records exactly that pbuffer/DC");
-    const auto first=p.resource(100);require(first!=0&&!p.resource(101),"no neighboring/unknown DC adoption");
+    const auto first=p.resource(100);require(first!=0&&p.generation(1)==first&&!p.generation(0)&&!p.generation(2)&&!p.resource(101),"no neighboring/unknown DC adoption");
     require(p.acquired(1,100)&&p.resource(100)==first,"repeated successful gets retain the same framebuffer generation");
     require(p.released(1,100)&&p.resource(100)==first,"one release cannot revoke another live native DC lease");
     require(!p.released(2,100)&&!p.released(1,101)&&p.resource(100)==first,"wrong-handle/DC releases do not affect a live route");
-    require(p.released(1,100)&&!p.resource(100),"last release excludes all draws on that DC until another observed get");
+    require(p.released(1,100)&&!p.resource(100)&&p.generation(1)==first,"last release excludes all draws on that DC until another observed get");
     require(p.acquired(1,101)&&p.resource(101)==first&&!p.resource(100),"refreshing a released DC preserves pbuffer storage identity, not the stale HDC");
-    require(p.destroyed(1)==first&&!p.resource(101),"destruction revokes even outstanding leases and returns the retired generation");
+    require(p.destroyed(1)==first&&!p.resource(101)&&!p.generation(1),"destruction revokes even outstanding leases and returns the retired generation");
     require(p.acquired(1,101)&&p.resource(101)!=first,"reusing BOTH native handles must still get a fresh generation");
     const auto reused=p.resource(101);
     require(!p.acquired(2,101)&&!p.resource(101),"ambiguous DC reuse without release revokes the old mapping rather than guessing");

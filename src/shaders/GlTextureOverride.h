@@ -10,7 +10,9 @@ namespace BsiShaders {
 // must first prove the CURRENT drawable belongs to the selected owned game
 // presentation, OR prove the current color-FBO/known-native-pbuffer output is a
 // recent presentation dependency (possibly via an observed copy/resolve) in
-// the same/explicitly shared object namespace.
+// the same/explicitly shared object namespace, or its exact native pbuffer
+// lifetime/color buffer is linked by a successful native image binding/copy.
+// That native output does not merge GL object namespaces.
 // Sharing, a loaded provider or equal numeric texture names alone never prove
 // ownership. Foreign window routes remain excluded. No source object is edited.
 // GL 3.3 / GLES 3.1, opaque triangle draws, ordinary sampler2D uniforms and
@@ -22,6 +24,10 @@ namespace BsiShaders {
 // data maps cannot be distinguished from albedo by format alone.
 // Desktop GL uses a queried, bounded private LOD bias plus floor; GLES retains
 // its floor-only policy and never queries/writes desktop bias.
+struct GlTextureBinding {
+    unsigned unit=0,texture=0;
+    bool operator==(const GlTextureBinding &other)const{return unit==other.unit&&texture==other.texture;}
+};
 class GlTextureOverride {
 public:
     GlTextureOverride();
@@ -39,6 +45,11 @@ public:
     // Pbuffer placeholder which MUST be natively qualified before observation.
     // No proof is published until AFTER the unmodified original returns.
     bool transfer(const GlColorTransfer &call,GlTextureUsage *out);
+    // Native render-to-texture defines the CURRENT ordinary 2D binding. Capture
+    // its name/unit before the native call (the image can still be undefined),
+    // then require the SAME binding and a defined unprotected normalized color
+    // image after native SUCCESS. No binding, parameter, pixel or error change.
+    bool textureBinding(GlTextureBinding *out,bool requireColorImage=false);
     // Returns the number of bindings temporarily replaced for this draw.
     // Call end() AFTER the original draw; begin() already restores ACTIVE_TEXTURE
     // and rolls back every binding before propagating an inspection exception.

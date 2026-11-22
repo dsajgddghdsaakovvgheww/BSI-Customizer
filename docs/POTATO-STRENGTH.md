@@ -2,16 +2,18 @@
 
 ## What the installed status means
 
-The latest supplied game report has **3,624 NoSampler inspections, two linked
-producer inspections and zero prepared draws/private bindings**. That is **no
-applied Potato texture reduction**, not a small/weak effect. The 1,812 processed
-frames refer to independent presentation grading. Neither those frames nor an
+The latest supplied game report has **1,456 NoSampler inspections, zero linked
+producer inspections and zero prepared draws/private bindings**, at a saved
+**100%**. That is **no applied Potato texture reduction**, not a small/weak
+effect. The 2,107 processed frames refer to independent presentation grading. Neither those frames nor an
 armed/saved switch establishes changed game textures.
 
 The [immutable mip/view repair](POTATO-MIP-QUALIFICATION.md) independently fixes
 an incorrect rejection and passes real desktop/GLES storage/view pixels. It is
-not yet established as the cause of the game's two producer refusals. Increasing
-strength cannot make an unsupported or unqualified resource eligible.
+not established as this game's cause: the newer inspected image is mutable
+RGB 256x256 and first fails level 1. The [native image binding follow-up](POTATO-NATIVE-IMAGE-BINDINGS.md)
+distinguishes legal non-mipmapped sampling and adds a separately reproduced
+native output path. Increasing strength cannot make a rejected resource eligible.
 
 ## Control and saved behavior
 

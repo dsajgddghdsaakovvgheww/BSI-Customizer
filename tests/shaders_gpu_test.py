@@ -182,6 +182,10 @@ def main():
             from shaders.texture_quality_gl_pixels import exercise
             exercise(gl, core, desktop, SIZE, resolver)
             assert get_error() == 0
+            if not desktop:
+                from shaders.native_texture_binding_gl_pixels import exercise as native_image_pixels
+                native_image_pixels(gl, core, resolver, native, display, context, surface, make_current, SIZE)
+                assert get_error() == 0
     make_current(display, None, None, None)
     native("eglDestroySurface", U, P, P)(display, surface)
     native("eglDestroyContext", U, P, P)(display, context)

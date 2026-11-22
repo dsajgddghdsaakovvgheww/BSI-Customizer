@@ -1,6 +1,33 @@
 # Free Fire: host presentation is not scene-texture capture
 
-## Latest installed-player follow-up: 3,622 inputs, two producers, zero replacements
+## Latest installed-player follow-up: mutable RGB level 1 refusal, zero producers
+
+The saved-strength candidate reports **2,107 grading frames, 1,456 sampler
+inspections/all NoSampler and 1,456 presentation-input draws/bindings**, with
+**zero prepared bindings/draws, zero linked producer inspections and zero
+captured color transfers**. Saved strength is 100%, review passed; depth/blend/
+other/nested bypasses are zero. Observed/configured host API is OpenGL, Qt is
+5.15.2/5.15.4 and Vulkan still has no WSI surfaces/swapchains/presents.
+
+The inspected image is now specifically **mutable RGB 0x1907, 256x256,
+base/max=0/1000, failed-level=1**. The old inspector says that required image is
+undefined/mismatched, but queried completeness **before the effective sampler
+filter**. Thus it cannot distinguish a legal non-mipmapped base-only image from
+a genuinely incomplete mip-filtered resource. It is not the immutable-storage
+bug repaired previously. Neither that image nor an increased strength justifies
+inventing mipmaps or reducing the finished presentation image.
+
+**Texture Potato is still not working, not working a little.** The
+[native-image binding follow-up](POTATO-NATIVE-IMAGE-BINDINGS.md) fixes this
+misleading classifier detail and independently reproduces/implements another
+missing upstream route: successful native pbuffer render-to-texture bindings
+without GL copies/blits. Exact native lifetime/color-output links can reach a
+nonsharing renderer without merging its GL texture/RBO names. The actual game
+is not diagnosed as using this path; no unsupported/foreign/protected route is
+adopted just to raise counters, and no repeated Save/gameplay prerequisite is
+being substituted for a production repair.
+
+## Previous installed-player follow-up: 3,622 inputs, two producers, zero replacements
 
 After the `ab8b27e` native-pbuffer/color-transfer candidate the user again reports
 that the original DLL works while our Potato does not:

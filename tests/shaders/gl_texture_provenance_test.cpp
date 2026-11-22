@@ -108,8 +108,14 @@ int main(){
                 "neither known pbuffer nor same numeric renderbuffer/texture name is an upstream producer without a transfer");
         require(p.observe(presenter,copy,false)==1&&p.producer(presenter,pbufferDraw),
                 "an observed copy of the exact default-pbuffer output into a consumed texture reaches its material producer");
-        require(!p.producer(presenter,usage(true,{1},{GlColorResource::pbuffer(801)}))&&!p.producer(unknown,pbufferDraw),
-                "another pbuffer lifetime and an unrelated namespace never inherit an observed copy's proof");
+        require(!p.producer(presenter,usage(true,{1},{GlColorResource::pbuffer(801)}))
+                &&!p.producer({2,10,300},pbufferDraw)&&!p.producer({1,11,300},pbufferDraw),
+                "another pbuffer lifetime, provider or display never inherits an observed native output link");
+        require(p.hasNativePbuffer(unknown,800)&&p.producer(unknown,pbufferDraw)&&!p.known(unknown),
+                "an exact native pbuffer output is not a GL object name: a real copy/binding reaches its nonsharing renderer without a guessed namespace merge");
+        require(p.observe(unknown,pbufferDraw,false)==2&&p.known(unknown)
+                &&p.producer(unknown,usage(false,{3},{1}))&&!p.producer(presenter,usage(false,{3},{1})),
+                "material inputs inherited from a proven native output stay in the producer's SEPARATE namespace");
         p.observe(presenter,usage(false,{rb},{50}),false);
         require(p.producer(presenter,usage(false,{1},{rb})),"texture/RBO resolves cross typed resources, not global numeric names");
         unsigned unrelated=800;p.deleted(1,1,&unrelated);
@@ -120,6 +126,21 @@ int main(){
         p.observe(presenter,composite,true);p.observe(presenter,usage(false,{rb},{50}),false);
         unsigned name=50;p.deleted(1,1,&name,GlColorResource::Renderbuffer);
         require(!p.producer(presenter,scene),"renderbuffer deletion is separately tracked and invalidates inherited resolve ancestors");
+    }
+    {
+        GlTextureProvenance p;p.synchronize(123,1);p.observe(presenter,composite,true);
+        const auto front=GlColorResource::pbuffer(800,0x0400),back=GlColorResource::pbuffer(800,0x0402);
+        require(!p.hasNativeOutput(unknown,front)&&!p.hasNativePbuffer(unknown,800),"native lifetime alone cannot create provenance");
+        require(p.observe(presenter,usage(false,{front},{50}),false)==1,"successful native image binding of the consumed texture records its exact source buffer");
+        require(p.hasNativeOutput(unknown,front)&&!p.hasNativeOutput(unknown,back)
+                &&p.producer(unknown,usage(true,{1},{front}))&&!p.producer(unknown,usage(true,{1},{back})),
+                "front/back color aspects of the SAME pbuffer remain different dependencies");
+        p.observe(unknown,usage(true,{1},{front}),false);
+        p.nextFrame();p.observe(unknown,usage(true,{1},{front}),false);p.nextFrame();p.nextFrame();
+        require(!p.hasNativeOutput(unknown,front)&&!p.producer(unknown,usage(false,{2},{1})),
+                "nonsharing native producer cannot renew either its pbuffer or inherited material-input TTL");
+        p.observe(presenter,composite,true);p.observe(presenter,usage(false,{front},{50}),false);
+        p.synchronize(123,2);require(!p.hasNativeOutput(unknown,front),"a settings/source revision revokes native bindings too");
     }
     std::puts("PASS: actual-consumer -> same/explicit-share typed texture/RBO/pbuffer producer dependency, observed color transfers not share-group guessing; TTL/hop/capacity bounds, unrelated providers/displays/contexts/outputs, revision/source/resource teardown and handle reuse");
     std::puts("LIMIT: resource-policy unit fixture, not installed-game pixels or physical-driver certification");

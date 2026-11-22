@@ -72,6 +72,14 @@ struct Fixture {
                 "each native color copy/resolve runs exactly once with all original arguments, no private samplers and unchanged active/binding state");
     }
     void onTransfer(void(WINAPI *callback)()){function<void(*)(void(WINAPI*)())>("bsiFixtureOnTransfer")(callback);}
+    void nativeTarget(unsigned name){function<void(*)(unsigned)>("bsiFixtureNativeTextureTarget")(name);}
+    void bindingFailures(unsigned flags){function<void(*)(unsigned)>("bsiFixtureImageBindingFailures")(flags);}
+    void bindImage(void *surface,unsigned expected=1,int buffer=0x3084){
+        const auto before=count("bsiFixtureImageBinds");
+        require(function<unsigned(WINAPI*)(void*,void*,int)>("eglBindTexImage")(display,surface,buffer)==expected
+                &&count("bsiFixtureImageBinds")==before+1,"native eglBindTexImage forwards the exact pbuffer/buffer once and preserves SUCCESS/FAILURE");
+        require(count("bsiFixtureBindingsRestored")&&!count("bsiFixtureInvalidGl"),"native image observation never borrows a sampler or changes active state");
+    }
     LONG count(const char *name="bsiFixtureSwapCalls"){return function<LONG(*)()>(name)();}
     void swap(void *surface){
         const auto before=count();require(function<unsigned(WINAPI*)(void*,void*)>("eglSwapBuffers")(display,surface)!=0,"original EGL presentation succeeds");
@@ -108,6 +116,7 @@ void WINAPI transferProbe(){
     require(runtime.metrics().textureTransferCalls==unpublishedTransferCalls,"resource transfer evidence is not published before its original returns");
     if(transferProbeMode==1){runtime.setTexture({false,true,TextureDrawPolicy::OwnedMipCompatibility});runtime.setTexture({true,true,TextureDrawPolicy::OwnedMipCompatibility});}
     if(transferProbeMode==2)transferFixture->deleteTexture(50);
+    if(transferProbeMode==3)transferFixture->nativeTarget(51);
 }
 }
 int main(int argc,char **argv){
@@ -395,6 +404,45 @@ int main(int argc,char **argv){
     consume();b.transferState(0,0);unpublishedTransferCalls=0;transferProbeMode=2;b.onTransfer(transferProbe);b.transfer(true);b.onTransfer(nullptr);
     b.resource(4);b.draw(GlDrawKind::Arrays,0,0);
     require(!runtime.metrics().textureTransferCalls&&!runtime.metrics().textureProducerDraws,"a native texture deletion INSIDE the original rejects a stale transfer/resource serial without blocking that original");
+    // An actual native image binding is neither a GL copy nor a shared
+    // object-name guess. It reaches the same native pbuffer's material draw
+    // even in an explicitly ISOLATED GL namespace; texture inputs remain local.
+    const auto nativeConsume=[&]{
+        runtime.setTexture({false,true,TextureDrawPolicy::OwnedMipCompatibility});
+        runtime.setTexture({true,true,TextureDrawPolicy::OwnedMipCompatibility});
+        b.current(secondTarget,second);b.resource(1);b.draw(GlDrawKind::Arrays,0,0);b.nativeTarget(50);
+    };
+    nativeConsume();b.current(offscreen,isolated);b.resource(4);b.draw(GlDrawKind::Arrays,0,0);
+    require(!runtime.metrics().textureProducerInspected,"native pbuffer existence with an isolated namespace is not ownership without the consumed image binding");
+    b.current(secondTarget,second);b.resource(1);b.nativeTarget(50);
+    unpublishedTransferCalls=0;transferProbeMode=0;b.onTransfer(transferProbe);b.bindImage(offscreen);b.onTransfer(nullptr);
+    require(runtime.metrics().textureTransferCalls==1&&runtime.metrics().textureTransferInputs==1
+            &&!runtime.metrics().textureProducerDraws,"successful native binding publishes its link AFTER the original, no fabricated material preparation");
+    b.current(offscreen,isolated);b.resource(4);b.draw();
+    require(runtime.metrics().textureProducerDraws==1&&runtime.metrics().textureProducerBindings==2,
+            "exact native-image output reaches a NONSHARING pbuffer renderer with private samplers INSIDE its original; no global object namespace merge");
+    b.resource(2,50);b.draw(GlDrawKind::Arrays,0,0);
+    require(runtime.metrics().textureProducerDraws==1,"a native output link cannot turn equal texture names in the isolated namespace into shared FBO resources");
+    for(unsigned flags:{1u,2u,4u,8u,16u}){
+        nativeConsume();b.bindingFailures(flags);b.bindImage(offscreen,flags==1?0:1);b.bindingFailures(0);
+        b.current(offscreen,isolated);b.resource(4);b.draw(GlDrawKind::Arrays,0,0);
+        require(!runtime.metrics().textureTransferCalls&&!runtime.metrics().textureProducerDraws,
+                "failed native bind/query, non-2D/non-color image and nonzero mip level cannot publish native output ownership");
+    }
+    nativeConsume();b.bindImage(unknownPbuffer);b.bindImage(protectedPbuffer);b.bindImage(offscreen,0,0);
+    require(!runtime.metrics().textureTransferCalls,"unobserved/protected pbuffers and unsupported buffer arguments do not become resource links");
+    for(unsigned probe:{1u,2u,3u}){
+        nativeConsume();unpublishedTransferCalls=0;transferProbeMode=probe;b.onTransfer(transferProbe);b.bindImage(offscreen);b.onTransfer(nullptr);
+        require(!runtime.metrics().textureTransferCalls,"settings revision, texture retirement or a different bound target INSIDE native binding rejects stale capture without holding renderMutex");
+    }
+    nativeConsume();b.bindImage(readPbuffer);
+    b.current(offscreen,isolated);b.resource(4);b.draw(GlDrawKind::Arrays,0,0);
+    b.current(readPbuffer,isolated);b.resource(4);b.draw();
+    require(runtime.metrics().textureProducerDraws==1,"native binding selects the EXACT pbuffer lifetime, not another known drawable in its context");
+    b.current(secondTarget,second);for(unsigned i=0;i<3;++i)b.swap(secondTarget);
+    b.current(readPbuffer,isolated);b.resource(4);b.draw(GlDrawKind::Arrays,0,0);
+    require(runtime.metrics().textureProducerDraws==1,"native image links inherit the consumer TTL and cannot keep a nonsharing producer authorized forever");
+
     // Percentage must traverse Runtime -> route snapshot -> REAL draw detour
     // -> bound private sampler. The original independently expects these floors.
     b.current(secondTarget,second);b.resource(0);b.scene(0);

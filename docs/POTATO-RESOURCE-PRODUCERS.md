@@ -1,5 +1,16 @@
 # Potato: resource-linked color-FBO producers
 
+## Newest installed result and native-image follow-up
+
+The saved-strength candidate still has **2,107 grading frames / 1,456 NoSampler /
+zero prepared bindings, linked producer inspections or captured transfers**.
+Its inspected image is mutable RGB 256x256, first refused at level 1; the prior
+immutable repair is not its diagnosis. The [native image binding follow-up](POTATO-NATIVE-IMAGE-BINDINGS.md)
+corrects effective-filter reporting and adds actual successful render-to-texture
+links without a GL copy/blit. Native lifetime/color links can cross nonsharing
+contexts without merging their GL object names. The older evidence/limits below
+remain historical, not a claim that the new game result worked.
+
 ## Latest result and follow-up
 
 After the subsequent `ab8b27e` transfer/pbuffer candidate the latest game report

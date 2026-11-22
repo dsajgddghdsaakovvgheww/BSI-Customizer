@@ -42,7 +42,10 @@ using WglCreateAttributes=HGLRC(WINAPI*)(HDC,HGLRC,const int*);
 using WglPbufferGet=HDC(WINAPI*)(void*);
 using WglPbufferRelease=int(WINAPI*)(void*,HDC);
 using WglPbufferDestroy=BOOL(WINAPI*)(void*);
+using WglBindTexture=BOOL(WINAPI*)(void*,int);
+using WglPbufferQuery=BOOL(WINAPI*)(void*,int,int*);
 using EglSwap=unsigned(WINAPI*)(void*,void*);
+using EglBindTexture=unsigned(WINAPI*)(void*,void*,int);
 using EglCreate=void*(WINAPI*)(void*,void*,void*,const int*);
 using EglPlatformCreate=void*(WINAPI*)(void*,void*,void*,const std::intptr_t*);
 using EglPbufferCreate=void*(WINAPI*)(void*,void*,const int*);
@@ -59,7 +62,7 @@ using DrawableKey=std::pair<std::uintptr_t,std::uintptr_t>; // display + surface
 using ContextKey=std::tuple<unsigned,std::uintptr_t,std::uintptr_t>; // provider + display + context
 struct EglProvider {
     HMODULE module=nullptr;
-    EglSwap swap=nullptr;EglCreate create=nullptr,createPlatformExt=nullptr,createContext=nullptr;
+    EglSwap swap=nullptr;EglBindTexture bindTexture=nullptr;EglCreate create=nullptr,createPlatformExt=nullptr,createContext=nullptr;
     EglPlatformCreate createPlatform=nullptr;EglPbufferCreate createPbuffer=nullptr;
     EglDestroy destroySurface=nullptr,destroyContext=nullptr;
     EglCurrent current=nullptr,currentDisplay=nullptr;EglCurrentSurface currentSurface=nullptr;
@@ -100,7 +103,7 @@ struct Hooks {
     std::uint64_t drainedResourceSerial=0; // renderMutex: evidence includes events only through this serial
     std::array<DrawHook,12> textureDeletes{},renderbufferDeletes{};
     std::array<DrawHook,32> blits{},copies{};
-    std::array<DrawHook,16> attributedCreates{},pbufferGets{},pbufferReleases{},pbufferDestroys{};
+    std::array<DrawHook,16> attributedCreates{},pbufferGets{},pbufferReleases{},pbufferDestroys{},pbufferBinds{};
     WglPbufferRegistry wglPbuffers;
     std::array<EglProvider,maximumEglProviders> egl;
     unsigned eglCount=0;
@@ -257,7 +260,7 @@ struct GameCandidate {
         identity={provider,drawable.first,context};pbuffer=pbufferFor(provider,drawable);
         const auto &quality=route.configuration;
         if(!exact&&(quality.drawPolicy!=TextureDrawPolicy::OwnedMipCompatibility||!quality.externalOverridesReviewed
-           ||!source->resourceHooks||!h.provenance.hasDependencies(identity)
+           ||!source->resourceHooks||(!h.provenance.hasDependencies(identity)&&!h.provenance.hasNativePbuffer(identity,pbuffer))
            ||(!pbuffer&&(!window||window!=source->window))))return false;
         egl=provider?&h.egl[provider-1]:nullptr;
         if(egl&&!unprotectedEgl(*egl,drawable,context,&protectionPossible))return false;
@@ -279,7 +282,7 @@ struct GameCandidate {
     }
     bool qualifyOutput(GlTextureUsage &usage)const{
         if(!usage.defaultFramebuffer)return true;
-        if(pbuffer){usage.writes[0]=GlColorResource::pbuffer(pbuffer);usage.writeCount=1;return true;}
+        if(pbuffer){usage.writes[0]=GlColorResource::pbuffer(pbuffer,usage.nativeColorBuffer);usage.writeCount=1;return true;}
         if(exact){usage.writeCount=0;return true;} // selected default output can seed a root, not a pbuffer identity
         return false;
     }
@@ -287,7 +290,7 @@ struct GameCandidate {
         for(std::size_t i=0;i<usage.readCount;++i)if(usage.reads[i].kind==GlColorResource::Pbuffer){
             DrawableKey read{};drawableFor(provider,&read,true);const auto resource=pbufferFor(provider,read);
             if(!resource||(egl&&!unprotectedEgl(*egl,read,context,nullptr,true)))return false;
-            usage.reads[i]=GlColorResource::pbuffer(resource);
+            usage.reads[i]=GlColorResource::pbuffer(resource,usage.reads[i].colorBuffer);
         }
         for(std::size_t i=0;i<usage.readCount;++i)for(std::size_t j=0;j<usage.writeCount;++j)
             if(usage.reads[i]==usage.writes[j])return false;
@@ -415,6 +418,65 @@ struct GameTransfer {
     }
     ~GameTransfer(){--depth;}
 };
+// Successful native render-to-texture is a resource link without a GL
+// copy/blit. The native pbuffer lifetime + color aspect is explicit, NOT an
+// inferred GL share group. Hold no render lock, session pointer or sampler
+// lease across that original. Nothing is published on a failed native call.
+struct GameImageBinding {
+    GlDrawScope scope;
+    inline static thread_local unsigned depth=0;
+    const bool outer;
+    GlContextIdentity identity{};DrawableKey drawable{};
+    GlColorResource source{};GlTextureBinding binding{};
+    std::uint64_t revision=0,serial=0;std::uintptr_t object=0;
+    bool captured=false;
+    GameImageBinding(unsigned provider,GlColorResource nativeSource)noexcept
+        :scope(hooks().renderMutex,presenting),outer(++depth==1),source(nativeSource){
+        try{
+            auto &h=hooks();auto &runtime=Runtime::instance();
+            if(!source||source.kind!=GlColorResource::Pbuffer||!source.colorBuffer||!outer||!scope.mayInspect()
+               ||h.stopping.load()||!runtime.texture().active()||!scope.tryLock())return;
+            drainResources();const auto route=runtime.textureRoute();const auto &quality=route.configuration;
+            h.provenance.synchronize(route.object,route.revision);
+            if(quality.active()&&quality.externalOverridesReviewed&&quality.drawPolicy==TextureDrawPolicy::OwnedMipCompatibility
+               &&route.object&&runtime.eligible(route.window)&&h.drainedResourceSerial==h.resourceSerial.load()){
+                GameCandidate candidate;
+                if(candidate.find(provider,route)){
+                    scope.guardInspection();std::string detail;
+                    if(candidate.initialize(&detail)){
+                        auto &session=*candidate.session;
+                        if(!session.resourceHooks)session.resourceHooks=installResourceHooks(provider,candidate.egl);
+                        serial=h.drainedResourceSerial;
+                        if(session.resourceHooks&&session.potato.textureBinding(&binding)&&serial==h.resourceSerial.load()){
+                            identity=candidate.identity;drawable=candidate.drawable;
+                            revision=route.revision;object=route.object;captured=true;
+                        }
+                    }
+                }
+            }
+        }catch(...){} // Native rendering always continues unchanged.
+        scope.releaseBypass();
+    }
+    void complete()noexcept{
+        if(!captured)return;
+        try{
+            auto &h=hooks();if(h.stopping.load()||serial!=h.resourceSerial.load())return;
+            std::unique_lock<std::mutex> lock(h.renderMutex,std::try_to_lock);if(!lock.owns_lock())return;
+            drainResources();if(serial!=h.resourceSerial.load())return;
+            auto &runtime=Runtime::instance();const auto route=runtime.textureRoute();
+            if(route.object!=object||route.revision!=revision||!route.configuration.active()||!runtime.eligible(route.window))return;
+            GameCandidate candidate;
+            if(!candidate.find(identity.provider,route)||!(candidate.identity==identity)||candidate.drawable!=drawable)return;
+            GlTextureBinding now;
+            if(!candidate.session->potato.textureBinding(&now,true)||!(now==binding)||serial!=h.resourceSerial.load())return;
+            GlTextureUsage usage;usage.reads[usage.readCount++]=source;usage.writes[usage.writeCount++]=binding.texture;
+            if(!candidate.exact&&!h.provenance.producer(identity,usage))return;
+            const auto inputs=h.provenance.observe(identity,usage,candidate.exact);
+            runtime.textureTransferReport(inputs,revision);
+        }catch(...){} // No metadata exception crosses the native ABI.
+    }
+    ~GameImageBinding(){--depth;}
+};
 // Preserve every argument and call the original once, including bypasses.
 // The RAII guard brackets a whole multi/indirect API call; it never reads or
 // rewrites a CPU/GPU command buffer, index offset, instance count or base vertex.
@@ -531,9 +593,32 @@ template<unsigned Index> BOOL WINAPI destroyPbuffer(void *pbuffer){
 template<std::size_t... Index> auto pbufferGetCallbacks(std::index_sequence<Index...>){return std::array<void*,sizeof...(Index)>{{reinterpret_cast<void*>(&getPbufferDc<Index>)...}};}
 template<std::size_t... Index> auto pbufferReleaseCallbacks(std::index_sequence<Index...>){return std::array<void*,sizeof...(Index)>{{reinterpret_cast<void*>(&releasePbufferDc<Index>)...}};}
 template<std::size_t... Index> auto pbufferDestroyCallbacks(std::index_sequence<Index...>){return std::array<void*,sizeof...(Index)>{{reinterpret_cast<void*>(&destroyPbuffer<Index>)...}};}
+template<unsigned Index> BOOL WINAPI bindPbufferTexture(void *pbuffer,int buffer){
+    const auto incoming=GetLastError();auto &h=hooks();auto &entry=h.pbufferBinds[Index];
+    std::uintptr_t generation=0;
+    try{std::lock_guard<std::mutex> lock(h.surfaceMutex);generation=h.wglPbuffers.generation(reinterpret_cast<std::uintptr_t>(pbuffer));}catch(...){}
+    const unsigned color=buffer>=0x2083&&buffer<=0x2086?0x0400u+unsigned(buffer-0x2083):0;
+    GameImageBinding capture(0,GlColorResource::pbuffer(generation,color));
+    SetLastError(incoming);
+    const auto result=reinterpret_cast<WglBindTexture>(entry.original.load(std::memory_order_acquire))(pbuffer,buffer);
+    const auto nativeError=GetLastError();
+    if(result&&capture.captured)try{
+        const auto query=reinterpret_cast<WglPbufferQuery>(nativeWglProcedure("wglQueryPbufferARB"));
+        int target=0,format=0,level=-1;
+        // These are legal ARB_render_texture pbuffer queries. Do NOT ask
+        // QueryPbuffer for pixel-format attributes such as DOUBLE_BUFFER.
+        if(query&&query(pbuffer,0x2073,&target)&&target==0x207a
+           &&query(pbuffer,0x2072,&format)&&(format==0x2075||format==0x2076)
+           &&query(pbuffer,0x207b,&level)&&level==0)capture.complete();
+    }catch(...){}
+    SetLastError(nativeError);return result;
+}
+template<std::size_t... Index> auto pbufferBindCallbacks(std::index_sequence<Index...>){return std::array<void*,sizeof...(Index)>{{reinterpret_cast<void*>(&bindPbufferTexture<Index>)...}};}
 void installWglPbufferHooks(){
     static const auto gets=pbufferGetCallbacks(std::make_index_sequence<16>{}),releases=pbufferReleaseCallbacks(std::make_index_sequence<16>{}),destroys=pbufferDestroyCallbacks(std::make_index_sequence<16>{});
+    static const auto binds=pbufferBindCallbacks(std::make_index_sequence<16>{});
     auto &h=hooks();
+    resourceHook(h.pbufferBinds,binds,nativeWglProcedure("wglBindTexImageARB"),1);
     for(const auto *suffix:{"ARB","EXT"}){
         const std::string family(suffix);
         const auto get=nativeWglProcedure(("wglGetPbufferDC"+family).c_str());
@@ -563,7 +648,7 @@ PROC WINAPI queriedWgl(LPCSTR name){
                 resourceHook(hooks().attributedCreates,callbacks,reinterpret_cast<void*>(result),1);
             }
             if(std::strncmp(name,"wglGetPbufferDC",15)==0||std::strncmp(name,"wglReleasePbufferDC",19)==0
-               ||std::strncmp(name,"wglDestroyPbuffer",17)==0)installWglPbufferHooks();
+               ||std::strncmp(name,"wglDestroyPbuffer",17)==0||std::strcmp(name,"wglBindTexImageARB")==0)installWglPbufferHooks();
         }
     }catch(...){} // a failed optional detour never changes the returned native address
     return result;
@@ -700,6 +785,23 @@ template<unsigned Index> void *WINAPI createdPbuffer(void *display,void *config,
     }catch(...){}
     return surface;
 }
+template<unsigned Index> unsigned WINAPI bindEglTexture(void *display,void *surface,int buffer){
+    auto &h=hooks();auto &p=h.egl[Index];std::uintptr_t generation=0;
+    try{
+        std::lock_guard<std::mutex> lock(h.surfaceMutex);
+        const auto found=p.pbuffers.find({reinterpret_cast<std::uintptr_t>(display),reinterpret_cast<std::uintptr_t>(surface)});
+        if(found!=p.pbuffers.end()&&p.currentDisplay()==display&&rendererFor(Index+1)==Renderer::OpenGLES)generation=found->second;
+    }catch(...){}
+    GameImageBinding capture(Index+1,GlColorResource::pbuffer(generation,buffer==0x3084?0x0405u:0));
+    const auto result=p.bindTexture(display,surface,buffer);
+    if(result&&capture.captured)try{
+        int target=0,format=0,level=-1;
+        if(p.query(display,surface,0x3081,&target)&&target==0x305f
+           &&p.query(display,surface,0x3080,&format)&&(format==0x305d||format==0x305e)
+           &&p.query(display,surface,0x3083,&level)&&level==0)capture.complete();
+    }catch(...){}
+    return result;
+}
 template<unsigned Index> unsigned WINAPI removeSurface(void *display,void *surface){
     auto &h=hooks();auto &p=h.egl[Index];const auto okay=p.destroySurface(display,surface);
     if(okay){try{
@@ -779,6 +881,7 @@ template<unsigned Index> void attachEgl(HMODULE module){
     if(created&&surfaces&&contexts){
         install(reinterpret_cast<void*>(GetProcAddress(module,"eglCreateContext")),reinterpret_cast<void*>(&createdEglContext<Index>),reinterpret_cast<void**>(&p.createContext));
         install(reinterpret_cast<void*>(GetProcAddress(module,"eglCreatePbufferSurface")),reinterpret_cast<void*>(&createdPbuffer<Index>),reinterpret_cast<void**>(&p.createPbuffer));
+        install(reinterpret_cast<void*>(GetProcAddress(module,"eglBindTexImage")),reinterpret_cast<void*>(&bindEglTexture<Index>),reinterpret_cast<void**>(&p.bindTexture));
         const auto optional=[&](const char *name){void *entry=reinterpret_cast<void*>(GetProcAddress(module,name));return entry?entry:p.proc?p.proc(name):nullptr;};
         install(optional("eglCreatePlatformWindowSurface"),reinterpret_cast<void*>(&createPlatformSurface<Index>),reinterpret_cast<void**>(&p.createPlatform));
         install(optional("eglCreatePlatformWindowSurfaceEXT"),reinterpret_cast<void*>(&createPlatformSurfaceExt<Index>),reinterpret_cast<void**>(&p.createPlatformExt));

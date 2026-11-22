@@ -13,7 +13,8 @@ int displayToken=0;
 thread_local Surface *currentSurface=nullptr,*currentReadSurface=nullptr;
 thread_local Context *currentContext=nullptr;
 volatile LONG calls=0,glQueries=0,protectionQueries=0,illegalQueries=0,housekeeping=0;
-bool extensions=true;
+bool extensions=true;unsigned bindingFailures=0;
+volatile LONG imageBinds=0;
 template<typename Attribute>void *create(void *window,const Attribute *attrs){
     if(!IsWindow(reinterpret_cast<HWND>(window))||surfaceCount==32)return nullptr;
     auto &surface=surfaces[surfaceCount++];surface.window=reinterpret_cast<HWND>(window);
@@ -60,6 +61,12 @@ API unsigned WINAPI eglDestroyContext(void*,void *value){
 API unsigned WINAPI eglQuerySurface(void*,void *value,int name,int *out){
     if(!value||!out)return 0;const auto &surface=*static_cast<Surface*>(value);
     if(name==0x32c0){InterlockedIncrement(&protectionQueries);if(!extensions)InterlockedIncrement(&illegalQueries);*out=surface.protectedContent;return 1;}
+    if(!surface.window){
+        if(bindingFailures&2)return 0;
+        if(name==0x3081){*out=bindingFailures&4?0x305c:0x305f;return 1;}
+        if(name==0x3080){*out=bindingFailures&8?0x305c:0x305e;return 1;}
+        if(name==0x3083){*out=bindingFailures&16?1:0;return 1;}
+    }
     if(name==0x3057){*out=640;return 1;}if(name==0x3056){*out=360;return 1;}return 0;
 }
 API unsigned WINAPI eglQueryContext(void*,void *value,int name,int *out){
@@ -68,6 +75,12 @@ API unsigned WINAPI eglQueryContext(void*,void *value,int name,int *out){
 }
 API void *WINAPI eglGetProcAddress(const char *name){InterlockedIncrement(&glQueries);return EglDrawFixture::resolve(name);}
 API unsigned WINAPI eglSwapBuffers(void*,void*){InterlockedIncrement(&calls);return 1;}
+API unsigned WINAPI eglBindTexImage(void *display,void *surface,int buffer){
+    InterlockedIncrement(&imageBinds);
+    if(display!=&displayToken||!surface||static_cast<Surface*>(surface)->window||buffer!=0x3084||(bindingFailures&1))return 0;
+    if(EglDrawFixture::onTransfer)EglDrawFixture::onTransfer();
+    return 1;
+}
 API unsigned WINAPI eglMakeCurrent(void*,void *draw,void *read,void *context){
     currentSurface=static_cast<Surface*>(draw);currentReadSurface=static_cast<Surface*>(read);currentContext=static_cast<Context*>(context);return 1;
 }
@@ -116,3 +129,7 @@ API void bsiFixtureSceneState(unsigned flags){
     g.depthFunction=flags&4?0x0207:0x0203;g.depthBits=flags&8?0:24;
     g.blend=(flags&16)!=0;g.mips=!(flags&32);g.protectedTexture=(flags&64)!=0;
 }
+
+API LONG bsiFixtureImageBinds(){return imageBinds;}
+API void bsiFixtureImageBindingFailures(unsigned flags){bindingFailures=flags;}
+API void bsiFixtureNativeTextureTarget(unsigned name){EglDrawFixture::state().textures[3]=name;}

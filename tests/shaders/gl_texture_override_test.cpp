@@ -242,6 +242,30 @@ int main(){
         g.drawBufferNone=false;g.blend=true;require(!quality.usage(&usage),"blended UI/transparent draws do not seed producer evidence");
         unchanged();quality.release();
     }
+    for(bool desktop:{false,true}){
+        g.reset();g.desktop=desktop;GlTextureOverride quality;std::string error;GlTextureBinding binding;
+        require(!quality.textureBinding(&binding),"native binding cannot inspect an uninitialized GL provider");
+        require(quality.initialize(resolve,nullptr,&error),"initialize native render-to-texture metadata capture");
+        g.textures[3]=3;g.imageLevels=0;
+        require(quality.textureBinding(&binding)&&binding.unit==3&&binding.texture==3&&!quality.textureBinding(&binding,true),
+                "capture the real unit/name before native definition; undefined images cannot be accepted after native success");
+        g.imageLevels=1;g.mips=false;g.blend=true;g.colorWrite=false;
+        require(quality.textureBinding(&binding,true)&&binding.texture==3,"native texture definition is independent of draw blend/depth/write masks and does NOT need mips");
+        failAfter=0;const bool allocationFree=quality.textureBinding(&binding,true);failAfter=-1;
+        require(allocationFree&&!g.creations&&!g.deletions,"native metadata capture is allocation-free and never creates a GL object");
+        g.baseLevel=1;require(!quality.textureBinding(&binding,true),"only an exact level-zero 2D native binding is supported");g.baseLevel=0;
+        g.format=0x81a6;require(!quality.textureBinding(&binding,true),"depth/integer/HDR/noncolor native targets remain unsupported");
+        g.format=0x8058;g.textures[3]=0;require(!quality.textureBinding(&binding),"default texture zero never becomes a native image dependency");
+        quality.release();require(g.active==3&&g.bindings==std::array<U,4>{{1,2,0,0}},"no sampler/unit/binding change for any native metadata refusal");
+    }
+    for(I filter:{0x2600,0x2601}){
+        g.reset();g.mips=false;g.samplers[1].min=g.samplers[2].min=filter;GlTextureOverride quality;std::string detail;
+        require(quality.initialize(resolve,nullptr,&detail)&&!quality.begin(TextureQuality::Strong,true,4,&detail),"valid base-only sources stay native");
+        require(detail.find("non-mip-filter=2")!=std::string::npos&&detail.find("incomplete-required-level=0")!=std::string::npos
+                &&detail.find("missing higher mips are legal")!=std::string::npos&&g.highestLevel==0,
+                "LINEAR/NEAREST does not require mip 1: report the effective SAMPLER filter, not an invented incomplete texture");
+        unchanged();quality.release();
+    }
     {
         g.reset();g.framebuffer=1;g.textures[3]=3;GlTextureOverride quality;std::string error;GlTextureUsage usage;
         require(quality.initialize(resolve,nullptr,&error),"initialize read-only color-transfer inspection");
