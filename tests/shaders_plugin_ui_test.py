@@ -6,6 +6,7 @@ window is an explicit Qt fixture; no claim of game-renderer integration follows.
 Run Qt 5 and Qt 6 in separate processes with BSI_TEST_QT_API=PyQt5/PySide6.
 """
 from contextlib import ExitStack
+import re
 import hashlib
 import json
 import math
@@ -371,6 +372,10 @@ Window {
 
         info = json.loads(evaluate("JSON.stringify(Engine.bridgeInfo)", window))
         assert info["runtimeQtVersion"] == qVersion() and info["publicQtApi"] is True, info
+        assert info["moduleCaptureVersion"] == "gl-dispatch-named-copy-v2", info
+        assert re.fullmatch(r"[0-9a-f]{40}(?:-modified)?|unversioned", info["moduleBuildRevision"]), info
+        copied = evaluate("Engine.diagnostics()", window)
+        assert info["moduleBuildRevision"] in copied and "Pre-route GL hook coverage" in copied, copied
         built = tuple(map(int, info["moduleQtVersion"].split(".")))
         runtime = tuple(map(int, info["runtimeQtVersion"].split(".")))
         assert built[0] == runtime[0] and runtime >= built, info

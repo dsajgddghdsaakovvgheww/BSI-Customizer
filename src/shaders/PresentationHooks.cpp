@@ -57,6 +57,7 @@ using EglCurrent=void*(WINAPI*)();
 using EglCurrentSurface=void*(WINAPI*)(int);
 using EglQuery=unsigned(WINAPI*)(void*,void*,int,int*);
 using EglProc=void*(WINAPI*)(const char*);
+using EglMake=unsigned(WINAPI*)(void*,void*,void*,void*);
 using EglQueryApi=unsigned(WINAPI*)();
 using EglString=const char*(WINAPI*)(void*,int);
 constexpr unsigned maximumEglProviders=4,drawKinds=glDrawKinds,drawSlots=32;
@@ -69,7 +70,8 @@ struct EglProvider {
     EglPlatformCreate createPlatform=nullptr;EglPbufferCreate createPbuffer=nullptr;
     EglDestroy destroySurface=nullptr,destroyContext=nullptr;
     EglCurrent current=nullptr,currentDisplay=nullptr;EglCurrentSurface currentSurface=nullptr;
-    EglQuery query=nullptr,queryContext=nullptr;EglProc proc=nullptr;EglQueryApi api=nullptr;EglString strings=nullptr;
+    EglQuery query=nullptr,queryContext=nullptr;EglProc proc=nullptr,nativeProc=nullptr;
+    std::atomic<std::uint64_t> dispatchRevision{1};EglQueryApi api=nullptr;EglString strings=nullptr;
     std::map<DrawableKey,HWND> surfaces;
     std::map<DrawableKey,std::uintptr_t> pbuffers; // observed unprotected pbuffer creation -> unique lifetime
     std::uintptr_t nextPbuffer=1;
@@ -82,7 +84,7 @@ struct GameContext {
     DrawableKey drawable{};
     bool drawHooks=false,resourceHooks=false;
 };
-struct DrawHook {void *target=nullptr;std::atomic<void*> original{nullptr};std::atomic<unsigned> providers{0};};
+struct DrawHook {void *target=nullptr;std::atomic<void*> original{nullptr};std::atomic<unsigned> providers{0},contracts{0};};
 struct ResourceEvent {
     enum Kind { Deleted, RenderbuffersDeleted, PbufferRetired, Created, CreatedShared, Shared } kind=Deleted;
     unsigned providers=0,count=0;
@@ -106,7 +108,7 @@ struct Hooks {
     std::atomic<std::uint64_t> resourceSerial{0};
     std::uint64_t drainedResourceSerial=0; // renderMutex: evidence includes events only through this serial
     std::array<DrawHook,12> textureDeletes{},renderbufferDeletes{};
-    std::array<DrawHook,32> blits{},copies{};
+    std::array<DrawHook,32> blits{},copies{},imageCopies{},eglCurrents{};
     std::array<DrawHook,16> attributedCreates{},separateCurrents{},pbufferGets{},pbufferReleases{},pbufferDestroys{},pbufferBinds{};
     WglPbufferRegistry wglPbuffers;
     std::array<EglProvider,maximumEglProviders> egl;
@@ -125,9 +127,9 @@ bool install(void *target,void *replacement,void **original);
 bool installPublished(void *target,void *replacement,void **original,std::atomic<void*> *published);
 void *resolve(const char *name,void *user){
     auto &h=hooks();void *address=nullptr;
-    if(user){auto &p=*static_cast<EglProvider*>(user);if(p.proc)address=p.proc(name);if(!address&&p.module)address=reinterpret_cast<void*>(GetProcAddress(p.module,name));}
+    if(user){auto &p=*static_cast<EglProvider*>(user);const auto lookup=p.nativeProc?p.nativeProc:p.proc;if(lookup)address=lookup(name);if(!address&&p.module)address=reinterpret_cast<void*>(GetProcAddress(p.module,name));}
     else {
-        if(h.wglProc)address=reinterpret_cast<void*>(h.wglProc(name));
+        const auto lookup=h.nativeWglProc?h.nativeWglProc:h.wglProc;if(lookup)address=reinterpret_cast<void*>(lookup(name));
         const auto value=reinterpret_cast<std::intptr_t>(address);
         if(!address||value==1||value==2||value==3||value==-1)address=h.gl?reinterpret_cast<void*>(GetProcAddress(h.gl,name)):nullptr;
     }
@@ -182,6 +184,7 @@ void drainResources(){
 void contextCreated(unsigned provider,std::uintptr_t display,std::uintptr_t context,std::uintptr_t share)noexcept{
     if(!context)return;
     if(!provider)hooks().wglDispatchRevision.fetch_add(1);
+    else hooks().egl[provider-1].dispatchRevision.fetch_add(1);
     ResourceEvent event;event.providers=1u<<provider;
     event.kind=share?ResourceEvent::CreatedShared:ResourceEvent::Created;
     event.parent={provider,display,share};event.child={provider,display,context};resourceEvent(event);
@@ -317,7 +320,7 @@ struct GameDraw {
     GameDraw(unsigned providers,unsigned primitive)noexcept:scope(hooks().renderMutex,presenting){
         try {
             auto &h=hooks();auto &runtime=Runtime::instance();
-            if(!scope.mayInspect()||h.stopping.load()||!runtime.texture().active())return;
+            if(h.stopping.load()||presenting||!runtime.textureHookEntry(TextureHookKind::Draw)||!scope.mayInspect())return;
             if(!scope.tryLock())return;
             drainResources();const auto route=runtime.textureRoute();const auto quality=route.configuration;
             h.provenance.synchronize(route.object,route.revision);
@@ -390,7 +393,8 @@ struct GameTransfer {
         :scope(hooks().renderMutex,presenting),outer(++depth==1){
         try{
             auto &h=hooks();auto &runtime=Runtime::instance();
-            if(!outer||!scope.mayInspect()||h.stopping.load()||!runtime.texture().active()||!scope.tryLock())return;
+            if(h.stopping.load()||presenting||!runtime.textureHookEntry(call.kind==GlColorTransfer::CopyImage?TextureHookKind::NamedImageCopy:TextureHookKind::ColorTransfer)
+               ||!outer||!scope.mayInspect()||!scope.tryLock())return;
             drainResources();const auto route=runtime.textureRoute();const auto &quality=route.configuration;
             h.provenance.synchronize(route.object,route.revision);
             if(quality.active()&&quality.externalOverridesReviewed&&quality.drawPolicy==TextureDrawPolicy::OwnedMipCompatibility
@@ -446,8 +450,8 @@ struct GameImageBinding {
         :scope(hooks().renderMutex,presenting),outer(++depth==1),source(nativeSource){
         try{
             auto &h=hooks();auto &runtime=Runtime::instance();
-            if(!source||source.kind!=GlColorResource::Pbuffer||!source.colorBuffer||!outer||!scope.mayInspect()
-               ||h.stopping.load()||!runtime.texture().active()||!scope.tryLock())return;
+            if(h.stopping.load()||presenting||!runtime.textureHookEntry(TextureHookKind::NativeImageBinding)
+               ||!source||source.kind!=GlColorResource::Pbuffer||!source.colorBuffer||!outer||!scope.mayInspect()||!scope.tryLock())return;
             drainResources();const auto route=runtime.textureRoute();const auto &quality=route.configuration;
             h.provenance.synchronize(route.object,route.revision);
             if(quality.active()&&quality.externalOverridesReviewed&&quality.drawPolicy==TextureDrawPolicy::OwnedMipCompatibility
@@ -528,6 +532,17 @@ template<unsigned Index> void WINAPI copyTexSubImage2D(unsigned target,int level
     reinterpret_cast<Function>(hook.original.load(std::memory_order_acquire))(target,level,dx,dy,x,y,width,height);
     transfer.complete();
 }
+template<unsigned Index> void WINAPI copyImage(unsigned src,unsigned srcTarget,int srcLevel,int sx,int sy,int sz,
+                                               unsigned dst,unsigned dstTarget,int dstLevel,int dx,int dy,int dz,int width,int height,int depth){
+    auto &hook=hooks().imageCopies[Index];
+    auto call=GlColorTransfer::image(src,srcTarget,srcLevel,sx,sy,sz,dst,dstTarget,dstLevel,dx,dy,dz,width,height,depth);
+    call.imageApis=hook.contracts.load(std::memory_order_acquire);
+    GameTransfer transfer(hook.providers.load(std::memory_order_acquire),call);
+    using Function=void(WINAPI*)(unsigned,unsigned,int,int,int,int,unsigned,unsigned,int,int,int,int,int,int,int);
+    reinterpret_cast<Function>(hook.original.load(std::memory_order_acquire))(src,srcTarget,srcLevel,sx,sy,sz,dst,dstTarget,dstLevel,dx,dy,dz,width,height,depth);
+    transfer.complete();
+}
+template<std::size_t... Index> auto imageCopyCallbacks(std::index_sequence<Index...>){return std::array<void*,sizeof...(Index)>{{reinterpret_cast<void*>(&copyImage<Index>)...}};}
 template<std::size_t... Index> auto blitCallbacks(std::index_sequence<Index...>){return std::array<void*,sizeof...(Index)>{{reinterpret_cast<void*>(&blitFramebuffer<Index>)...}};}
 template<std::size_t... Index> auto copyCallbacks(std::index_sequence<Index...>){return std::array<void*,sizeof...(Index)>{{reinterpret_cast<void*>(&copyTexSubImage2D<Index>)...}};}
 template<bool Renderbuffers,unsigned Index> void WINAPI deletedObjects(int count,const unsigned *names){
@@ -543,13 +558,13 @@ template<bool Renderbuffers,unsigned Index> void WINAPI deletedObjects(int count
 template<bool Renderbuffers,std::size_t... Index> auto deleteCallbacks(std::index_sequence<Index...>){
     return std::array<void*,sizeof...(Index)>{{reinterpret_cast<void*>(&deletedObjects<Renderbuffers,Index>)...}};
 }
-template<std::size_t N> bool resourceHook(std::array<DrawHook,N> &slots,const std::array<void*,N> &callbacks,void *target,unsigned providers){
+template<std::size_t N> bool resourceHook(std::array<DrawHook,N> &slots,const std::array<void*,N> &callbacks,void *target,unsigned providers,unsigned contracts=0){
     if(!target)return false;
     std::lock_guard<std::mutex> lock(hooks().procedureMutex);
     for(std::size_t i=0;i<N;++i){auto &entry=slots[i];
-        if(entry.target==target){entry.providers.fetch_or(providers,std::memory_order_release);return entry.original.load()!=nullptr;}
+        if(entry.target==target){entry.providers.fetch_or(providers,std::memory_order_release);entry.contracts.fetch_or(contracts,std::memory_order_release);return entry.original.load()!=nullptr;}
         if(entry.target)continue;
-        entry.target=target;entry.providers.store(providers,std::memory_order_release);
+        entry.target=target;entry.providers.store(providers,std::memory_order_release);entry.contracts.store(contracts,std::memory_order_release);
         if(installPublished(target,callbacks[i],nullptr,&entry.original))return true;
         entry.providers.store(0);entry.target=nullptr;return false;
     }
@@ -570,6 +585,9 @@ bool installGlProcedure(unsigned provider,const char *name,void *target){
         if(std::strcmp(name,alias)==0)return resourceHook(h.blits,blits,target,providers);
     for(const auto *alias:{"glCopyTexSubImage2D","glCopyTexSubImage2DEXT"})
         if(std::strcmp(name,alias)==0)return resourceHook(h.copies,copies,target,providers);
+    static const auto images=imageCopyCallbacks(std::make_index_sequence<32>{});
+    const char *imageNames[]{"glCopyImageSubData","glCopyImageSubDataEXT","glCopyImageSubDataOES","glCopyImageSubDataNV"};
+    for(unsigned api=0;api<4;++api)if(std::strcmp(name,imageNames[api])==0)return resourceHook(h.imageCopies,images,target,providers,1u<<api);
     static const auto textures=deleteCallbacks<false>(std::make_index_sequence<12>{}),renderbuffers=deleteCallbacks<true>(std::make_index_sequence<12>{});
     if(std::strcmp(name,"glDeleteTextures")==0)return resourceHook(h.textureDeletes,textures,target,providers);
     if(std::strcmp(name,"glDeleteRenderbuffers")==0)return resourceHook(h.renderbufferDeletes,renderbuffers,target,providers);
@@ -577,7 +595,7 @@ bool installGlProcedure(unsigned provider,const char *name,void *target){
 }
 bool installTransferHooks(unsigned provider,void *user,bool *complete){
     bool any=false;
-    for(const auto *name:{"glBlitFramebuffer","glBlitFramebufferEXT","glBlitFramebufferANGLE","glBlitFramebufferNV","glCopyTexSubImage2D","glCopyTexSubImage2DEXT"}){
+    for(const auto *name:{"glBlitFramebuffer","glBlitFramebufferEXT","glBlitFramebufferANGLE","glBlitFramebufferNV","glCopyTexSubImage2D","glCopyTexSubImage2DEXT","glCopyImageSubData","glCopyImageSubDataEXT","glCopyImageSubDataOES","glCopyImageSubDataNV"}){
         const auto target=resolve(name,user);const bool attached=installGlProcedure(provider,name,target);
         if(target&&!attached&&complete)*complete=false;
         any=attached||any;
@@ -769,6 +787,46 @@ bool installDrawHooks(unsigned provider,void *user,bool *complete){
     }
     return any;
 }
+void discoverCurrentEgl(unsigned provider,void *display,void *draw,void *read,void *context)noexcept{
+    auto &h=hooks();if(!provider||!display||!context||h.stopping.load())return;
+    auto &p=h.egl[provider-1];
+    struct Entry {unsigned provider=0;void *display=nullptr,*context=nullptr;std::uint64_t revision=0;};
+    struct Cache {std::array<Entry,64> entries{};unsigned count=0;bool discovering=false;};
+    static thread_local Cache cache;if(cache.discovering)return;
+    if(!p.destroyContext||p.current()!=context||p.currentDisplay()!=display||p.currentSurface(0x3059)!=draw||p.currentSurface(0x305a)!=read)return;
+    const auto revision=p.dispatchRevision.load();unsigned slot=cache.count;
+    for(unsigned i=0;i<cache.count;++i)if(cache.entries[i].provider==provider&&cache.entries[i].display==display&&cache.entries[i].context==context){
+        if(cache.entries[i].revision==revision)return;slot=i;break;
+    }
+    cache.discovering=true;bool complete=true;
+    try{installResourceHooks(provider,&p,&complete);installDrawHooks(provider,&p,&complete);}catch(...){complete=false;}
+    cache.discovering=false;
+    if(complete&&revision==p.dispatchRevision.load()&&slot<cache.entries.size()
+       &&p.current()==context&&p.currentDisplay()==display&&p.currentSurface(0x3059)==draw&&p.currentSurface(0x305a)==read){
+        cache.entries[slot]={provider,display,context,revision};if(slot==cache.count)++cache.count;
+    }
+}
+template<unsigned Index> unsigned WINAPI madeCurrentEgl(void *display,void *draw,void *read,void *context){
+    auto &hook=hooks().eglCurrents[Index];
+    const auto result=reinterpret_cast<EglMake>(hook.original.load(std::memory_order_acquire))(display,draw,read,context);
+    const auto error=GetLastError();
+    if(result)for(unsigned provider=1;provider<=maximumEglProviders;++provider)
+        if(hook.providers.load(std::memory_order_acquire)&(1u<<provider))discoverCurrentEgl(provider,display,draw,read,context);
+    SetLastError(error);return result;
+}
+template<std::size_t... Index> auto eglCurrentCallbacks(std::index_sequence<Index...>){return std::array<void*,sizeof...(Index)>{{reinterpret_cast<void*>(&madeCurrentEgl<Index>)...}};}
+bool installEglCurrentProcedure(unsigned provider,void *target){
+    static const auto callbacks=eglCurrentCallbacks(std::make_index_sequence<32>{});
+    return resourceHook(hooks().eglCurrents,callbacks,target,1u<<provider);
+}
+template<unsigned Index> void *WINAPI queriedEgl(const char *name){
+    auto &p=hooks().egl[Index];const auto result=p.nativeProc(name);const auto error=GetLastError();
+    if(result&&name)try{
+        if(name[0]=='g'&&name[1]=='l')installGlProcedure(Index+1,name,result);
+        if(std::strcmp(name,"eglMakeCurrent")==0)installEglCurrentProcedure(Index+1,result);
+    }catch(...){} // Preserve native address/error even if the optional patch fails.
+    SetLastError(error);return result;
+}
 void process(unsigned provider,std::uintptr_t context,HWND window,DrawableKey drawable,int width,int height,bool externalProtectionPossible=false){
     auto &h=hooks();if(!context||presenting||h.stopping.load())return;
     auto *egl=provider?&h.egl[provider-1]:nullptr;
@@ -776,6 +834,8 @@ void process(unsigned provider,std::uintptr_t context,HWND window,DrawableKey dr
     if(egl&&api!=0x30a0u&&api!=0x30a2u)return;
     const auto renderer=api==0x30a0u?Renderer::OpenGLES:Renderer::OpenGL;
     if(!Runtime::instance().accepts(renderer))return;
+    if(!provider)discoverCurrentWgl(h.currentDc?h.currentDc():nullptr,reinterpret_cast<HGLRC>(context));
+    else discoverCurrentEgl(provider,reinterpret_cast<void*>(drawable.first),reinterpret_cast<void*>(drawable.second),egl->currentSurface(0x305a),reinterpret_cast<void*>(context));
     std::unique_lock<std::mutex> lock(h.renderMutex,std::try_to_lock);if(!lock.owns_lock())return;
     Recursion guard;
     try {
@@ -914,8 +974,10 @@ template<unsigned Index> unsigned WINAPI removeSurface(void *display,void *surfa
     return okay;
 }
 template<unsigned Index> unsigned WINAPI removeContext(void *display,void *context){
-    const auto okay=hooks().egl[Index].destroyContext(display,context);
-    if(okay)try{removeContextState(Index+1,reinterpret_cast<std::uintptr_t>(display),reinterpret_cast<std::uintptr_t>(context));}catch(...){}return okay;
+    auto &p=hooks().egl[Index];p.dispatchRevision.fetch_add(1);
+    const auto okay=p.destroyContext(display,context);const auto error=GetLastError();p.dispatchRevision.fetch_add(1);
+    if(okay)try{removeContextState(Index+1,reinterpret_cast<std::uintptr_t>(display),reinterpret_cast<std::uintptr_t>(context));}catch(...){}
+    SetLastError(error);return okay;
 }
 bool extension(const char *list,const char *name){
     if(!list)return false;
@@ -974,10 +1036,12 @@ template<unsigned Index> void attachEgl(HMODULE module){
     const bool surfaces=install(reinterpret_cast<void*>(GetProcAddress(module,"eglDestroySurface")),reinterpret_cast<void*>(&removeSurface<Index>),reinterpret_cast<void**>(&p.destroySurface));
     const bool contexts=install(reinterpret_cast<void*>(GetProcAddress(module,"eglDestroyContext")),reinterpret_cast<void*>(&removeContext<Index>),reinterpret_cast<void**>(&p.destroyContext));
     if(created&&surfaces&&contexts){
+        install(reinterpret_cast<void*>(GetProcAddress(module,"eglGetProcAddress")),reinterpret_cast<void*>(&queriedEgl<Index>),reinterpret_cast<void**>(&p.nativeProc));
+        installEglCurrentProcedure(Index+1,reinterpret_cast<void*>(GetProcAddress(module,"eglMakeCurrent")));
         install(reinterpret_cast<void*>(GetProcAddress(module,"eglCreateContext")),reinterpret_cast<void*>(&createdEglContext<Index>),reinterpret_cast<void**>(&p.createContext));
         install(reinterpret_cast<void*>(GetProcAddress(module,"eglCreatePbufferSurface")),reinterpret_cast<void*>(&createdPbuffer<Index>),reinterpret_cast<void**>(&p.createPbuffer));
         install(reinterpret_cast<void*>(GetProcAddress(module,"eglBindTexImage")),reinterpret_cast<void*>(&bindEglTexture<Index>),reinterpret_cast<void**>(&p.bindTexture));
-        const auto optional=[&](const char *name){void *entry=reinterpret_cast<void*>(GetProcAddress(module,name));return entry?entry:p.proc?p.proc(name):nullptr;};
+        const auto optional=[&](const char *name){void *entry=reinterpret_cast<void*>(GetProcAddress(module,name));const auto lookup=p.nativeProc?p.nativeProc:p.proc;return entry?entry:lookup?lookup(name):nullptr;};
         install(optional("eglCreatePlatformWindowSurface"),reinterpret_cast<void*>(&createPlatformSurface<Index>),reinterpret_cast<void**>(&p.createPlatform));
         install(optional("eglCreatePlatformWindowSurfaceEXT"),reinterpret_cast<void*>(&createPlatformSurfaceExt<Index>),reinterpret_cast<void**>(&p.createPlatformExt));
         install(reinterpret_cast<void*>(GetProcAddress(module,"eglSwapBuffers")),reinterpret_cast<void*>(&swapEgl<Index>),reinterpret_cast<void**>(&p.swap));

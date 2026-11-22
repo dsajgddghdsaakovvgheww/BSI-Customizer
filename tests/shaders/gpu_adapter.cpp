@@ -110,6 +110,12 @@ unsigned bsi_test_dependency_transfer_capture(int copy,int qualifyNativeRead){
     if(pendingTransfer.defaultFramebuffer)pendingTransfer.writeCount=0;
     transferCaptured=true;return 1;
 }
+unsigned bsi_test_dependency_image_capture(unsigned source,unsigned sourceTarget,unsigned destination,unsigned destinationTarget,int width,int height,unsigned apis){
+    using namespace BsiShaders;transferCaptured=false;
+    auto call=GlColorTransfer::image(source,sourceTarget,0,0,0,0,destination,destinationTarget,0,0,0,0,width,height,1);call.imageApis=apis;
+    if(!quality->transfer(call,&pendingTransfer))return 0;
+    transferCaptured=true;return 1;
+}
 unsigned bsi_test_dependency_transfer_complete(){
     if(!transferCaptured)return 0;
     transferCaptured=false;return dependencies.observe(authoredContext,pendingTransfer,pendingTransfer.defaultFramebuffer);

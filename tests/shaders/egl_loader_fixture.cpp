@@ -120,6 +120,7 @@ API void bsiFixtureResourceState(unsigned mode,unsigned output){
     auto &g=EglDrawFixture::state();g.readFramebuffer=g.framebuffer=(mode==2||mode==3)?7:0;g.output=output;
     g.outputType=mode==3?0x8d41:0x1702;
     g.textures=mode==1?std::array<unsigned,4>{{output,0,0,0}}:std::array<unsigned,4>{{1,2,0,0}};
+    g.samplers[1].min=mode==1?0x2601:0x2703; // legal LINEAR consumer, existing trilinear material source otherwise
     g.mips=mode!=1;g.depth=false;g.depthWrite=false;g.depthBits=0;
     g.blend=g.protectedTexture=false;g.colorWrite=true;
 }

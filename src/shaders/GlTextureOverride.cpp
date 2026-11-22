@@ -64,6 +64,11 @@ struct GlTextureOverride::Impl {
     GL_FUNCTION(void,GetSamplerParameterfv,(U,U,F*))
     GL_FUNCTION(void,GetFramebufferAttachmentParameteriv,(U,U,U,I*))
     GL_FUNCTION(U,CheckFramebufferStatus,(U))
+    GL_FUNCTION(B,IsTexture,(U))
+    GL_FUNCTION(B,IsRenderbuffer,(U))
+    GL_FUNCTION(void,GetTextureParameteriv,(U,U,I*))
+    GL_FUNCTION(void,GetTextureLevelParameteriv,(U,I,U,I*))
+    GL_FUNCTION(void,GetNamedRenderbufferParameteriv,(U,U,I*))
     GL_FUNCTION(void,GenSamplers,(I,U*))
     GL_FUNCTION(void,DeleteSamplers,(I,const U*))
     GL_FUNCTION(void,SamplerParameteri,(U,U,I))
@@ -72,7 +77,8 @@ struct GlTextureOverride::Impl {
     GL_FUNCTION(void,BindSampler,(U,U))
 #undef GL_FUNCTION
     bool ready=false,es=false,anisotropic=false,srgbDecode=false,minmax=false,protectedTextures=false;
-    bool immutableFormatQuery=false,immutableLevelsQuery=false,viewLevelsQuery=false;
+    bool immutableFormatQuery=false,immutableLevelsQuery=false,viewLevelsQuery=false,namedImageQueries=false;
+    unsigned copyImageApis=0;
     GlQualityCapabilities qualityCapabilities;
     I units=0,attachments=0,extensionCount=0,maximumLevel=0;
     enum class MipRefusal { None, Protection, Range, Dimensions, Format, Incomplete, SingleLevel, Storage, NonMipFilter, Count };
@@ -289,6 +295,21 @@ bool GlTextureOverride::initialize(ResolveGl resolve,void *user,std::string *err
     }
     g.GetIntegerv(0x8b4d,&g.units);g.GetIntegerv(0x8cdf,&g.attachments);
     if(g.units<1||g.units>256||g.attachments<1||g.attachments>32)return fail("Unqualified GL sampler/attachment limits; original textures retained.");
+    // Named copy capture is optional. A non-null driver stub alone does not
+    // legalize DSA queries or a particular copy-image extension spelling.
+    if(!g.es){
+        if(major>4||(major==4&&minor>=3)||g.extension("GL_ARB_copy_image"))g.copyImageApis|=1;
+        if(g.extension("GL_EXT_copy_image"))g.copyImageApis|=2;
+        if(g.extension("GL_OES_copy_image"))g.copyImageApis|=4;
+        if(g.extension("GL_NV_copy_image"))g.copyImageApis|=8;
+        if(major>4||(major==4&&minor>=5)||g.extension("GL_ARB_direct_state_access")){
+#define OPTIONAL(name) g.name=reinterpret_cast<Impl::name##Type>(resolve("gl" #name,user))
+            OPTIONAL(IsTexture);OPTIONAL(IsRenderbuffer);OPTIONAL(GetTextureParameteriv);
+            OPTIONAL(GetTextureLevelParameteriv);OPTIONAL(GetNamedRenderbufferParameteriv);
+#undef OPTIONAL
+            g.namedImageQueries=g.IsTexture&&g.IsRenderbuffer&&g.GetTextureParameteriv&&g.GetTextureLevelParameteriv&&g.GetNamedRenderbufferParameteriv;
+        }
+    }
     g.anisotropic=g.extension("GL_EXT_texture_filter_anisotropic")||g.extension("GL_ARB_texture_filter_anisotropic");
     g.srgbDecode=g.extension("GL_EXT_texture_sRGB_decode");g.minmax=g.extension("GL_EXT_texture_filter_minmax");
     g.changed.reserve(32);g.ready=true;return true;
@@ -360,7 +381,61 @@ bool GlTextureOverride::textureBinding(GlTextureBinding *out,bool requireColorIm
 }
 bool GlTextureOverride::transfer(const GlColorTransfer &call,GlTextureUsage *out){
     if(!out)return false;
-    *out={};auto &g=*impl;if(!g.ready||!g.CheckFramebufferStatus)return false;
+    *out={};auto &g=*impl;if(!g.ready)return false;
+    if(call.kind==GlColorTransfer::CopyImage){
+        // Narrow, binding-free normalized 2D/RBO copies only. Never probe an
+        // unknown name by binding it (which could create it or add an error).
+        if(!g.namedImageQueries||g.protectedTextures||!(call.imageApis&g.copyImageApis)
+           ||call.sourceLevel||call.destinationLevel||call.sourceZ||call.destinationZ||call.depth!=1)return false;
+        struct Image {I width=0,height=0,format=0,samples=0;GlColorResource resource;};
+        const auto format=[](I f){return f==0x8051||f==0x8058||f==0x8c41||f==0x8c43||f==0x8056||f==0x8057||f==0x8d62;};
+        const auto image=[&](U name,U target,Image &v){
+            if(!name)return false;
+            if(target==texture2d){
+                if(!g.IsTexture(name))return false;
+                I actual=0,base=-1,last=-1,min=0,mag=0;
+                g.GetTextureParameteriv(name,0x1006,&actual);if(actual!=I(texture2d))return false;
+                g.GetTextureParameteriv(name,0x813c,&base);g.GetTextureParameteriv(name,0x813d,&last);
+                g.GetTextureParameteriv(name,0x2801,&min);g.GetTextureParameteriv(name,0x2800,&mag);
+                if(base!=0||last<0||(mag!=0x2600&&mag!=0x2601)||(min!=0x2600&&min!=0x2601&&(min<0x2700||min>0x2703)))return false;
+                g.GetTextureLevelParameteriv(name,0,0x1000,&v.width);g.GetTextureLevelParameteriv(name,0,0x1001,&v.height);
+                g.GetTextureLevelParameteriv(name,0,0x1003,&v.format);
+                if(v.width<1||v.height<1||v.width>16384||v.height>16384||!format(v.format))return false;
+                if(min>=0x2700&&min<=0x2703){
+                    I immutable=0;if(g.immutableFormatQuery)g.GetTextureParameteriv(name,0x912f,&immutable);
+                    if(immutable!=0&&immutable!=1)return false;
+                    if(immutable){
+                        if(!g.immutableLevelsQuery)return false;
+                        I storage=0;g.GetTextureParameteriv(name,0x82df,&storage);if(storage<1||storage>16)return false;
+                        last=(std::min)(last,storage-1);
+                        if(g.viewLevelsQuery){I view=0;g.GetTextureParameteriv(name,0x82dc,&view);if(view<1||view>storage)return false;last=(std::min)(last,view-1);}
+                    }
+                    I w=v.width,h=v.height;
+                    for(I level=1;(w>1||h>1)&&level<=last;++level){
+                        if(level>g.maximumLevel)return false;
+                        w=(std::max)(1,w/2);h=(std::max)(1,h/2);I width=0,height=0,internal=0;
+                        g.GetTextureLevelParameteriv(name,level,0x1000,&width);g.GetTextureLevelParameteriv(name,level,0x1001,&height);
+                        g.GetTextureLevelParameteriv(name,level,0x1003,&internal);if(width!=w||height!=h||internal!=v.format)return false;
+                    }
+                }
+                v.resource=GlColorResource(name);return true;
+            }
+            if(target!=0x8d41||!g.IsRenderbuffer(name))return false;
+            g.GetNamedRenderbufferParameteriv(name,0x8d42,&v.width);g.GetNamedRenderbufferParameteriv(name,0x8d43,&v.height);
+            g.GetNamedRenderbufferParameteriv(name,0x8d44,&v.format);g.GetNamedRenderbufferParameteriv(name,0x8cab,&v.samples);
+            v.resource=GlColorResource::renderbuffer(name);
+            return v.width>0&&v.height>0&&v.width<=16384&&v.height<=16384&&format(v.format)&&v.samples>=0&&v.samples<=64;
+        };
+        const auto sx=call.source[0],sy=call.source[1],w=call.source[2],h=call.source[3],dx=call.destination[0],dy=call.destination[1];
+        if(sx<0||sy<0||dx<0||dy<0||w<1||h<1||w>16384||h>16384)return false;
+        Image source,destination;
+        if(!image(call.sourceName,call.sourceTarget,source)||!image(call.destinationName,call.destinationTarget,destination)
+           ||source.resource==destination.resource||source.format!=destination.format||source.samples!=destination.samples
+           ||w>source.width||h>source.height||w>destination.width||h>destination.height
+           ||sx>source.width-w||sy>source.height-h||dx>destination.width-w||dy>destination.height-h)return false;
+        out->reads[out->readCount++]=source.resource;out->writes[out->writeCount++]=destination.resource;return true;
+    }
+    if(!g.CheckFramebufferStatus)return false;
     const auto colorBuffer=[&](bool draw,GlColorResource *resource,bool *native){
         const U target=draw?0x8ca9:0x8ca8; // DRAW/READ_FRAMEBUFFER
         if(g.CheckFramebufferStatus(target)!=0x8cd5)return false;

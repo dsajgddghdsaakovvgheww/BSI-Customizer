@@ -198,7 +198,7 @@ void GL_CALL namedTexture(U name,U key,I *out){
     ++g.namedQueries;require(g.desktop&&g.desktopVersion>=45,"DSA queries must be capability-gated");const auto &v=g.namedTextures.at(name);require(v.live,"no DSA query on an uncreated name");
     switch(key){case 0x1006:*out=v.target;break;case 0x2801:*out=v.min;break;case 0x2800:*out=v.mag;break;
     case 0x813c:*out=v.base;break;case 0x813d:*out=v.max;break;case 0x912f:*out=v.immutable;break;
-    case 0x82df:*out=v.storage;break;case 0x82fc:*out=v.view;break;default:require(false,"legal DSA texture parameter only");}
+    case 0x82df:*out=v.storage;break;case 0x82dc:*out=v.view;break;default:require(false,"legal DSA texture parameter only");}
 }
 void GL_CALL namedLevel(U name,I mip,U key,I *out){
     ++g.namedQueries;const auto &v=g.namedTextures.at(name);require(v.live&&mip>=0&&mip<16,"legal existing texture level query");
@@ -255,6 +255,8 @@ int main(){
             case 9:bad.sourceName=50;break;case 10:bad.destinationName=127;break;case 11:bad.source[3]=0;break;}
             require(!quality.transfer(bad,&usage)&&!usage.readCount&&!usage.writeCount,"invalid/unqualified named-copy packet cannot become a dependency");
         }
+        auto unsupportedApi=copy;unsupportedApi.imageApis=2;const auto noApiQueries=g.namedQueries;
+        require(!quality.transfer(unsupportedApi,&usage)&&g.namedQueries==noApiQueries,"a non-null EXT stub is not advertised EXT copy-image support");
         auto &src=g.namedTextures[51];src.target=0x8513;require(!quality.transfer(copy,&usage),"native texture target must match the supplied target, not a same-sized cubemap");src.target=0x0de1;
         src.format=0x8c43;require(!quality.transfer(copy,&usage),"view-compatible or sRGB reinterpretation is not guessed from byte size");src.format=0x8058;
         src.min=0x2703;src.levels=1;require(!quality.transfer(copy,&usage),"a mip-filtered incomplete source is not a successful image copy");
@@ -263,11 +265,12 @@ int main(){
         copy.sourceName=70;copy.sourceTarget=0x8d41;g.namedRenderbuffers[70].samples=4;require(!quality.transfer(copy,&usage),"CopyImage is NOT a multisample resolve into a single-sample texture");
         quality.release();
     }
-    for(unsigned guard=0;guard<3;++guard){
+    for(unsigned guard=0;guard<4;++guard){
         g.reset();g.desktop=guard!=0;g.desktopVersion=guard==1?33:45;g.missingNamedQueries=guard==2;
+        if(guard==3){g.protectionExtension=true;g.extensionCount=1;}
         GlTextureOverride quality;std::string error;GlTextureUsage usage;require(quality.initialize(resolve,nullptr,&error),"older/incomplete-query contexts retain normal draw support");
         require(!quality.transfer(GlColorTransfer::image(1,0x0de1,0,0,0,0,2,0x0de1,0,0,0,0,1,1,1),&usage)&&!g.namedQueries,
-                "GLES/older desktop/missing DSA contracts must reject named copies BEFORE any illegal object query");quality.release();
+                "GLES/older desktop/missing DSA/protection-possible contracts must reject named copies BEFORE any object query");quality.release();
     }
     {
         g.reset();g.depth=false;g.mips=false;GlTextureOverride quality;std::string error;GlTextureUsage usage;

@@ -15,6 +15,9 @@
 #include <QTimer>
 #include <QWindow>
 
+#ifndef BSI_SHADERS_BUILD_REVISION
+#define BSI_SHADERS_BUILD_REVISION "unversioned"
+#endif
 namespace BsiShaders {
 namespace {
 // A child Bootstrap completes before its QML Window necessarily does. Do not
@@ -75,7 +78,9 @@ QVariantMap ShaderBridge::restartPlayer(){
 }
 QVariantMap ShaderBridge::bridgeInfo()const{
     return {{"moduleQtVersion",QString::fromLatin1(QT_VERSION_STR)},
-            {"runtimeQtVersion",QString::fromLatin1(qVersion())},{"publicQtApi",true}};
+            {"runtimeQtVersion",QString::fromLatin1(qVersion())},{"publicQtApi",true},
+            {"moduleBuildRevision",QStringLiteral(BSI_SHADERS_BUILD_REVISION)},
+            {"moduleCaptureVersion",QStringLiteral("gl-dispatch-named-copy-v2")}};
 }
 QVariantList ShaderBridge::controlList()const{
     QVariantList out;
@@ -111,6 +116,8 @@ QVariantMap ShaderBridge::metrics()const{
             {"textureProducerInspected",number(m.textureProducerInspected)},{"textureProducerDraws",number(m.textureProducerDraws)},
             {"textureProducerBindings",number(m.textureProducerBindings)},{"textureProducerStatus",QString::fromStdString(m.textureProducerStatus)},
             {"textureTransferCalls",number(m.textureTransferCalls)},{"textureTransferInputs",number(m.textureTransferInputs)},
+            {"textureHookDrawCalls",number(m.textureHookDrawCalls)},{"textureHookTransferCalls",number(m.textureHookTransferCalls)},
+            {"textureHookImageCopyCalls",number(m.textureHookImageCopyCalls)},{"textureHookNativeImageCalls",number(m.textureHookNativeImageCalls)},
             {"textureLastBypass",QString::fromStdString(m.textureLastBypass)},
             {"vulkanLoaders",number(m.vulkan.loaders)},{"vulkanInstances",number(m.vulkan.instances)},
             {"vulkanDevices",number(m.vulkan.devices)},{"vulkanSurfaces",number(m.vulkan.surfaces)},
@@ -133,14 +140,20 @@ QString ShaderBridge::diagnostics()const{
              m.value("textureTransferCalls").toString(),m.value("textureTransferInputs").toString())
         +QStringLiteral("\nLatest resource-linked producer inspection: %1")
              .arg(m.value("textureProducerStatus").toString().isEmpty()?QStringLiteral("no detail recorded since the latest setting/source change"):m.value("textureProducerStatus").toString());
+    const auto captureReport=QStringLiteral("Pre-route GL hook coverage since the latest setting/source change: draws=%1; transfers=%2 (named image copies=%3; native image bindings=%4). These are process-wide non-injected callback entries while Potato and a selected GL game source are active, NOT owned/inspected draws, qualified transfers, successful pixels or FPS. Foreign routes and nested/alias entries can be included; zero qualified transfers does not mean no native copy was seen.")
+        .arg(m.value("textureHookDrawCalls").toString(),m.value("textureHookTransferCalls").toString(),
+             m.value("textureHookImageCopyCalls").toString(),m.value("textureHookNativeImageCalls").toString());
     const auto inspectionReport=QStringLiteral("Texture inspection since the latest setting/source change: calls=%1; sampler-inspection calls=%2; conservative depth bypass=%3; blended bypass=%4; no eligible mip sampler=%5; other bypass=%6\nLatest bypass: %7\nOffscreen/pbuffer/foreign scene contexts are not inferred from presentation or a share group.")
         .arg(m.value("textureInspected").toString(),m.value("textureEligibleDraws").toString(),
              m.value("textureDepthBypasses").toString(),m.value("textureBlendBypasses").toString(),
              m.value("textureSamplerBypasses").toString(),m.value("textureOtherBypasses").toString(),
-             m.value("textureLastBypass").toString())+QLatin1Char('\n')+depthReport+QLatin1Char('\n')+producerReport;
+             m.value("textureLastBypass").toString())+QLatin1Char('\n')+depthReport+QLatin1Char('\n')+producerReport+QLatin1Char('\n')+captureReport;
     const auto policyReport=QStringLiteral("Texture sampling policy: %1. Compatibility inspects mipmapped color without a depth-test requirement; opaque mipmapped in-game HUD may also change, as may RGB-packed data maps. Saved Potato strength: %2% (0 = native, 100 = up to 3 mip levels). Strength does not make rejected resources eligible; prepared bindings are not measured game texture changes.")
         .arg(m.value("texturePolicy").toString(),m.value("potatoStrength").toString());
-    return QStringLiteral("Requested API: %1\nObserved game API: %2\n%3\nProcessed game frames: %4\nGame surface observed: %5; processing active: %6\nVulkan capture: loaders=%7; instances=%8; devices=%9; Win32 surfaces=%10; swapchains=%11; presents=%12; missing queues=%13; excluded windows=%14\nLast hooked loader: %15\nQt bridge: %16; host: %17\n%18")
+    const auto build=bridgeInfo();
+    return QStringLiteral("Native shader module: %1; capture=%2\n")
+        .arg(build.value("moduleBuildRevision").toString(),build.value("moduleCaptureVersion").toString())
+        +QStringLiteral("Requested API: %1\nObserved game API: %2\n%3\nProcessed game frames: %4\nGame surface observed: %5; processing active: %6\nVulkan capture: loaders=%7; instances=%8; devices=%9; Win32 surfaces=%10; swapchains=%11; presents=%12; missing queues=%13; excluded windows=%14\nLast hooked loader: %15\nQt bridge: %16; host: %17\n%18")
         .arg(m.value("requestedRenderer").toString(),m.value("renderer").toString(),m.value("status").toString())
         .arg(m.value("processedFrames").toString(),m.value("gameSurfaceObserved").toBool()?QStringLiteral("yes"):QStringLiteral("no"),m.value("active").toBool()?QStringLiteral("yes"):QStringLiteral("no"))
         .arg(m.value("vulkanLoaders").toString(),m.value("vulkanInstances").toString(),m.value("vulkanDevices").toString(),m.value("vulkanSurfaces").toString(),m.value("vulkanSwapchains").toString(),m.value("vulkanPresents").toString(),m.value("vulkanMissedQueues").toString(),m.value("vulkanRejectedWindows").toString(),m.value("vulkanLoader").toString())

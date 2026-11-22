@@ -37,11 +37,14 @@ inline F expectedMinimumLod=3;
 inline void nestedOriginal(U kind);
 inline void bad(){InterlockedIncrement(&invalid);}
 inline const unsigned char *WINAPI getString(U name){InterlockedIncrement(&stateQueries);return reinterpret_cast<const unsigned char*>(name==0x1f02?(state().desktop?"4.5 BSI WGL dispatch double":"OpenGL ES 3.1 BSI dispatch double"):"");}
-inline const unsigned char *WINAPI getStringi(U,U){InterlockedIncrement(&stateQueries);return reinterpret_cast<const unsigned char*>("GL_EXT_protected_textures");}
+inline const unsigned char *WINAPI getStringi(U,U index){InterlockedIncrement(&stateQueries);
+    if(state().protectionExtension){if(!index)return reinterpret_cast<const unsigned char*>("GL_EXT_protected_textures");--index;}
+    if(state().desktop&&!index)return reinterpret_cast<const unsigned char*>("GL_NV_copy_image");bad();return nullptr;
+}
 inline void WINAPI getInteger(U name,I *out){InterlockedIncrement(&stateQueries);
     auto &g=state();
     switch(name){
-    case 0x821d:*out=g.protectionExtension?1:0;break;case 0x821e:if(!g.protectionExtension)bad();*out=protectedContext()?0x10:0;break;
+    case 0x821d:*out=(g.protectionExtension?1:0)+(g.desktop?1:0);break;case 0x821e:if(!g.protectionExtension)bad();*out=protectedContext()?0x10:0;break;
     case 0x8b4d:case 0x8cdf:*out=4;break;case 0x8b8d:*out=1;break;
     case 0x0d33:*out=16384;break;
     case 0x0b74:*out=g.depthFunction;break;case 0x84e0:*out=0x84c0+g.active;break;
@@ -161,6 +164,26 @@ template<U Alias> void WINAPI copyTexSubImage2D(U target,I level,I dx,I dy,I x,I
     if(state().active!=3||state().bindings!=std::array<U,4>{{1,2,0,0}})bad();
     if(onTransfer)onTransfer();
 }
+inline bool restored();
+inline B WINAPI isTexture(U name){InterlockedIncrement(&stateQueries);return name==50||name==51||name==1||name==2;}
+inline B WINAPI isRenderbuffer(U name){InterlockedIncrement(&stateQueries);return name==70;}
+inline void WINAPI namedTexture(U name,U key,I *out){
+    InterlockedIncrement(&stateQueries);if(!state().desktop||!isTexture(name)){bad();*out=0;return;}
+    switch(key){case 0x1006:*out=0x0de1;break;case 0x813c:*out=0;break;case 0x813d:*out=1000;break;
+    case 0x2801:case 0x2800:*out=0x2601;break;default:*out=0;bad();}
+}
+inline void WINAPI namedLevel(U name,I mip,U key,I *out){
+    InterlockedIncrement(&stateQueries);if(!state().desktop||!isTexture(name)||mip<0||mip>6){bad();*out=0;return;}
+    if(key!=0x1000&&key!=0x1001&&key!=0x1003)bad();*out=key==0x1003?0x8058:(64>>mip);
+}
+inline void WINAPI namedRenderbuffer(U name,U key,I *out){
+    InterlockedIncrement(&stateQueries);if(!state().desktop||!isRenderbuffer(name)){bad();*out=0;return;}
+    switch(key){case 0x8d42:case 0x8d43:*out=64;break;case 0x8d44:*out=0x8058;break;case 0x8cab:*out=0;break;default:*out=0;bad();}
+}
+template<U Alias> void WINAPI copyImage(U src,U st,I sl,I sx,I sy,I sz,U dst,U dt,I dl,I dx,I dy,I dz,I width,I height,I depth){
+    InterlockedIncrement(&transfers);lastTransferHash=hash(102,Alias,src,st,sl,sx,sy,sz,dst,dt,dl,dx,dy,dz,width,height,depth);
+    if(!restored())bad();if(onTransfer)onTransfer();
+}
 inline const std::array<void*,4> blitTargets{{reinterpret_cast<void*>(&blitFramebuffer<0>),reinterpret_cast<void*>(&blitFramebuffer<1>),reinterpret_cast<void*>(&blitFramebuffer<2>),reinterpret_cast<void*>(&blitFramebuffer<3>)}};
 inline const std::array<void*,2> copyTargets{{reinterpret_cast<void*>(&copyTexSubImage2D<0>),reinterpret_cast<void*>(&copyTexSubImage2D<1>)}};
 inline const char *const blitNames[]{"glBlitFramebuffer","glBlitFramebufferEXT","glBlitFramebufferANGLE","glBlitFramebufferNV"};
@@ -180,6 +203,7 @@ inline void invokeTransfer(bool copy,U alias){
 }
 inline void *resolve(const char *name){
 #define ENTRY(gl,fn) if(std::strcmp(name,"gl" #gl)==0)return reinterpret_cast<void*>(&fn)
+    ENTRY(IsTexture,isTexture);ENTRY(IsRenderbuffer,isRenderbuffer);ENTRY(GetTextureParameteriv,namedTexture);ENTRY(GetTextureLevelParameteriv,namedLevel);ENTRY(GetNamedRenderbufferParameteriv,namedRenderbuffer);
     ENTRY(GetString,getString);ENTRY(GetStringi,getStringi);ENTRY(GetIntegerv,getInteger);ENTRY(GetFloatv,getFloat);ENTRY(GetBooleanv,getBoolean);
     ENTRY(IsEnabled,enabled);ENTRY(ActiveTexture,active);ENTRY(GetProgramiv,program);ENTRY(GetActiveUniform,uniform);
     ENTRY(GetUniformLocation,location);ENTRY(GetUniformiv,uniformValue);ENTRY(GetTexLevelParameteriv,level);
@@ -188,6 +212,8 @@ inline void *resolve(const char *name){
     ENTRY(DeleteSamplers,remove);ENTRY(DeleteTextures,deleteTextures);ENTRY(DeleteRenderbuffers,deleteRenderbuffers);ENTRY(SamplerParameteri,parameterInt);ENTRY(SamplerParameterf,parameterFloat);
     ENTRY(SamplerParameterfv,parameterVector);ENTRY(BindSampler,bind);
 #undef ENTRY
+    if(std::strcmp(name,"glCopyImageSubData")==0)return reinterpret_cast<void*>(&copyImage<0>);
+    if(std::strcmp(name,"glCopyImageSubDataNV")==0)return reinterpret_cast<void*>(&copyImage<1>);
     for(U alias=0;alias<blitTargets.size();++alias)if(std::strcmp(name,blitNames[alias])==0)return blitTargets[alias];
     for(U alias=0;alias<copyTargets.size();++alias)if(std::strcmp(name,copyNames[alias])==0)return copyTargets[alias];
     for(U kind=0;kind<BsiShaders::glDrawKinds;++kind)for(U alias=0;alias<BsiShaders::glDrawAliases;++alias)

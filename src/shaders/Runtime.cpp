@@ -20,6 +20,7 @@ void Runtime::resetTextureEvidence(){
     state.textureConsumerDraws=state.textureConsumerInputs=0;
     state.textureProducerInspected=state.textureProducerDraws=state.textureProducerBindings=0;
     state.textureTransferCalls=state.textureTransferInputs=0;
+    state.textureHookDrawCalls=state.textureHookTransferCalls=state.textureHookImageCopyCalls=state.textureHookNativeImageCalls=0;
     state.textureLastBypass.clear();state.textureProducerStatus.clear();
 }
 void Runtime::start(std::uintptr_t window){
@@ -123,6 +124,19 @@ TextureConfiguration Runtime::texture(){std::lock_guard<std::mutex> lock(mutex);
 TextureRoute Runtime::textureRoute(){
     std::lock_guard<std::mutex> lock(mutex);
     return {currentTexture,state.renderer,state.observed?presentationObject:0,presentationWindow,textureRevision};
+}
+bool Runtime::textureHookEntry(TextureHookKind kind){
+    std::lock_guard<std::mutex> lock(mutex);
+    if(!currentTexture.active())return false;
+    if(state.observed&&family(state.renderer)==RendererFamily::OpenGL){
+        switch(kind){
+        case TextureHookKind::Draw:++state.textureHookDrawCalls;break;
+        case TextureHookKind::ColorTransfer:++state.textureHookTransferCalls;break;
+        case TextureHookKind::NamedImageCopy:++state.textureHookTransferCalls;++state.textureHookImageCopyCalls;break;
+        case TextureHookKind::NativeImageBinding:++state.textureHookTransferCalls;++state.textureHookNativeImageCalls;break;
+        }
+    }
+    return true;
 }
 void Runtime::textureConsumerReport(unsigned inputs,std::uint64_t revision){
     std::lock_guard<std::mutex> lock(mutex);

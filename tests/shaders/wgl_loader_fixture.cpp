@@ -143,6 +143,7 @@ API void bsiFixtureResourceState(unsigned mode,unsigned output){
     auto &g=EglDrawFixture::state();g.readFramebuffer=g.framebuffer=(mode==2||mode==3)?7:0;g.output=output;
     g.outputType=mode==3?0x8d41:0x1702;
     g.textures=mode==1?std::array<unsigned,4>{{output,0,0,0}}:std::array<unsigned,4>{{1,2,0,0}};
+    g.samplers[1].min=mode==1?0x2601:0x2703; // legal LINEAR consumer, existing trilinear material source otherwise
     g.mips=mode!=1;g.depth=g.depthWrite=false;g.depthBits=0;g.blend=g.protectedTexture=false;g.colorWrite=true;
 }
 API void bsiFixtureTransferState(unsigned readKind,unsigned source,unsigned destination){
@@ -195,4 +196,14 @@ API void bsiFixtureLateTransfer(unsigned copy){
         void *volatile entry=reinterpret_cast<void*>(&EglDrawFixture::blitFramebuffer<4>);
         reinterpret_cast<Function>(entry)(sx0,sy0,sx1,sy1,dx0,dy0,dx1,dy1,mask,filter);
     }
+}
+
+API LONG bsiFixtureGlQueries(){return EglDrawFixture::stateQueries;}
+API void bsiFixtureImageCopy(unsigned alias,unsigned invalid){
+    unsigned src=70,st=0x8d41;int sl=0,sx=1,sy=2,sz=0;constexpr unsigned dst=50,dt=0x0de1;constexpr int dl=0,dx=3,dy=4,dz=0,height=56,depth=1;int width=57;
+    if(invalid==1)st=0x8513;if(invalid==2)sl=1;if(invalid==3)width=65;if(invalid==4)src=0;
+    EglDrawFixture::expectedTransferHash=EglDrawFixture::hash(102,alias,src,st,sl,sx,sy,sz,dst,dt,dl,dx,dy,dz,width,height,depth);
+    using Function=void(WINAPI*)(unsigned,unsigned,int,int,int,int,unsigned,unsigned,int,int,int,int,int,int,int);
+    void *volatile entry=alias?reinterpret_cast<void*>(&EglDrawFixture::copyImage<1>):reinterpret_cast<void*>(&EglDrawFixture::copyImage<0>);
+    reinterpret_cast<Function>(entry)(src,st,sl,sx,sy,sz,dst,dt,dl,dx,dy,dz,width,height,depth);
 }

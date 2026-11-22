@@ -32,6 +32,24 @@ add_library(BSIShaders MODULE ShaderPlugin.cpp ShaderBridge.cpp ShaderBridge.h
     VulkanPipeline.cpp VulkanPipeline.h VulkanSpirv.h PresentationHooks.cpp shaders.qrc)
 target_include_directories(BSIShaders PRIVATE ../third_party/vulkan/include)
 target_link_libraries(BSIShaders PRIVATE Qt${QT_VERSION_MAJOR}::Core Qt${QT_VERSION_MAJOR}::Gui Qt${QT_VERSION_MAJOR}::Qml)
+# Diagnostics identify the built native module, not just the Customizer EXE.
+# Source archives without Git report that limitation instead of a guessed SHA.
+find_package(Git QUIET)
+set(bsi_shader_revision "unversioned")
+if(GIT_FOUND)
+    execute_process(COMMAND "${GIT_EXECUTABLE}" -C "${CMAKE_CURRENT_SOURCE_DIR}" rev-parse --verify HEAD
+        RESULT_VARIABLE bsi_shader_git_result OUTPUT_VARIABLE bsi_shader_git_revision
+        OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+    if(bsi_shader_git_result EQUAL 0 AND bsi_shader_git_revision MATCHES "^[0-9a-f]+$")
+        set(bsi_shader_revision "${bsi_shader_git_revision}")
+        execute_process(COMMAND "${GIT_EXECUTABLE}" -C "${CMAKE_CURRENT_SOURCE_DIR}" diff --quiet HEAD -- .
+            RESULT_VARIABLE bsi_shader_dirty ERROR_QUIET)
+        if(NOT bsi_shader_dirty EQUAL 0)
+            string(APPEND bsi_shader_revision "-modified")
+        endif()
+    endif()
+endif()
+target_compile_definitions(BSIShaders PRIVATE BSI_SHADERS_BUILD_REVISION="${bsi_shader_revision}")
 set(BSI_SHADERS_EXPECT_QT_VERSION "" CACHE STRING "Optional packed QT_VERSION required by the payload builder; never a descriptor override")
 if(NOT BSI_SHADERS_EXPECT_QT_VERSION STREQUAL "")
     if(NOT BSI_SHADERS_EXPECT_QT_VERSION MATCHES "^[0-9]+$")

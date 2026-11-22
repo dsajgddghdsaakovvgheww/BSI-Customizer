@@ -222,7 +222,7 @@ jobs:
         run: |
           python3 tests/shaders/run_ci_tests.py --command python3 tests/shaders_gpu_test.py
           BSI_TEST_TEXTURE_QUALITY=1 BSI_SHADERS_EGL_CLIENT_VERSION=3 python3 tests/shaders/run_ci_tests.py --command python3 tests/shaders_gpu_test.py
-          BSI_TEST_TEXTURE_QUALITY=1 BSI_SHADERS_EGL_API=opengl python3 tests/shaders/run_ci_tests.py --command python3 tests/shaders_gpu_test.py
+          BSI_TEST_COPY_IMAGE=1 BSI_TEST_TEXTURE_QUALITY=1 BSI_SHADERS_EGL_API=opengl python3 tests/shaders/run_ci_tests.py --command python3 tests/shaders_gpu_test.py
       - name: Actual nonsharing native EGL pbuffer image pixels (mandatory ANGLE software)
         # Mesa 25.2.8 surfaceless software exports transparent black on the RAW
         # native-bind round trip, even without BSI. Keep the Mesa controls above

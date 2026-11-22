@@ -160,6 +160,12 @@ int main(){
     const auto route=runtime.textureRoute();
     require(route.configuration.enabled&&route.renderer==Renderer::OpenGLES&&route.object==901&&route.window==window,
             "dependency routing has one mutex-consistent settings/source identity, never a draw-selected presentation");
+    for(const auto kind:{TextureHookKind::Draw,TextureHookKind::ColorTransfer,TextureHookKind::NamedImageCopy,TextureHookKind::NativeImageBinding})
+        require(runtime.textureHookEntry(kind),"active hook-entry settings read remains independent of route qualification");
+    m=runtime.metrics();
+    require(m.textureHookDrawCalls==1&&m.textureHookTransferCalls==3&&m.textureHookImageCopyCalls==1&&m.textureHookNativeImageCalls==1
+            &&!m.textureInspected&&!m.textureTransferCalls&&!m.textureProducerDraws,
+            "raw hook coverage must never masquerade as owned inspection, qualified transfers or prepared material bindings");
     runtime.textureConsumerReport(1,route.revision);runtime.textureTransferReport(1,route.revision);
     runtime.textureReport(2,"depth-independent private mip preparation",true,TextureDrawReason::Prepared,TextureDepthFailure::None,false,true,route.revision);
     m=runtime.metrics();
@@ -175,12 +181,15 @@ int main(){
             "retain the real producer's precise refusal separately; a later compositor must not overwrite it with a misleading no-mip diagnosis");
     runtime.setTexture({true,true,TextureDrawPolicy::OwnedMipCompatibility,50});
     const auto halfRoute=runtime.textureRoute();m=runtime.metrics();
-    require(halfRoute.revision!=route.revision&&halfRoute.configuration.strength==50&&!m.textureInspected&&!m.textureBindings&&m.textureProducerStatus.empty(),
+    require(halfRoute.revision!=route.revision&&halfRoute.configuration.strength==50&&!m.textureInspected&&!m.textureBindings&&m.textureProducerStatus.empty()
+            &&!m.textureHookDrawCalls&&!m.textureHookTransferCalls&&!m.textureHookImageCopyCalls&&!m.textureHookNativeImageCalls,
             "strength-only Save invalidates old producer/provenance/counter evidence but keeps the selected source");
     runtime.textureReport(2,"old 100 percent draw",true,TextureDrawReason::Prepared,TextureDepthFailure::None,false,true,route.revision);
     require(!runtime.metrics().textureInspected,"an old-strength asynchronous result cannot masquerade as current-strength success");
     runtime.setTexture({true,true,TextureDrawPolicy::OwnedMipCompatibility,0});
     const auto zeroRevision=runtime.textureRoute().revision;
+    require(!runtime.textureHookEntry(TextureHookKind::Draw)&&!runtime.textureHookEntry(TextureHookKind::NamedImageCopy)
+            &&!runtime.metrics().textureHookDrawCalls&&!runtime.metrics().textureHookTransferCalls,"zero strength cannot collect active raw capture counters");
     runtime.textureConsumerReport(1,zeroRevision);runtime.textureTransferReport(1,zeroRevision);
     runtime.textureReport(2,"zero is not a weak preparation",true,TextureDrawReason::Prepared,TextureDepthFailure::None,false,true,zeroRevision);
     require(!runtime.texture().active()&&!runtime.metrics().textureInspected&&!runtime.metrics().textureConsumerDraws

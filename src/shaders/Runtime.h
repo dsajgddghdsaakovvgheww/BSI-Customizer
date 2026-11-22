@@ -9,6 +9,8 @@
 #include <string>
 
 namespace BsiShaders {
+// Pre-routing hook coverage only, NEVER ownership or successfully copied pixels.
+enum class TextureHookKind { Draw, ColorTransfer, NamedImageCopy, NativeImageBinding };
 struct Metrics {
     bool hooks=false, observed=false, active=false, deviceReady=false;
     Renderer renderer=Renderer::Unknown;
@@ -31,6 +33,9 @@ struct Metrics {
     std::uint64_t textureConsumerDraws=0,textureConsumerInputs=0;
     std::uint64_t textureProducerInspected=0,textureProducerDraws=0,textureProducerBindings=0;
     std::uint64_t textureTransferCalls=0,textureTransferInputs=0;
+    // Non-injected hook entries anywhere in this process while a GL game source
+    // is selected and Potato is active. May include aliases/foreign routes.
+    std::uint64_t textureHookDrawCalls=0,textureHookTransferCalls=0,textureHookImageCopyCalls=0,textureHookNativeImageCalls=0;
     std::string textureLastBypass;
     // Retain the actual producer's detail across later compositor inspections.
     // A final presentation-only refusal must not hide the upstream blocker.
@@ -73,6 +78,9 @@ public:
     void setTexture(const TextureConfiguration &settings);
     TextureConfiguration texture();
     TextureRoute textureRoute();
+    // Replaces the callback's active-setting read (one mutex acquisition), and
+    // separately counts pre-route coverage when a GL presentation is selected.
+    bool textureHookEntry(TextureHookKind kind);
     void textureConsumerReport(unsigned inputs,std::uint64_t revision);
     void textureTransferReport(unsigned inputs,std::uint64_t revision);
     void textureReport(unsigned bindings,const std::string &detail,bool supported,

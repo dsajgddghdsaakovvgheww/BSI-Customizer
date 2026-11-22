@@ -70,7 +70,10 @@ int main(int argc,char **argv){
     a.current(nullptr,nullptr);queries=a.count("bsiFixtureProcedureQueries");a.current(nullptr,nullptr);require(a.count("bsiFixtureProcedureQueries")==queries,"null EGL unbind has no dispatch discovery");
     r.setTexture({false,true,TextureDrawPolicy::OwnedMipCompatibility});a.current(target,scene);a.resource(4);a.draw(entry,variant,0);require(!r.metrics().textureInspected&&!r.metrics().textureDraws,"Off state remains native");
     require(!a.query("bsiUnsupportedProcedure")&&!a.query(nullptr),"unknown/null lookup results retained");
-    a.current(nullptr,nullptr);b.current(nullptr,nullptr);a.remove(scene);a.remove(presenter);a.remove(secret);b.remove(other);r.stop();DestroyWindow(foreign);DestroyWindow(game);DestroyWindow(root);
+    a.current(nullptr,nullptr);a.remove(secret);queries=a.count("bsiFixtureProcedureQueries");
+    a.current(target,scene);require(a.count("bsiFixtureProcedureQueries")>queries,"native EGL context retirement invalidates the provider's known-table cache even with effects Off");
+    queries=a.count("bsiFixtureProcedureQueries");a.current(target,scene);require(a.count("bsiFixtureProcedureQueries")==queries,"fresh EGL dispatch table is cached again after lifecycle invalidation");
+    a.current(nullptr,nullptr);b.current(nullptr,nullptr);a.remove(scene);a.remove(presenter);b.remove(other);r.stop();DestroyWindow(foreign);DestroyWindow(game);DestroyWindow(root);
     std::printf("PASS: %s EGL exact-target discovery; cached/late provider separation; native results/errors/once-only arguments; real GL-query exclusion before ownership/protection; LINEAR/foreign/Off unchanged\n",cached?"cached":"late");
     std::puts("LIMIT: authored EGL/GL DLL + actual Windows MinHook, not driver/game/pixel/FPS certification");
 }

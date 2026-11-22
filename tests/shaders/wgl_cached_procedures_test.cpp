@@ -142,5 +142,5 @@ int main(int argc,char **argv){
     require(!f.count("bsiFixtureInvalidGl"),"no illegal GL inspection on failed, null, unowned or foreign route");
     ReleaseDC(game,dc);ReleaseDC(foreign,foreignDc);DestroyWindow(foreign);DestroyWindow(game);DestroyWindow(root);
     std::puts("PASS: pre-bootstrap cached WGL draw/transfer/deletion coverage on core/ARB/EXT current binding; native results/errors/arguments/once-only originals; bounded refresh cache/reuse; proven producers only; LINEAR/foreign/Off unchanged");
-    std::puts("LIMIT: authored DLL + actual Windows MinHook, not installed-game capture or driver pixels; a pre-existing context which never rebinds or queries after bootstrap remains outside this discovery path");
+    std::puts("LIMIT: authored DLL + actual Windows MinHook, not installed-game capture or driver pixels; a pre-existing context which never binds, queries or presents after bootstrap remains outside this discovery path");
 }

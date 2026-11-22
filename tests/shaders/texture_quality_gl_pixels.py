@@ -749,6 +749,120 @@ def exercise(gl, policy, desktop, size, resolver, resource_current):
             folder = Path(artifacts) / ("desktop" if desktop else "gles")
             for tag, rgba in (("native", transfer_native), ("strong", transfer_strong), ("off", transfer_off)):
                 save_rgba(folder / (label + "-" + tag + ".png"), rgba, size)
+    # Explicitly mandatory in desktop CI; no version override or stub-only
+    # feature claim. Source/destination need not be bound to ANY current FBO.
+    if os.environ.get("BSI_TEST_COPY_IMAGE") == "1":
+        assert desktop, "named-image-copy matrix must run on a real desktop GL context"
+        ext_count = I()
+        get_int(0x821D, C.byref(ext_count))
+        ext_string = gl("glGetStringi", C.c_char_p, U, U)
+        extensions = {ext_string(0x1F03, i).decode() for i in range(ext_count.value)}
+        assert actual >= (4, 5) or "GL_ARB_direct_state_access" in extensions, "mandatory binding-free DSA queries unavailable"
+        assert actual >= (4, 3) or "GL_ARB_copy_image" in extensions, "mandatory real CopyImageSubData unavailable"
+        policy.bsi_test_dependency_image_capture.argtypes = [U, U, U, U, I, I, U]
+        policy.bsi_test_dependency_image_capture.restype = U
+        metadata_cases = []
+        assert count_query, "mandatory immutable named-copy matrix needs queryable actual storage bounds"
+        core_image_copy = gl("glCopyImageSubData", None, U, U, I, I, I, I, U, U, I, I, I, I, I, I, I)
+        for label, levels, visible in (("immutable4", 4, 4), ("view3of7", 7, 3)):
+            if label == "view3of7" and not view_entry:
+                continue  # optional view extension is not a reported pass
+            obj = immutable_texture(levels)
+            view = U()
+            source = obj
+            if visible != levels:
+                gl("glGenTextures", None, I, C.POINTER(U))(1, C.byref(view))
+                gl(view_entry, None, U, U, U, U, U, U, U, U)(view, 0x0DE1, obj, 0x8058, 0, visible, 0, 1)
+                gl("glBindTexture", None, U, U)(0x0DE1, view)
+                configure_immutable()
+                source = view
+            saved = immutable_state()
+            assert saved[:3] == (0, 1000, 1) and saved[3] == levels and get_error() == 0
+            bind_input(texture)  # neither source nor destination is bound now
+            gl("glEnable", None, U)(0xDEADBEEF)
+            assert policy.bsi_test_dependency_image_capture(source, 0x0DE1, color_target, 0x0DE1, size, size, 1) == 1, "complete immutable/view named textures require legal, correctly spelled DSA view-level queries"
+            assert get_error() == 0x0500 and get_error() == 0, "named immutable/view queries cannot consume or ADD an API error"
+            core_image_copy(source, 0x0DE1, 0, 0, 0, 0, color_target, 0x0DE1, 0, 0, 0, 0, size, size, 1)
+            assert get_error() == 0 and tuple(resource_composite()[:4]) == native
+            active(0x84C0)
+            gl("glBindTexture", None, U, U)(0x0DE1, source)
+            assert immutable_state() == saved, "named-copy capture must not repair stored MAX_LEVEL, alter immutable storage or view bounds"
+            bind_input(texture)
+            if view.value:
+                gl("glDeleteTextures", None, I, C.POINTER(U))(1, C.byref(view))
+            gl("glDeleteTextures", None, I, C.POINTER(U))(1, C.byref(obj))
+            metadata_cases.append({"case": label, "storageLevels": levels, "viewLevels": visible, "pendingErrorAndSourceState": True})
+        bind_sampler(0, native_binding)
+        named_cases = []
+        for name, api in (("glCopyImageSubData", 1), ("glCopyImageSubDataNV", 8)):
+            if api == 8 and "GL_NV_copy_image" not in extensions:
+                continue  # explicitly untested, not a reported NV pass
+            native_copy = gl(name, None, U, U, I, I, I, I, U, U, I, I, I, I, I, I, I)
+            def image_copy(*, observe=True, pending_error=False):
+                bind_framebuffer(0x8D40, 0)
+                bind_input(texture)  # neither named copy image is this binding
+                gl("glColorMask", None, C.c_ubyte, C.c_ubyte, C.c_ubyte, C.c_ubyte)(0, 0, 0, 0)
+                gl("glEnable", None, U)(0x0BE2)
+                if pending_error:
+                    gl("glEnable", None, U)(0xDEADBEEF)
+                before = []
+                for key in (0x84E0, 0x8069, 0x8CA6, 0x8CAA, 0x8CA7):
+                    value = I()
+                    get_int(key, C.byref(value))
+                    before.append(value.value)
+                if observe:
+                    assert policy.bsi_test_dependency_image_capture(stage_rbo, 0x8D41, color_target, 0x0DE1, size, size, api) == 1, "valid named RBO->texture copy must reach production capture without a current FBO relationship"
+                native_copy(stage_rbo, 0x8D41, 0, 0, 0, 0, color_target, 0x0DE1, 0, 0, 0, 0, size, size, 1)
+                linked = policy.bsi_test_dependency_transfer_complete() if observe else 0
+                after = []
+                for key in (0x84E0, 0x8069, 0x8CA6, 0x8CAA, 0x8CA7):
+                    value = I()
+                    get_int(key, C.byref(value))
+                    after.append(value.value)
+                assert after == before, "named observer must not bind either image, an FBO, RBO or a sampler"
+                gl("glColorMask", None, C.c_ubyte, C.c_ubyte, C.c_ubyte, C.c_ubyte)(1, 1, 1, 1)
+                gl("glDisable", None, U)(0x0BE2)
+                if pending_error:
+                    assert get_error() == 0x0500, "named capture must preserve the application's pending error"
+                assert get_error() == 0, "raw original and production DSA inspection must both be legal"
+                return linked
+            def image_source(mode):
+                bind_sampler(0, native_binding)  # compositor deliberately used sampler zero
+                return linked_producer(mode, stage_fbo)
+            policy.bsi_test_dependency_reset(800 + api)
+            assert image_source(2) == (0, native)
+            image_copy(observe=False)
+            raw_native = resource_composite()
+            assert tuple(raw_native[:4]) == native, "raw named image copy must work before any production observation"
+            assert policy.bsi_test_dependency_consumer() == 1
+            assert image_source(2) == (0, native), "consumption alone cannot invent an unobserved image copy"
+            assert image_copy(pending_error=True) == 1
+            assert image_source(2) == (1, colors[3]), "new named-copy dependency must reach actual material mips"
+            assert image_copy() == 1
+            image_strong = resource_composite()
+            assert tuple(image_strong[:4]) == colors[3] and image_strong != raw_native
+            assert image_source(0) == (0, native) and image_copy() == 1
+            image_off = resource_composite()
+            assert image_off == raw_native, "entire named-copy presentation Off must match raw native bytes"
+            for _ in range(3):
+                policy.bsi_test_dependency_frame()
+            assert image_source(2) == (0, native), "named copies cannot perpetuate their own consumer TTL"
+            named_cases.append({"entry": name, "nativeRGBA": list(raw_native[:4]), "strongRGBA": list(image_strong[:4]),
+                                "offExact": True, "sourceStateAndPendingError": True, "compositorBindings": 0, "producerBindings": 1})
+            artifacts = os.environ.get("BSI_TEXTURE_PIXEL_ARTIFACT_DIR")
+            if artifacts:
+                folder = Path(artifacts) / "desktop"
+                for tag, rgba in (("native", raw_native), ("strong", image_strong), ("off", image_off)):
+                    save_rgba(folder / (name + "-" + tag + ".png"), rgba, size)
+        named_report = {"version": version, "bindingFreeQueries": True, "cases": named_cases, "immutableQueries": metadata_cases,
+                        "limit": "actual software GL image copies, NOT Windows hook or installed-game/GPU/FPS evidence"}
+        report = json.dumps(named_report, separators=(",", ":"))
+        print("Named-image copy pixel evidence:", report)
+        if os.environ.get("BSI_TEXTURE_PIXEL_ARTIFACT_DIR"):
+            (folder / "named-image-copy-evidence.json").write_text(json.dumps(named_report, indent=2) + "\n")
+        if os.environ.get("GITHUB_ACTIONS") == "true":
+            assert len(report.encode()) < 2500
+            print("::notice title=Actual named image-copy material pixels (software)::" + report)
     bind_framebuffer(0x8D40, 0)
     gl("glBindRenderbuffer", None, U, U)(0x8D41, 0)
     gl("glDeleteRenderbuffers", None, I, C.POINTER(U))(1, C.byref(stage_rbo))
