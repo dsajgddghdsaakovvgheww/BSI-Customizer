@@ -37,7 +37,7 @@ with tempfile.TemporaryDirectory() as folder:
     uri=QUrl.fromLocalFile(str(assets)).toString()
     magenta=QImage(16,16,QImage.Format_RGBA8888);magenta.fill(QColor('#ff00ff'));assert magenta.save(str(temp/'stock.png'))
     (temp/'UiImage.qml').write_text('''import QtQuick 2.15
-Image {property string asset:"BlueStacksLogo";property int pImageWidth:20;property int pImageHeight:20;width:pImageWidth;height:pImageHeight;source:"stock.png";fillMode:Image.PreserveAspectFit}
+Image {readonly property int testStatus:status;property string asset:"BlueStacksLogo";property int pImageWidth:20;property int pImageHeight:20;width:pImageWidth;height:pImageHeight;source:"stock.png";fillMode:Image.PreserveAspectFit}
 ''')
     (temp/'UiImageButton.qml').write_text('''import QtQuick 2.15
 import QtQuick.Controls 2.15
@@ -75,7 +75,7 @@ Window {
     root=window.contentItem();topbar=find(root,'nativeTopbar');logo=find(root,'nativeProductLogo')
     first=[]
     def before_render():
-        if not first:first.append((topbar.property('color').name(),logo.property('status')))
+        if not first:first.append((topbar.property('color').name(),logo.property('testStatus')))
     window.beforeRendering.connect(before_render,Qt.DirectConnection)
     for _ in range(100):
         if first:break

@@ -173,7 +173,7 @@ Window {
     assert native_slider.property('pVoidInlineSlider')
     assert visual(native_slider,'voidReferenceFpsValue') is not None
     assert native_slider.property('contentItem').property('spacing')==0
-    assert visual(root,'voidReferenceBrandLogo').property('status')==1
+    assert visual(root,'voidReferenceBrandLogo').property('imageStatus')==1
     assert visual(root,'bsiSettingsTab_11') is not None,'full native navigation fixture did not load'
     for preset in json.loads((ROOT/'assets/full-emulator-ui/themes.json').read_text()):
         window.setProperty('requested',preset['id']);QMetaObject.invokeMethod(window,'choose');settle()
