@@ -1,24 +1,30 @@
 # Free Fire: host presentation is not scene-texture capture
 
-## Latest installed-player follow-up: 1,030 frames / 2,058 NoSampler, still zero replacements
+## Latest installed-player follow-up: 3,154 frames / 6,297 NoSampler, still zero replacements
 
-The newest report has **1,030 presentation frames / 2,058 sampler inspections,
-all NoSampler**, with **zero prepared draws/private bindings, zero linked
-producers and zero captured transfers**. Strength is 100%, policy remains
-`OwnedMipCompatibility`; observed host API is OpenGL, Qt bridge/host are
-5.15.2/5.15.4 and Vulkan has no WSI surface/swapchain/present. The inspected
-mutable RGB 256x256 consumer uses legal **GL_LINEAR (`0x2601`)**, with all 2,058
-inspections rejecting non-mip filtering and other first blockers zero. This is
-not partial Potato success, absent material mips proved by inspection, or a
-reason to force a compositor mip filter.
+The newest report, supplied after delivery of the `81509f1` WGL lookup candidate,
+has **3,154 presentation frames / 6,297 sampler inspections, all NoSampler**,
+with **zero prepared draws/private bindings, zero linked producers and zero
+captured transfers**. Strength is 100%, policy remains `OwnedMipCompatibility`;
+observed host API is OpenGL, Qt bridge/host are 5.15.2/5.15.4 and Vulkan has no
+WSI surface/swapchain/present. The inspected mutable RGB 256x256 consumer uses
+legal **GL_LINEAR (`0x2601`)**, with all 6,297 inspections rejecting non-mip
+filtering and other first blockers zero. This supersedes the 1,030/2,058 report.
+No installed hash was supplied, so exact candidate identity is not independently
+certified; neither a stale install nor game success is inferred. This is not
+partial Potato success, absent material mips proved by inspection, or a reason
+to force a compositor mip filter.
 
-The [GitHub rendering-clue follow-up](POTATO-GITHUB-RENDERING-CLUES.md) now
-connects an independently reported BlueStacks draw-hook miss with actual
-ReShade/gfxstream lookup code and Microsoft's procedure-address contract. BSI's
-presenter initialization already uses WGL lookup, but its lookup interceptor
-misses newly returned GL targets. A distinct-address Windows regression and
-narrow per-target attachment repair are being validated; executed/pending
-results and the separate EGLImage/private-transfer leads are recorded there.
+The [GitHub rendering-clue follow-up](POTATO-GITHUB-RENDERING-CLUES.md) records the
+previous newly returned WGL-target repair and its separate limits. Its delivered
+candidate has not established installed-game acceptance. The
+[cached-dispatch investigation](POTATO-CACHED-WGL-DISPATCH.md) confirms our hooks
+start in root QML completion and independently reproduces another gap:
+pre-bootstrap cached draw addresses can bypass the lookup handler. All three
+Windows before-repair configurations pass 27 earlier tests and fail the intended
+new assertion; a narrow current-binding discovery repair is being validated.
+No hooks are moved into `DllMain`, no ownership is inferred from context binding,
+and no general EGLImage/private-transfer route is guessed.
 **Neither source similarity nor an authored regression diagnoses this game's
 unobserved material path.** Installed-game acceptance remains negative.
 

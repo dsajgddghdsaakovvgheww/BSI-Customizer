@@ -2,14 +2,22 @@
 
 ## Acceptance has not changed
 
-The latest installed report is **1,030 presentation frames / 2,058 inspections,
-all NoSampler**, with **zero prepared draws/private bindings, linked producers
-or captured transfers**. Strength is 100%. The inspected mutable RGB 256x256
-consumer uses legal **GL_LINEAR (`0x2601`)**, not mipmapped filtering. Its
-stored/effective BASE/MAX are 0/1000, storage/view -1/-1 and failed level -1.
-That does not identify the unseen game-material renderer or prove absent mips.
-An armed switch, grading frames, source research or a passing authored test is
-not genuine installed-game texture reduction.
+The latest installed report, supplied after delivery of the `81509f1` candidate,
+is **3,154 presentation frames / 6,297 inspections, all NoSampler**, with **zero
+prepared draws/private bindings, linked producers or captured transfers**.
+Strength is 100%. The inspected mutable RGB 256x256 consumer uses legal
+**GL_LINEAR (`0x2601`)**, not mipmapped filtering. Its stored/effective BASE/MAX
+are 0/1000, storage/view -1/-1 and failed level -1. The exact installed module
+hash was not supplied; neither a stale install nor game success is inferred.
+This supersedes the 1,030/2,058 report. It does not identify the unseen material
+renderer or prove absent mips. An armed switch, grading frames, source research
+or a passing authored test is not genuine installed-game texture reduction.
+
+The [cached-dispatch follow-up](POTATO-CACHED-WGL-DISPATCH.md) independently
+reproduces another startup coverage gap: procedures cached before QML bootstrap
+can bypass the later lookup observer entirely. All three Windows before-repair
+cases retain 27 passing tests and fail the new cached-draw assertion. It is a
+separate defect/repair, **not proof of this game's missing route**.
 
 ## 1. Strongest lead: lookup-returned driver entry points
 

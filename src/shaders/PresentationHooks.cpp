@@ -39,6 +39,8 @@ using WglProc=PROC(WINAPI*)(LPCSTR);
 using WglDelete=BOOL(WINAPI*)(HGLRC);
 using WglCreate=HGLRC(WINAPI*)(HDC);
 using WglShare=BOOL(WINAPI*)(HGLRC,HGLRC);
+using WglMake=BOOL(WINAPI*)(HDC,HGLRC);
+using WglMakeSeparate=BOOL(WINAPI*)(HDC,HDC,HGLRC);
 using WglCreateAttributes=HGLRC(WINAPI*)(HDC,HGLRC,const int*);
 using WglPbufferGet=HDC(WINAPI*)(void*);
 using WglPbufferRelease=int(WINAPI*)(void*,HDC);
@@ -96,7 +98,8 @@ struct Hooks {
     HMODULE gl=nullptr;
     WglSwap swaps[2]{};
     WglCurrent currentWgl=nullptr;WglCurrentDc currentDc=nullptr;WglProc wglProc=nullptr;WglDelete deleteWgl=nullptr;
-    WglCreate createWgl=nullptr;WglShare shareWgl=nullptr;WglProc nativeWglProc=nullptr;
+    WglCreate createWgl=nullptr;WglShare shareWgl=nullptr;WglProc nativeWglProc=nullptr;WglMake makeWgl=nullptr;
+    std::atomic<std::uint64_t> wglDispatchRevision{1}; // code discovery only, NEVER resource/ownership proof
     GlTextureProvenance provenance;
     std::array<ResourceEvent,32> resources{};unsigned resourceCount=0;
     std::atomic<unsigned> resourceReset{0},resourceInvalidate{0};
@@ -104,7 +107,7 @@ struct Hooks {
     std::uint64_t drainedResourceSerial=0; // renderMutex: evidence includes events only through this serial
     std::array<DrawHook,12> textureDeletes{},renderbufferDeletes{};
     std::array<DrawHook,32> blits{},copies{};
-    std::array<DrawHook,16> attributedCreates{},pbufferGets{},pbufferReleases{},pbufferDestroys{},pbufferBinds{};
+    std::array<DrawHook,16> attributedCreates{},separateCurrents{},pbufferGets{},pbufferReleases{},pbufferDestroys{},pbufferBinds{};
     WglPbufferRegistry wglPbuffers;
     std::array<EglProvider,maximumEglProviders> egl;
     unsigned eglCount=0;
@@ -178,6 +181,7 @@ void drainResources(){
 }
 void contextCreated(unsigned provider,std::uintptr_t display,std::uintptr_t context,std::uintptr_t share)noexcept{
     if(!context)return;
+    if(!provider)hooks().wglDispatchRevision.fetch_add(1);
     ResourceEvent event;event.providers=1u<<provider;
     event.kind=share?ResourceEvent::CreatedShared:ResourceEvent::Created;
     event.parent={provider,display,share};event.child={provider,display,context};resourceEvent(event);
@@ -208,10 +212,10 @@ HWND drawableFor(unsigned provider,DrawableKey *key,bool read=false){
     std::lock_guard<std::mutex> lock(h.surfaceMutex);const auto it=p.surfaces.find(*key);
     return it==p.surfaces.end()?nullptr:it->second;
 }
-bool installDrawHooks(unsigned provider,void *user);
-bool installResourceHooks(unsigned provider,void *user);
-bool installTransferHooks(unsigned provider,void *user);
-void installWglPbufferHooks();
+bool installDrawHooks(unsigned provider,void *user,bool *complete=nullptr);
+bool installResourceHooks(unsigned provider,void *user,bool *complete=nullptr);
+bool installTransferHooks(unsigned provider,void *user,bool *complete=nullptr);
+bool installWglPbufferHooks();
 std::uintptr_t pbufferFor(unsigned provider,DrawableKey drawable){
     auto &h=hooks();std::lock_guard<std::mutex> lock(h.surfaceMutex);
     if(!provider)return h.wglPbuffers.resource(drawable.second);
@@ -571,16 +575,22 @@ bool installGlProcedure(unsigned provider,const char *name,void *target){
     if(std::strcmp(name,"glDeleteRenderbuffers")==0)return resourceHook(h.renderbufferDeletes,renderbuffers,target,providers);
     return false;
 }
-bool installTransferHooks(unsigned provider,void *user){
+bool installTransferHooks(unsigned provider,void *user,bool *complete){
     bool any=false;
-    for(const auto *name:{"glBlitFramebuffer","glBlitFramebufferEXT","glBlitFramebufferANGLE","glBlitFramebufferNV","glCopyTexSubImage2D","glCopyTexSubImage2DEXT"})
-        any=installGlProcedure(provider,name,resolve(name,user))||any;
+    for(const auto *name:{"glBlitFramebuffer","glBlitFramebufferEXT","glBlitFramebufferANGLE","glBlitFramebufferNV","glCopyTexSubImage2D","glCopyTexSubImage2DEXT"}){
+        const auto target=resolve(name,user);const bool attached=installGlProcedure(provider,name,target);
+        if(target&&!attached&&complete)*complete=false;
+        any=attached||any;
+    }
     return any;
 }
-bool installResourceHooks(unsigned provider,void *user){
-    const bool deletedTextures=installGlProcedure(provider,"glDeleteTextures",resolve("glDeleteTextures",user));
-    const bool deletedRenderbuffers=installGlProcedure(provider,"glDeleteRenderbuffers",resolve("glDeleteRenderbuffers",user));
-    installTransferHooks(provider,user);if(!provider)installWglPbufferHooks();
+bool installResourceHooks(unsigned provider,void *user,bool *complete){
+    const auto textures=resolve("glDeleteTextures",user),renderbuffers=resolve("glDeleteRenderbuffers",user);
+    const bool deletedTextures=installGlProcedure(provider,"glDeleteTextures",textures);
+    const bool deletedRenderbuffers=installGlProcedure(provider,"glDeleteRenderbuffers",renderbuffers);
+    if(complete&&((textures&&!deletedTextures)||(renderbuffers&&!deletedRenderbuffers)))*complete=false;
+    installTransferHooks(provider,user,complete);
+    if(!provider&&!installWglPbufferHooks()&&complete)*complete=false;
     return deletedTextures&&deletedRenderbuffers;
 }
 template<unsigned Index> HDC WINAPI getPbufferDc(void *pbuffer){
@@ -645,11 +655,12 @@ template<unsigned Index> BOOL WINAPI bindPbufferTexture(void *pbuffer,int buffer
     SetLastError(nativeError);return result;
 }
 template<std::size_t... Index> auto pbufferBindCallbacks(std::index_sequence<Index...>){return std::array<void*,sizeof...(Index)>{{reinterpret_cast<void*>(&bindPbufferTexture<Index>)...}};}
-void installWglPbufferHooks(){
+bool installWglPbufferHooks(){
     static const auto gets=pbufferGetCallbacks(std::make_index_sequence<16>{}),releases=pbufferReleaseCallbacks(std::make_index_sequence<16>{}),destroys=pbufferDestroyCallbacks(std::make_index_sequence<16>{});
     static const auto binds=pbufferBindCallbacks(std::make_index_sequence<16>{});
-    auto &h=hooks();
-    resourceHook(h.pbufferBinds,binds,nativeWglProcedure("wglBindTexImageARB"),1);
+    auto &h=hooks();bool complete=true;
+    const auto bind=nativeWglProcedure("wglBindTexImageARB");
+    if(bind&&!resourceHook(h.pbufferBinds,binds,bind,1))complete=false;
     for(const auto *suffix:{"ARB","EXT"}){
         const std::string family(suffix);
         const auto get=nativeWglProcedure(("wglGetPbufferDC"+family).c_str());
@@ -657,9 +668,10 @@ void installWglPbufferHooks(){
         const auto destroy=nativeWglProcedure(("wglDestroyPbuffer"+family).c_str());
         // Enable acquisition LAST. A partially installed lifecycle family must
         // not publish a pbuffer/DC which can later disappear unobserved.
-        if(get&&release&&destroy&&resourceHook(h.pbufferReleases,releases,release,1)&&resourceHook(h.pbufferDestroys,destroys,destroy,1))
-            resourceHook(h.pbufferGets,gets,get,1);
+        if(get&&(!release||!destroy||!resourceHook(h.pbufferReleases,releases,release,1)
+           ||!resourceHook(h.pbufferDestroys,destroys,destroy,1)||!resourceHook(h.pbufferGets,gets,get,1)))complete=false;
     }
+    return complete;
 }
 template<unsigned Index> HGLRC WINAPI createAttributedWgl(HDC dc,HGLRC share,const int *attributes){
     auto &entry=hooks().attributedCreates[Index];
@@ -669,12 +681,66 @@ template<unsigned Index> HGLRC WINAPI createAttributedWgl(HDC dc,HGLRC share,con
 template<std::size_t... Index> auto attributedCallbacks(std::index_sequence<Index...>){
     return std::array<void*,sizeof...(Index)>{{reinterpret_cast<void*>(&createAttributedWgl<Index>)...}};
 }
+void discoverCurrentWgl(HDC dc,HGLRC context)noexcept;
+template<unsigned Index> BOOL WINAPI madeSeparateCurrentWgl(HDC draw,HDC read,HGLRC context){
+    const auto &entry=hooks().separateCurrents[Index];
+    const auto result=reinterpret_cast<WglMakeSeparate>(entry.original.load(std::memory_order_acquire))(draw,read,context);
+    const auto nativeError=GetLastError();if(result)discoverCurrentWgl(draw,context);
+    SetLastError(nativeError);return result;
+}
+template<std::size_t... Index> auto separateCurrentCallbacks(std::index_sequence<Index...>){
+    return std::array<void*,sizeof...(Index)>{{reinterpret_cast<void*>(&madeSeparateCurrentWgl<Index>)...}};
+}
+bool installWglCurrentProcedure(const char *name,void *target){
+    if(std::strcmp(name,"wglMakeContextCurrentARB")!=0&&std::strcmp(name,"wglMakeContextCurrentEXT")!=0)return false;
+    static const auto callbacks=separateCurrentCallbacks(std::make_index_sequence<16>{});
+    return resourceHook(hooks().separateCurrents,callbacks,target,1);
+}
+// Renderer dispatch tables may predate the QML bootstrap and never perform
+// another application lookup. Resolve the existing signature inventory on the
+// thread AFTER its successful native bind, not on the polling worker (which
+// has no current context). This installs code only: NO GL state query, render
+// mutex, context/share inference, presentation selection or resource evidence.
+void discoverCurrentWgl(HDC dc,HGLRC context)noexcept{
+    auto &h=hooks();if(!dc||!context||h.stopping.load()||!h.deleteWgl||!h.currentWgl||!h.currentDc)return;
+    struct Cache {
+        std::uint64_t revision=0;unsigned count=0;bool discovering=false;
+        std::array<std::pair<HDC,HGLRC>,64> tables{};
+    };
+    static thread_local Cache cache;
+    if(cache.discovering||h.currentWgl()!=context||h.currentDc()!=dc)return;
+    const auto revision=h.wglDispatchRevision.load();
+    if(cache.revision!=revision){cache.revision=revision;cache.count=0;}
+    const auto key=std::make_pair(dc,context);
+    for(unsigned i=0;i<cache.count;++i)if(cache.tables[i]==key)return;
+    cache.discovering=true;bool completed=false;
+    try{
+        bool complete=true;installResourceHooks(0,nullptr,&complete);installDrawHooks(0,nullptr,&complete);
+        for(const auto *name:{"wglMakeContextCurrentARB","wglMakeContextCurrentEXT"}){
+            const auto target=nativeWglProcedure(name);
+            if(target&&!installWglCurrentProcedure(name,target))complete=false;
+        }
+        completed=complete; // Unsupported/null is fine; a failed attachment is retried on the next binding.
+    }catch(...){} // Optional code discovery never changes native binding success.
+    cache.discovering=false;
+    // Avoid a per-frame resolver sweep. This bounded thread-local CODE cache
+    // is invalidated around native deletion / on observed creation, including
+    // handle reuse. Overflow simply rescans; it cannot authorize any resource.
+    if(completed&&revision==h.wglDispatchRevision.load()&&cache.count<cache.tables.size()
+       &&h.currentWgl()==context&&h.currentDc()==dc)cache.tables[cache.count++]=key;
+}
+BOOL WINAPI madeCurrentWgl(HDC dc,HGLRC context){
+    const auto result=hooks().makeWgl(dc,context);const auto nativeError=GetLastError();
+    if(result)discoverCurrentWgl(dc,context);
+    SetLastError(nativeError);return result;
+}
 PROC WINAPI queriedWgl(LPCSTR name){
     const auto result=hooks().nativeWglProc(name);const auto nativeError=GetLastError();
     if(result&&name)try{
         const auto value=reinterpret_cast<std::intptr_t>(result);
         if(value!=1&&value!=2&&value!=3&&value!=-1){
             if(name[0]=='g'&&name[1]=='l')installGlProcedure(0,name,reinterpret_cast<void*>(result));
+            installWglCurrentProcedure(name,reinterpret_cast<void*>(result));
             if(std::strcmp(name,"wglCreateContextAttribsARB")==0){
                 static const auto callbacks=attributedCallbacks(std::make_index_sequence<16>{});
                 resourceHook(hooks().attributedCreates,callbacks,reinterpret_cast<void*>(result),1);
@@ -694,10 +760,13 @@ BOOL WINAPI sharedWgl(HGLRC parent,HGLRC child){
         event.parent={0,0,reinterpret_cast<std::uintptr_t>(parent)};event.child={0,0,reinterpret_cast<std::uintptr_t>(child)};resourceEvent(event);}
     return result;
 }
-bool installDrawHooks(unsigned provider,void *user){
+bool installDrawHooks(unsigned provider,void *user,bool *complete){
     bool any=false;
-    for(const auto &names:glDrawNames)for(const auto *name:names)
-        if(name)any=installGlProcedure(provider,name,resolve(name,user))||any;
+    for(const auto &names:glDrawNames)for(const auto *name:names)if(name){
+        const auto target=resolve(name,user);const bool attached=installGlProcedure(provider,name,target);
+        if(target&&!attached&&complete)*complete=false;
+        any=attached||any;
+    }
     return any;
 }
 void process(unsigned provider,std::uintptr_t context,HWND window,DrawableKey drawable,int width,int height,bool externalProtectionPossible=false){
@@ -758,7 +827,12 @@ void removeContextState(unsigned provider,std::uintptr_t display,std::uintptr_t 
     if(it==h.contexts.end())return;
     Runtime::instance().releasePresentation(it->second->renderer,reinterpret_cast<std::uintptr_t>(it->second.get()));h.contexts.erase(it);
 }
-BOOL WINAPI removeWgl(HGLRC context){const BOOL okay=hooks().deleteWgl(context);if(okay)try{removeContextState(0,0,reinterpret_cast<std::uintptr_t>(context));}catch(...){}return okay;}
+BOOL WINAPI removeWgl(HGLRC context){
+    auto &h=hooks();h.wglDispatchRevision.fetch_add(1);
+    const auto okay=h.deleteWgl(context);const auto nativeError=GetLastError();h.wglDispatchRevision.fetch_add(1);
+    if(okay)try{removeContextState(0,0,reinterpret_cast<std::uintptr_t>(context));}catch(...){}
+    SetLastError(nativeError);return okay;
+}
 template<typename Attribute> void trackSurface(EglProvider &p,void *display,void *surface,void *window,const Attribute *attrs)noexcept{
     try {
         bool protectedContent=false,terminated=attrs==nullptr;
@@ -917,6 +991,9 @@ void scan(){
         if(!h.createWgl)install(reinterpret_cast<void*>(GetProcAddress(h.gl,"wglCreateContext")),reinterpret_cast<void*>(&createdWgl),reinterpret_cast<void**>(&h.createWgl));
         if(!h.shareWgl)install(reinterpret_cast<void*>(GetProcAddress(h.gl,"wglShareLists")),reinterpret_cast<void*>(&sharedWgl),reinterpret_cast<void**>(&h.shareWgl));
         if(!h.deleteWgl)install(reinterpret_cast<void*>(GetProcAddress(h.gl,"wglDeleteContext")),reinterpret_cast<void*>(&removeWgl),reinterpret_cast<void**>(&h.deleteWgl));
+        // Lifetime observation precedes cached-table discovery; never cache a
+        // context handle whose native retirement could go unobserved.
+        if(h.deleteWgl&&!h.makeWgl)install(reinterpret_cast<void*>(GetProcAddress(h.gl,"wglMakeCurrent")),reinterpret_cast<void*>(&madeCurrentWgl),reinterpret_cast<void**>(&h.makeWgl));
         void *candidates[]{reinterpret_cast<void*>(GetProcAddress(GetModuleHandleW(L"gdi32.dll"),"SwapBuffers")),reinterpret_cast<void*>(GetProcAddress(h.gl,"wglSwapBuffers"))};
         void *callbacks[]{reinterpret_cast<void*>(&swapWgl<0>),reinterpret_cast<void*>(&swapWgl<1>)};
         if(h.deleteWgl)for(int i=0;i<2;++i)if(!h.swaps[i])install(candidates[i],callbacks[i],reinterpret_cast<void**>(&h.swaps[i]));

@@ -2,9 +2,13 @@
 
 ## Installed game is still negative
 
-The latest installed report has **1,030 presentation frames / 2,058 NoSampler
-inspections and zero replacements/producers/transfers**; the
-[GitHub follow-up](POTATO-GITHUB-RENDERING-CLUES.md) records the next investigation.
+The latest installed report, supplied after the `81509f1` candidate delivery,
+has **3,154 presentation frames / 6,297 NoSampler inspections and zero
+replacements/producers/transfers**. This supersedes the 1,030/2,058 report;
+exact installed binary identity was not independently supplied. The
+[GitHub follow-up](POTATO-GITHUB-RENDERING-CLUES.md) and
+[cached-dispatch investigation](POTATO-CACHED-WGL-DISPATCH.md) record the next
+coverage defect separately from still-unproved installed-game capture.
 The preceding reports have **1,577 grading frames / 3,145 sampler
 inspections** and **2,993 grading frames / 856 sampler inspections**. Every
 inspection is **NoSampler**, with **zero prepared draws/private bindings,
