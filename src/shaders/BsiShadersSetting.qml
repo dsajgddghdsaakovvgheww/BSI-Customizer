@@ -526,6 +526,20 @@ Rectangle {
                             if (checked && page.needsTextureReview) page.reveal(potatoReview)
                         }
                     }
+                    Native.UiCheckBox {
+                        id: potatoReview
+                        objectName: "shaderPotatoReview"
+                        visible: !!page.draft.potatoGraphic
+                        pSize: page.bsiTheme.checkBoxes.sizes.medium
+                        Layout.fillWidth: true
+                        text: qsTr("I reviewed driver LOD / AA overrides")
+                        checked: !!page.draft.textureOverridesReviewed
+                        onToggled: {
+                            page.setValue("textureOverridesReviewed", checked)
+                            page.feedback = ""; page.saveFailed = false
+                        }
+                        Accessible.description: qsTr("Before saving Potato graphic, review existing NVIDIA, AMD or Intel driver LOD and anti-aliasing overrides. No profile is reset. Conflicting overrides can prevent the effect; this is not hardware certification.")
+                    }
                     Native.UiColumnLayout {
                         Layout.fillWidth: true; spacing: 4
                         Native.UiRowLayout {
@@ -556,20 +570,6 @@ Rectangle {
                             text: qsTr("0%: native · 50%: light · 100%: strongest. Only eligible textures change. Save changes to apply; this does not lower render resolution.")
                             color: page.bsiTheme.colors.primary30; font: page.bsiTheme.fonts.bodySmall
                         }
-                    }
-                    Native.UiCheckBox {
-                        id: potatoReview
-                        objectName: "shaderPotatoReview"
-                        visible: !!page.draft.potatoGraphic
-                        pSize: page.bsiTheme.checkBoxes.sizes.medium
-                        Layout.fillWidth: true
-                        text: qsTr("I reviewed driver LOD / AA overrides")
-                        checked: !!page.draft.textureOverridesReviewed
-                        onToggled: {
-                            page.setValue("textureOverridesReviewed", checked)
-                            page.feedback = ""; page.saveFailed = false
-                        }
-                        Accessible.description: qsTr("Before saving Potato graphic, review existing NVIDIA, AMD or Intel driver LOD and anti-aliasing overrides. No profile is reset. Conflicting overrides can prevent the effect; this is not hardware certification.")
                     }
                     Text {
                         Layout.fillWidth: true; wrapMode: Text.Wrap
