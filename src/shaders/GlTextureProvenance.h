@@ -6,12 +6,29 @@
 #include <limits>
 
 namespace BsiShaders {
-// Read-only GL observations made on the CURRENT context. Texture names alone
-// are NOT globally unique. Provenance below also requires an observed namespace.
+// Typed identities: GL textures, renderbuffers and native pbuffer generations
+// can have the SAME numeric name without denoting the same color storage.
+// Names are still namespace-qualified below, never compared across providers.
+struct GlColorResource {
+    enum Kind { Texture, Renderbuffer, Pbuffer } kind=Texture;
+    std::uintptr_t name=0;
+    constexpr GlColorResource()=default;
+    constexpr GlColorResource(unsigned texture):name(texture){}
+    static constexpr GlColorResource renderbuffer(unsigned name){return {Renderbuffer,name};}
+    static constexpr GlColorResource pbuffer(std::uintptr_t generation){return {Pbuffer,generation};}
+    constexpr explicit operator bool()const{return name!=0;}
+    constexpr bool operator==(GlColorResource other)const{return kind==other.kind&&name==other.name;}
+private:
+    constexpr GlColorResource(Kind kind,std::uintptr_t name):kind(kind),name(name){}
+};
+// Read-only GL observations made on the CURRENT context. A zero-name Pbuffer
+// is only a placeholder for a default framebuffer; the native caller must
+// qualify it using an observed live, unprotected pbuffer (or the exact selected
+// presentation OUTPUT), or discard the capture.
 struct GlTextureUsage {
     static constexpr std::size_t capacity=32;
     bool defaultFramebuffer=false;
-    std::array<unsigned,capacity> reads{},writes{};
+    std::array<GlColorResource,capacity> reads{},writes{};
     std::size_t readCount=0,writeCount=0;
 };
 struct GlContextIdentity {
@@ -22,8 +39,9 @@ struct GlContextIdentity {
     }
 };
 // Bounded, allocation-free dependency evidence, serialized by renderMutex.
-// Only a real selected-drawable/default-FBO draw can seed consumed color
-// textures. A nonpresenting producer must write one of those exact objects in
+// Only a real selected-drawable/default-FBO draw or submitted color blit can
+// seed consumed color resources. A nonpresenting producer must write an exact
+// recent dependency (including an observed copy/resolve predecessor) in
 // the SAME context or a namespace joined by a SUCCESSFUL native sharing call.
 // Sharing alone never authorizes a producer. No names are compared across
 // unrelated contexts, providers or EGL displays; no foreign HWND is adopted.
@@ -72,17 +90,23 @@ public:
     }
     // Invalidate by provider even if deletion came through an untracked shared
     // context: conservative over-invalidation is preferable to a reused name.
-    void deleted(unsigned provider,int count,const unsigned *names){
+    void deleted(unsigned provider,int count,const unsigned *names,GlColorResource::Kind kind=GlColorResource::Texture){
         if(count<=0)return;
         bool invalid=!names||count>256;
-        if(!invalid)for(const auto &item:textures_)if(item.texture&&item.provider==provider)
-            for(int i=0;i<count;++i)if(item.texture==names[i]){invalid=true;break;}
-        // Drop inherited ancestors too: they no longer have an intact observed
-        // path if a downstream/root name was deleted. Re-learn from a consumer.
-        if(invalid)for(auto &item:textures_)if(item.provider==provider)item={};
+        if(!invalid)for(const auto &item:textures_)if(item.texture&&item.provider==provider&&item.texture.kind==kind)
+            for(int i=0;i<count;++i)if(item.texture.name==names[i]){invalid=true;break;}
+        if(invalid)invalidate(provider);
     }
+    void retiredPbuffer(unsigned provider,std::uintptr_t generation){
+        for(const auto &item:textures_)if(item.provider==provider&&item.texture==GlColorResource::pbuffer(generation)){
+            invalidate(provider);return;
+        }
+    }
+    // Drop inherited ancestors too: they no longer have an intact observed
+    // path if a downstream/root resource was retired. Keep valid namespaces.
+    void invalidate(unsigned provider){for(auto &item:textures_)if(item.provider==provider)item={};}
     bool producer(GlContextIdentity key,const GlTextureUsage &usage)const{
-        if(!source_||usage.defaultFramebuffer)return false;
+        if(!source_||usage.readCount>usage.capacity||usage.writeCount>usage.capacity)return false;
         const auto id=knownSpace(key);if(!id)return false;
         for(const auto &item:textures_)if(live(item,id)&&contains(usage.writes,usage.writeCount,item.texture))return true;
         return false;
@@ -113,12 +137,12 @@ public:
     }
 private:
     struct Context {GlContextIdentity key{};std::uint64_t space=0;};
-    struct Texture {unsigned provider=0,texture=0,hops=0;std::uint64_t space=0,expires=0;};
+    struct Texture {unsigned provider=0;GlColorResource texture{};unsigned hops=0;std::uint64_t space=0,expires=0;};
     std::array<Context,contextCapacity> contexts_{};
     std::array<Texture,textureCapacity> textures_{};
     std::uintptr_t source_=0;
     std::uint64_t revision_=0,frame_=1,nextSpace_=1;
-    static bool contains(const std::array<unsigned,GlTextureUsage::capacity> &items,std::size_t count,unsigned name){
+    static bool contains(const std::array<GlColorResource,GlTextureUsage::capacity> &items,std::size_t count,GlColorResource name){
         return count<=items.size()&&std::find(items.begin(),items.begin()+count,name)!=items.begin()+count;
     }
     std::uint64_t knownSpace(GlContextIdentity key)const{
@@ -133,7 +157,7 @@ private:
         return 0;
     }
     bool live(const Texture &item,std::uint64_t id)const{return item.texture&&item.space==id&&item.expires>=frame_;}
-    bool note(unsigned provider,std::uint64_t id,unsigned name,std::uint64_t expires,unsigned hops){
+    bool note(unsigned provider,std::uint64_t id,GlColorResource name,std::uint64_t expires,unsigned hops){
         for(auto &item:textures_)if(item.space==id&&item.texture==name){
             if(expires>item.expires){item.expires=expires;item.hops=hops;}
             else if(expires==item.expires)item.hops=(std::min)(item.hops,hops);

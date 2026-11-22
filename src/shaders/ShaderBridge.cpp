@@ -110,6 +110,7 @@ QVariantMap ShaderBridge::metrics()const{
             {"textureConsumerDraws",number(m.textureConsumerDraws)},{"textureConsumerInputs",number(m.textureConsumerInputs)},
             {"textureProducerInspected",number(m.textureProducerInspected)},{"textureProducerDraws",number(m.textureProducerDraws)},
             {"textureProducerBindings",number(m.textureProducerBindings)},
+            {"textureTransferCalls",number(m.textureTransferCalls)},{"textureTransferInputs",number(m.textureTransferInputs)},
             {"textureLastBypass",QString::fromStdString(m.textureLastBypass)},
             {"vulkanLoaders",number(m.vulkan.loaders)},{"vulkanInstances",number(m.vulkan.instances)},
             {"vulkanDevices",number(m.vulkan.devices)},{"vulkanSurfaces",number(m.vulkan.surfaces)},
@@ -126,9 +127,10 @@ QString ShaderBridge::diagnostics()const{
              m.value("textureDepthNever").toString(),m.value("textureDepthAlways").toString(),
              m.value("textureDepthMissingAttachment").toString(),m.value("textureDepthInsufficientPrecision").toString(),
              m.value("textureDepthUnspecified").toString(),m.value("textureNestedInspected").toString(),m.value("textureNestedDraws").toString());
-    const auto producerReport=QStringLiteral("Presentation-input observations: draws=%1; color bindings=%2. Resource-linked FBO producers: inspected=%3; prepared=%4; private bindings=%5. Only recent input/output identity in the same or observed-successfully-shared namespace qualifies; unknown/foreign/protected routes stay native. These are binding observations, not measured texture pixels/FPS.")
+    const auto producerReport=QStringLiteral("Presentation-input observations: draws=%1; color bindings=%2. Resource-linked FBO/pbuffer producers: inspected=%3; prepared=%4; private bindings=%5. Color transfer observations: calls=%6; linked inputs=%7. Only recent typed input/output identity in the same or observed-successfully-shared namespace qualifies; observed native pbuffer identity alone is not ownership. Unknown/foreign/protected routes stay native. Bindings/submitted copies are not measured texture pixels, driver success or FPS.")
         .arg(m.value("textureConsumerDraws").toString(),m.value("textureConsumerInputs").toString(),
-             m.value("textureProducerInspected").toString(),m.value("textureProducerDraws").toString(),m.value("textureProducerBindings").toString());
+             m.value("textureProducerInspected").toString(),m.value("textureProducerDraws").toString(),m.value("textureProducerBindings").toString(),
+             m.value("textureTransferCalls").toString(),m.value("textureTransferInputs").toString());
     const auto inspectionReport=QStringLiteral("Texture inspection since the latest setting/source change: calls=%1; sampler-inspection calls=%2; conservative depth bypass=%3; blended bypass=%4; no eligible mip sampler=%5; other bypass=%6\nLatest bypass: %7\nOffscreen/pbuffer/foreign scene contexts are not inferred from presentation or a share group.")
         .arg(m.value("textureInspected").toString(),m.value("textureEligibleDraws").toString(),
              m.value("textureDepthBypasses").toString(),m.value("textureBlendBypasses").toString(),

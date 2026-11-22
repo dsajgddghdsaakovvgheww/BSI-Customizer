@@ -19,6 +19,7 @@ void Runtime::resetTextureEvidence(){
     state.textureNestedInspected=state.textureNestedDraws=0;
     state.textureConsumerDraws=state.textureConsumerInputs=0;
     state.textureProducerInspected=state.textureProducerDraws=state.textureProducerBindings=0;
+    state.textureTransferCalls=state.textureTransferInputs=0;
     state.textureLastBypass.clear();
 }
 void Runtime::start(std::uintptr_t window){
@@ -125,6 +126,11 @@ void Runtime::textureConsumerReport(unsigned inputs,std::uint64_t revision){
     std::lock_guard<std::mutex> lock(mutex);
     if(revision!=textureRevision||!currentTexture.enabled||!state.observed||family(state.renderer)!=RendererFamily::OpenGL)return;
     ++state.textureConsumerDraws;state.textureConsumerInputs+=inputs;
+}
+void Runtime::textureTransferReport(unsigned inputs,std::uint64_t revision){
+    std::lock_guard<std::mutex> lock(mutex);
+    if(revision!=textureRevision||!currentTexture.enabled||!state.observed||family(state.renderer)!=RendererFamily::OpenGL)return;
+    ++state.textureTransferCalls;state.textureTransferInputs+=inputs;
 }
 void Runtime::textureReport(unsigned bindings,const std::string &detail,bool supported,TextureDrawReason reason,TextureDepthFailure depthFailure,bool nested,bool producer,std::uint64_t revision){
     std::lock_guard<std::mutex> lock(mutex);

@@ -10,6 +10,18 @@ std::unique_ptr<BsiShaders::GlPipeline> pipeline;
 std::unique_ptr<BsiShaders::GlTextureOverride> quality;
 BsiShaders::GlTextureProvenance dependencies;
 constexpr BsiShaders::GlContextIdentity authoredContext{1,1,1};
+constexpr auto authoredPbuffer=BsiShaders::GlColorResource::pbuffer(1000001);
+BsiShaders::GlTextureUsage pendingTransfer;
+bool transferCaptured=false;
+unsigned producerBegin(int mode,bool pbuffer){
+    BsiShaders::GlTextureUsage usage;
+    if(!quality->usage(&usage))return 0;
+    if(pbuffer&&usage.defaultFramebuffer){usage.writes[0]=authoredPbuffer;usage.writeCount=1;}
+    if(!dependencies.producer(authoredContext,usage))return 0;
+    dependencies.observe(authoredContext,usage,false);std::string detail;
+    return quality->begin(static_cast<BsiShaders::TextureQuality>(mode),true,4,&detail,nullptr,nullptr,
+                          BsiShaders::TextureDrawPolicy::OwnedMipCompatibility);
+}
 }
 extern "C" {
 int bsi_test_initialize(BsiShaders::ResolveGl resolve,void *user,char *message,int capacity){
@@ -58,18 +70,31 @@ unsigned bsi_test_quality_begin_compatibility(int mode,int reviewed,unsigned pri
 }
 // Actual API observations + production dependency policy. The caller owns this
 // fixture context; these exports are NEVER part of the deployed module.
-void bsi_test_dependency_reset(unsigned revision){dependencies.synchronize(1,revision);}
+void bsi_test_dependency_reset(unsigned revision){dependencies.synchronize(1,revision);transferCaptured=false;}
 void bsi_test_dependency_frame(){dependencies.nextFrame();}
 unsigned bsi_test_dependency_consumer(){
     BsiShaders::GlTextureUsage usage;
     return quality->usage(&usage)&&usage.defaultFramebuffer?dependencies.observe(authoredContext,usage,true):0;
 }
-unsigned bsi_test_dependency_producer_begin(int mode){
-    BsiShaders::GlTextureUsage usage;
-    if(!quality->usage(&usage)||!dependencies.producer(authoredContext,usage))return 0;
-    dependencies.observe(authoredContext,usage,false);std::string detail;
-    return quality->begin(static_cast<BsiShaders::TextureQuality>(mode),true,4,&detail,nullptr,nullptr,
-                          BsiShaders::TextureDrawPolicy::OwnedMipCompatibility);
+unsigned bsi_test_dependency_producer_begin(int mode){return producerBegin(mode,false);}
+unsigned bsi_test_dependency_pbuffer_begin(int mode){return producerBegin(mode,true);}
+// Authored native-pbuffer qualification, not a Windows lifecycle assertion.
+// Python invokes the real GL original BETWEEN capture and complete.
+unsigned bsi_test_dependency_transfer_capture(int copy,int qualifyNativeRead){
+    using namespace BsiShaders;transferCaptured=false;
+    const auto call=copy?GlColorTransfer::copy(0x0de1,0,0,0,0,0,64,64)
+                        :GlColorTransfer::blit(0,0,64,64,0,0,64,64,0x4000,0x2600);
+    if(!quality->transfer(call,&pendingTransfer))return 0;
+    for(std::size_t i=0;i<pendingTransfer.readCount;++i)if(pendingTransfer.reads[i].kind==GlColorResource::Pbuffer){
+        if(!qualifyNativeRead)return 0;
+        pendingTransfer.reads[i]=authoredPbuffer;
+    }
+    if(pendingTransfer.defaultFramebuffer)pendingTransfer.writeCount=0;
+    transferCaptured=true;return 1;
+}
+unsigned bsi_test_dependency_transfer_complete(){
+    if(!transferCaptured)return 0;
+    transferCaptured=false;return dependencies.observe(authoredContext,pendingTransfer,pendingTransfer.defaultFramebuffer);
 }
 void bsi_test_quality_end(){quality->end();}
 void bsi_test_quality_release(){if(quality)quality->release();quality.reset();}

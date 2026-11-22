@@ -1,5 +1,5 @@
 #pragma once
-// Authored public-GL dispatch/state double for REAL Windows draw detours.
+// Authored public-GL dispatch/state double for REAL Windows EGL/WGL detours.
 // No GL driver, pixels, command-buffer memory or protected GPU memory executes.
 #include "GlDrawCalls.h"
 #include <windows.h>
@@ -13,38 +13,43 @@ namespace EglDrawFixture {
 using U=unsigned;using I=int;using F=float;using B=unsigned char;
 struct Sampler {
     I min=0x2703,mag=0x2601,s=0x812f,t=0x812f,r=0x812f,compare=0,function=0x0203;
-    F low=-1000,high=1000;
+    F low=-1000,high=1000,bias=0;
 };
 struct State {
     std::array<Sampler,128> samplers{};
     std::array<U,4> bindings{{1,2,0,0}},textures{{1,2,0,0}};
     I active=3,depthFunction=0x0203,depthBits=24,framebuffer=0;
-    U output=50;
+    U output=50,readOutput=70;
+    I readFramebuffer=0,outputType=0x1702,readOutputType=0x1702;
+    bool desktop=false,protectionExtension=true,readComplete=true,drawComplete=true;
     bool depth=true,depthWrite=true,blend=false,mips=true,protectedTexture=false,colorWrite=true;
     U next=16;
 };
 State &state();
 bool protectedContext();
-inline volatile LONG draws=0,privateDraws=0,invalid=0,textureDeletes=0;
-inline std::uint64_t expectedHash=0,lastHash=0;
+inline volatile LONG draws=0,privateDraws=0,invalid=0,textureDeletes=0,renderbufferDeletes=0,transfers=0;
+inline std::uint64_t expectedHash=0,lastHash=0,expectedTransferHash=0,lastTransferHash=0;
+inline void (WINAPI *onTransfer)()=nullptr;
 inline U lastPrivateBindings=0,nestedPrivateBindings=0,nestedMode=0;
 inline bool nestedArgumentsIntact=true;
 inline void nestedOriginal(U kind);
 inline void bad(){InterlockedIncrement(&invalid);}
-inline const unsigned char *WINAPI getString(U name){return reinterpret_cast<const unsigned char*>(name==0x1f02?"OpenGL ES 3.1 BSI dispatch double":"");}
+inline const unsigned char *WINAPI getString(U name){return reinterpret_cast<const unsigned char*>(name==0x1f02?(state().desktop?"4.5 BSI WGL dispatch double":"OpenGL ES 3.1 BSI dispatch double"):"");}
 inline const unsigned char *WINAPI getStringi(U,U){return reinterpret_cast<const unsigned char*>("GL_EXT_protected_textures");}
 inline void WINAPI getInteger(U name,I *out){
     auto &g=state();
     switch(name){
-    case 0x821d:*out=1;break;case 0x821e:*out=protectedContext()?0x10:0;break;
+    case 0x821d:*out=g.protectionExtension?1:0;break;case 0x821e:if(!g.protectionExtension)bad();*out=protectedContext()?0x10:0;break;
     case 0x8b4d:case 0x8cdf:*out=4;break;case 0x8b8d:*out=1;break;
     case 0x0b74:*out=g.depthFunction;break;case 0x84e0:*out=0x84c0+g.active;break;
     case 0x8069:*out=I(g.textures.at(std::size_t(g.active)));break;
     case 0x8919:*out=I(g.bindings.at(std::size_t(g.active)));break;
     case 0x8ca6:*out=g.framebuffer;break;case 0x8825:*out=g.framebuffer?0x8ce0:0x0405;break;
+    case 0x8caa:*out=g.readFramebuffer;break;case 0x0c02:*out=g.readFramebuffer?0x8ce0:0x0405;break;
     default:*out=0;bad();break;
     }
 }
+inline void WINAPI getFloat(U name,F *out){if(!state().desktop||name!=0x84fd)bad();*out=16;}
 inline void WINAPI getBoolean(U name,B *out){
     if(name==0x0c23){for(unsigned i=0;i<4;++i)out[i]=B(state().colorWrite);return;}
     if(name!=0x0b72)bad();*out=B(state().depthWrite);
@@ -65,19 +70,32 @@ inline void samplerInteger(const Sampler &s,U name,I *out){
     }
 }
 inline void WINAPI textureInteger(U,U name,I *out){
-    if(name==0x8bfa){*out=state().protectedTexture;return;}
+    if(name==0x8bfa){if(!state().protectionExtension)bad();*out=state().protectedTexture;return;}
     if(name==0x813c){*out=0;return;}if(name==0x813d){*out=1000;return;}
     samplerInteger(Sampler{},name,out);
 }
 inline void WINAPI samplerInt(U sampler,U name,I *out){samplerInteger(state().samplers.at(sampler),name,out);}
-inline void WINAPI samplerFloat(U sampler,U name,F *out){const auto &s=state().samplers.at(sampler);*out=name==0x813a?s.low:name==0x813b?s.high:1;}
+inline void WINAPI samplerFloat(U sampler,U name,F *out){
+    const auto &s=state().samplers.at(sampler);
+    if(name==0x1004){if(!state().desktop)bad();for(unsigned i=0;i<4;++i)out[i]=0;return;}
+    if(name==0x8501){if(!state().desktop)bad();*out=s.bias;return;}
+    *out=name==0x813a?s.low:name==0x813b?s.high:1;
+}
 inline void WINAPI textureFloat(U,U name,F *out){samplerFloat(0,name,out);}
+inline U WINAPI framebufferStatus(U target){
+    if(target!=0x8ca8&&target!=0x8ca9)bad();
+    return (target==0x8ca8?state().readComplete:state().drawComplete)?0x8cd5:0x8cd6;
+}
 inline void WINAPI attachment(U target,U slot,U name,I *out){
-    auto &g=state();
-    if(target!=0x8ca9){bad();*out=0;return;}
-    if(g.framebuffer&&((slot>=0x8ce0&&slot<0x8ce4)||slot==0x8d20)){
-        if(name!=0x8cd0&&name!=0x8cd1)bad();
-        *out=slot==0x8ce0?(name==0x8cd0?0x1702:I(g.output)):0;return;
+    auto &g=state();const bool read=target==0x8ca8;
+    if(target!=0x8ca9&&!read){bad();*out=0;return;}
+    if((read?g.readFramebuffer:g.framebuffer)&&((slot>=0x8ce0&&slot<0x8ce4)||slot==0x8d20)){
+        if(name!=0x8cd0&&name!=0x8cd1&&name!=0x8211&&(name<0x8212||name>0x8214))bad();
+        *out=slot!=0x8ce0?0:name==0x8cd0?(read?g.readOutputType:g.outputType):name==0x8cd1?I(read?g.readOutput:g.output):name==0x8211?0x8c17:8;return;
+    }
+    if(!(read?g.readFramebuffer:g.framebuffer)&&((g.desktop&&slot>=0x0400&&slot<=0x0403)||(!g.desktop&&slot==0x0405))){
+        if(name!=0x8211&&(name<0x8212||name>0x8214))bad();
+        *out=name==0x8211?0x8c17:8;return;
     }
     if(slot!=(g.framebuffer?0x8d00u:0x1801u)||(name!=0x8cd0&&name!=0x8216))bad();
     *out=name==0x8cd0?(g.depthBits?(g.framebuffer?0x8d41:0x8218):0):g.depthBits;
@@ -85,13 +103,18 @@ inline void WINAPI attachment(U target,U slot,U name,I *out){
 inline void WINAPI gen(I count,U *out){for(I i=0;i<count;++i){auto &g=state();if(g.next>=g.samplers.size()){bad();out[i]=0;}else out[i]=g.next++;}}
 inline void WINAPI remove(I,const U*){}
 inline void WINAPI deleteTextures(I count,const U*){InterlockedExchangeAdd(&textureDeletes,count);}
+inline void WINAPI deleteRenderbuffers(I count,const U*){InterlockedExchangeAdd(&renderbufferDeletes,count);}
 inline void WINAPI parameterInt(U sampler,U name,I value){
     auto &s=state().samplers.at(sampler);
     switch(name){case 0x2801:s.min=value;break;case 0x2800:s.mag=value;break;case 0x2802:s.s=value;break;
     case 0x2803:s.t=value;break;case 0x8072:s.r=value;break;case 0x884c:s.compare=value;break;case 0x884d:s.function=value;break;default:bad();break;}
 }
-inline void WINAPI parameterFloat(U sampler,U name,F value){if(name==0x813a)state().samplers.at(sampler).low=value;else if(name==0x813b)state().samplers.at(sampler).high=value;else bad();}
-inline void WINAPI parameterVector(U,U,const F*){bad();}
+inline void WINAPI parameterFloat(U sampler,U name,F value){
+    if(name==0x813a)state().samplers.at(sampler).low=value;
+    else if(name==0x813b)state().samplers.at(sampler).high=value;
+    else if(name==0x8501&&state().desktop)state().samplers.at(sampler).bias=value;else bad();
+}
+inline void WINAPI parameterVector(U,U name,const F *values){if(!state().desktop||name!=0x1004)bad();for(unsigned i=0;i<4;++i)if(values[i]!=0)bad();}
 inline void WINAPI bind(U unit,U sampler){state().bindings.at(unit)=sampler;}
 
 template<typename T>std::uint64_t valueHash(T value){
@@ -106,7 +129,7 @@ template<typename... Args>void record(U kind,U alias,Args... args){
     InterlockedIncrement(&draws);lastHash=hash(kind,alias,args...);lastPrivateBindings=0;
     const auto &g=state();if(g.active!=3)bad();
     for(U unit=0;unit<2;++unit)if(g.bindings[unit]>=16){
-        ++lastPrivateBindings;if(g.samplers.at(g.bindings[unit]).low!=3)bad();
+        ++lastPrivateBindings;if(g.samplers.at(g.bindings[unit]).low!=3||(g.desktop&&g.samplers.at(g.bindings[unit]).bias!=3))bad();
     }
     if(lastPrivateBindings)InterlockedIncrement(&privateDraws);
 }
@@ -124,16 +147,45 @@ inline const std::array<std::array<void*,BsiShaders::glDrawAliases>,BsiShaders::
     BSI_GL_DRAW_CALLS(BSI_FIXTURE_CALLBACKS)
 #undef BSI_FIXTURE_CALLBACKS
 }};
+template<U Alias> void WINAPI blitFramebuffer(I sx0,I sy0,I sx1,I sy1,I dx0,I dy0,I dx1,I dy1,U mask,U filter){
+    InterlockedIncrement(&transfers);lastTransferHash=hash(100,Alias,sx0,sy0,sx1,sy1,dx0,dy0,dx1,dy1,mask,filter);
+    if(state().active!=3||state().bindings!=std::array<U,4>{{1,2,0,0}})bad();
+    if(onTransfer)onTransfer();
+}
+template<U Alias> void WINAPI copyTexSubImage2D(U target,I level,I dx,I dy,I x,I y,I width,I height){
+    InterlockedIncrement(&transfers);lastTransferHash=hash(101,Alias,target,level,dx,dy,x,y,width,height);
+    if(state().active!=3||state().bindings!=std::array<U,4>{{1,2,0,0}})bad();
+    if(onTransfer)onTransfer();
+}
+inline const std::array<void*,4> blitTargets{{reinterpret_cast<void*>(&blitFramebuffer<0>),reinterpret_cast<void*>(&blitFramebuffer<1>),reinterpret_cast<void*>(&blitFramebuffer<2>),reinterpret_cast<void*>(&blitFramebuffer<3>)}};
+inline const std::array<void*,2> copyTargets{{reinterpret_cast<void*>(&copyTexSubImage2D<0>),reinterpret_cast<void*>(&copyTexSubImage2D<1>)}};
+inline const char *const blitNames[]{"glBlitFramebuffer","glBlitFramebufferEXT","glBlitFramebufferANGLE","glBlitFramebufferNV"};
+inline const char *const copyNames[]{"glCopyTexSubImage2D","glCopyTexSubImage2DEXT"};
+inline void invokeTransfer(bool copy,U alias){
+    if(copy){
+        constexpr U target=0x0de1;constexpr I level=0,dx=3,dy=4,x=1,y=2,width=57,height=56;
+        expectedTransferHash=hash(101,alias,target,level,dx,dy,x,y,width,height);
+        using Function=void(WINAPI*)(U,I,I,I,I,I,I,I);void *volatile entry=copyTargets.at(alias);
+        reinterpret_cast<Function>(entry)(target,level,dx,dy,x,y,width,height);
+    }else{
+        constexpr I sx0=1,sy0=2,sx1=61,sy1=62,dx0=3,dy0=4,dx1=59,dy1=60;constexpr U mask=0x4000,filter=0x2600;
+        expectedTransferHash=hash(100,alias,sx0,sy0,sx1,sy1,dx0,dy0,dx1,dy1,mask,filter);
+        using Function=void(WINAPI*)(I,I,I,I,I,I,I,I,U,U);void *volatile entry=blitTargets.at(alias);
+        reinterpret_cast<Function>(entry)(sx0,sy0,sx1,sy1,dx0,dy0,dx1,dy1,mask,filter);
+    }
+}
 inline void *resolve(const char *name){
 #define ENTRY(gl,fn) if(std::strcmp(name,"gl" #gl)==0)return reinterpret_cast<void*>(&fn)
-    ENTRY(GetString,getString);ENTRY(GetStringi,getStringi);ENTRY(GetIntegerv,getInteger);ENTRY(GetBooleanv,getBoolean);
+    ENTRY(GetString,getString);ENTRY(GetStringi,getStringi);ENTRY(GetIntegerv,getInteger);ENTRY(GetFloatv,getFloat);ENTRY(GetBooleanv,getBoolean);
     ENTRY(IsEnabled,enabled);ENTRY(ActiveTexture,active);ENTRY(GetProgramiv,program);ENTRY(GetActiveUniform,uniform);
     ENTRY(GetUniformLocation,location);ENTRY(GetUniformiv,uniformValue);ENTRY(GetTexLevelParameteriv,level);
     ENTRY(GetTexParameteriv,textureInteger);ENTRY(GetTexParameterfv,textureFloat);ENTRY(GetSamplerParameteriv,samplerInt);
-    ENTRY(GetSamplerParameterfv,samplerFloat);ENTRY(GetFramebufferAttachmentParameteriv,attachment);ENTRY(GenSamplers,gen);
-    ENTRY(DeleteSamplers,remove);ENTRY(DeleteTextures,deleteTextures);ENTRY(SamplerParameteri,parameterInt);ENTRY(SamplerParameterf,parameterFloat);
+    ENTRY(GetSamplerParameterfv,samplerFloat);ENTRY(GetFramebufferAttachmentParameteriv,attachment);ENTRY(CheckFramebufferStatus,framebufferStatus);ENTRY(GenSamplers,gen);
+    ENTRY(DeleteSamplers,remove);ENTRY(DeleteTextures,deleteTextures);ENTRY(DeleteRenderbuffers,deleteRenderbuffers);ENTRY(SamplerParameteri,parameterInt);ENTRY(SamplerParameterf,parameterFloat);
     ENTRY(SamplerParameterfv,parameterVector);ENTRY(BindSampler,bind);
 #undef ENTRY
+    for(U alias=0;alias<blitTargets.size();++alias)if(std::strcmp(name,blitNames[alias])==0)return blitTargets[alias];
+    for(U alias=0;alias<copyTargets.size();++alias)if(std::strcmp(name,copyNames[alias])==0)return copyTargets[alias];
     for(U kind=0;kind<BsiShaders::glDrawKinds;++kind)for(U alias=0;alias<BsiShaders::glDrawAliases;++alias)
         if(BsiShaders::glDrawNames[kind][alias]&&std::strcmp(name,BsiShaders::glDrawNames[kind][alias])==0)return callbacks[kind][alias];
     return nullptr;

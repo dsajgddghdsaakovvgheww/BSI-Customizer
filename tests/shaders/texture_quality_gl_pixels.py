@@ -356,10 +356,11 @@ def exercise(gl, policy, desktop, size, resolver):
         gl("glBindTexture", None, U, U)(0x0DE1, name)
         active(0x84C3)
 
-    def linked_producer(mode):
-        bind_framebuffer(0x8D40, color_fbo)
+    def linked_producer(mode, target=None, pbuffer=False):
+        bind_framebuffer(0x8D40, color_fbo if target is None else target)
         bind_input(texture)
-        count = policy.bsi_test_dependency_producer_begin(mode)
+        begin = policy.bsi_test_dependency_pbuffer_begin if pbuffer else policy.bsi_test_dependency_producer_begin
+        count = begin(mode)
         current = I()
         get_int(0x84E0, C.byref(current))
         assert current.value == 0x84C3, "read-only lineage observation must restore ACTIVE_TEXTURE before the original"
@@ -418,6 +419,93 @@ def exercise(gl, policy, desktop, size, resolver):
                          "presentedOffExact": root_off == root_native, "revisionExpiryMaskBypass": True,
                          "nativeSha256": hashlib.sha256(root_native).hexdigest(),
                          "strongSha256": hashlib.sha256(root_strong).hexdigest()}
+
+    # New independent missing-path reproductions. No material draw writes the
+    # consumed texture directly: its output is a renderbuffer resolved by blit,
+    # or this authored native pbuffer's DEFAULT framebuffer copied into it.
+    # The C bridge supplies this fixture's native identity only; production
+    # Windows hooks/lifecycle/serial guards execute in separate native tests.
+    policy.bsi_test_dependency_pbuffer_begin.argtypes = [I]
+    policy.bsi_test_dependency_pbuffer_begin.restype = U
+    policy.bsi_test_dependency_transfer_capture.argtypes = [I, I]
+    policy.bsi_test_dependency_transfer_capture.restype = U
+    policy.bsi_test_dependency_transfer_complete.restype = U
+    stage_fbo, stage_rbo = U(), U()
+    gl("glGenFramebuffers", None, I, C.POINTER(U))(1, C.byref(stage_fbo))
+    gl("glGenRenderbuffers", None, I, C.POINTER(U))(1, C.byref(stage_rbo))
+    gl("glBindRenderbuffer", None, U, U)(0x8D41, stage_rbo)
+    gl("glRenderbufferStorage", None, U, U, I, I)(0x8D41, 0x8058, size, size)
+    bind_framebuffer(0x8D40, stage_fbo)
+    gl("glFramebufferRenderbuffer", None, U, U, U, U)(0x8D40, 0x8CE0, 0x8D41, stage_rbo)
+    assert gl("glCheckFramebufferStatus", U, U)(0x8D40) == 0x8CD5
+    blit = gl("glBlitFramebuffer", None, I, I, I, I, I, I, I, I, U, U)
+    copy_subimage = gl("glCopyTexSubImage2D", None, U, I, I, I, I, I, I, I)
+    transfer_evidence = []
+    for copy in (False, True):
+        source_fbo = 0 if copy else stage_fbo
+        policy.bsi_test_dependency_reset(100 + int(copy))
+
+        def source(mode):
+            return linked_producer(mode, source_fbo, pbuffer=copy)
+
+        def transfer(*, pending_error=False, qualify=True):
+            bind_framebuffer(0x8CA8, source_fbo)
+            bind_framebuffer(0x8CA9, color_fbo)
+            bind_input(color_target)
+            active(0x84C0)  # CopyTexSubImage writes the actual active 2D binding.
+            gl("glColorMask", None, C.c_ubyte, C.c_ubyte, C.c_ubyte, C.c_ubyte)(0, 0, 0, 0)
+            gl("glEnable", None, U)(0x0BE2)
+            if pending_error:
+                gl("glEnable", None, U)(0xDEADBEEF)
+            assert policy.bsi_test_dependency_transfer_capture(copy, qualify) == int(not copy or qualify)
+            # Metadata observation cannot change ANY relevant copy state.
+            actual_active, actual_texture = I(), I()
+            get_int(0x84E0, C.byref(actual_active))
+            get_int(0x8069, C.byref(actual_texture))
+            assert actual_active.value == 0x84C0 and actual_texture.value == color_target.value
+            if copy:
+                copy_subimage(0x0DE1, 0, 0, 0, 0, 0, size, size)
+            else:
+                blit(0, 0, size, size, 0, 0, size, size, 0x4000, 0x2600)
+            links = policy.bsi_test_dependency_transfer_complete()
+            gl("glColorMask", None, C.c_ubyte, C.c_ubyte, C.c_ubyte, C.c_ubyte)(1, 1, 1, 1)
+            gl("glDisable", None, U)(0x0BE2)
+            active(0x84C3)
+            if pending_error:
+                assert get_error() == 0x0500, "transfer observation must preserve the application's pending error"
+            assert get_error() == 0, "read-only transfer metadata and the unchanged native original must be legal on BOTH real APIs"
+            return links
+
+        assert source(2) == (0, native), "a known pbuffer/RBO is NOT itself ownership"
+        assert transfer() == 0 and composite() == (0, native)
+        transfer_native = root_pixels()
+        assert policy.bsi_test_dependency_consumer() == 1
+        assert source(2) == (0, native), "presented texture consumption alone must not invent the missing copy/resolve"
+        if copy:
+            assert transfer(qualify=False) == 0 and source(2) == (0, native), "an unqualified native READ pbuffer cannot become a resource dependency"
+        assert transfer(pending_error=True) == 1, "a real submitted color transfer must link the exact source output"
+        assert source(2) == (1, colors[3]), "the NEW transfer path must reach real material mips, not the single-level compositor"
+        assert transfer() == 1 and composite() == (0, colors[3])
+        transfer_strong = root_pixels()
+        assert source(0) == (0, native) and transfer() == 1 and composite() == (0, native)
+        transfer_off = root_pixels()
+        assert transfer_off == transfer_native and transfer_strong != transfer_native, "full-frame native/Strong/exact-Off must survive the unchanged copy+composition path"
+        for _ in range(3):
+            policy.bsi_test_dependency_frame()
+        assert source(2) == (0, native), "a submitted copy cannot renew its own inherited producer lifetime"
+        label = "default-pbuffer-copy" if copy else "renderbuffer-blit"
+        transfer_evidence.append({"path": label, "producerBindings": 1, "compositorBindings": 0,
+                                  "nativeRGBA": list(transfer_native[:4]), "strongRGBA": list(transfer_strong[:4]),
+                                  "offExact": transfer_off == transfer_native, "expiryAndPendingError": True})
+        artifacts = os.environ.get("BSI_TEXTURE_PIXEL_ARTIFACT_DIR")
+        if artifacts:
+            folder = Path(artifacts) / ("desktop" if desktop else "gles")
+            for tag, rgba in (("native", transfer_native), ("strong", transfer_strong), ("off", transfer_off)):
+                save_rgba(folder / (label + "-" + tag + ".png"), rgba, size)
+    bind_framebuffer(0x8D40, 0)
+    gl("glBindRenderbuffer", None, U, U)(0x8D41, 0)
+    gl("glDeleteRenderbuffers", None, I, C.POINTER(U))(1, C.byref(stage_rbo))
+    gl("glDeleteFramebuffers", None, I, C.POINTER(U))(1, C.byref(stage_fbo))
     bind_input(texture)
     gl("glDepthMask", None, C.c_ubyte)(1)
     gl("glEnable", None, U)(0x0B71)
@@ -500,13 +588,13 @@ def exercise(gl, policy, desktop, size, resolver):
                 "renderer": gl("glGetString", C.c_char_p, U)(0x1F01).decode(), "maxBias": maximum_bias.value,
                 "offCycles": cycles, "depthIndependentCycles": 64, "depthTestAndWritesDisabled": True,
                 "noDepthAttachmentRGBA": color_only[1], "mipPixels": mip_evidence, "material": material_evidence,
-                "resourceLinkedProducer": producer_evidence,
+                "resourceLinkedProducer": producer_evidence, "colorTransfers": transfer_evidence,
                 "limit": "authored software resources; NOT player, physical GPU, allocated-memory or FPS evidence"}
     report = json.dumps(evidence, separators=(",", ":"))
     if os.environ.get("BSI_TEXTURE_PIXEL_ARTIFACT_DIR"):
         (folder / "evidence.json").write_text(json.dumps(evidence, indent=2) + "\n")
     print("PASS: production draw-scoped " + ("desktop OpenGL queried bias+floor" if desktop else "GLES 3 floor-only")
-          + " selects real test-owned mip colors at native lambda 0 AND 4 in both texture/sampler source modes; 128 exact Off/source-LOD cycles (64 depth-independent); color-only/no-depth-attachment pixels, resource-linked material producer -> unchanged single-level compositor with exact full-frame Off, and full material-detail images; legacy depth/blend/no-mip/override/review bypass and pending errors preserved")
+          + " selects real test-owned mip colors at native lambda 0 AND 4 in both texture/sampler source modes; 128 exact Off/source-LOD cycles (64 depth-independent); color-only/no-depth-attachment pixels, direct FBO plus renderbuffer-blit and default-pbuffer-copy material producers -> unchanged single-level compositor with exact full-frame Off/expiry, and full material-detail images; legacy depth/blend/no-mip/override/review bypass and pending errors preserved")
     print("Texture pixel evidence:", report)
     if os.environ.get("GITHUB_ACTIONS") == "true":
         # Keep measured SUCCESS evidence readable through GitHub's check API,

@@ -6,7 +6,7 @@
 using namespace BsiShaders;
 namespace {
 void require(bool value,const char *message){if(!value){std::fprintf(stderr,"FAIL: %s\n",message);std::exit(1);}}
-GlTextureUsage usage(bool root,std::initializer_list<unsigned> reads,std::initializer_list<unsigned> writes={}){
+GlTextureUsage usage(bool root,std::initializer_list<GlColorResource> reads,std::initializer_list<GlColorResource> writes={}){
     GlTextureUsage result;result.defaultFramebuffer=root;
     for(auto name:reads)result.reads[result.readCount++]=name;
     for(auto name:writes)result.writes[result.writeCount++]=name;
@@ -47,6 +47,9 @@ int main(){
                 "never merge another provider or EGL display");
         require(!p.producer({2,10,100},scene)&&!p.producer({1,11,100},scene),
                 "same numeric context/texture identities across providers/displays stay unrelated");
+        p.invalidate(1);require(!p.producer(sharedScene,scene),"lost deletion details clear all resource evidence");
+        p.observe(presenter,composite,true);require(p.producer(sharedScene,scene),
+                "object deletion/overflow does not change observed context sharing; fresh consumption can relearn without a new native share");
         p.forget(sharedScene);require(!p.producer(sharedScene,scene),"context deletion/reuse revokes its namespace identity");
         p.remember(sharedScene);require(!p.producer(sharedScene,scene),"a reused handle is isolated until a new successful share");
         require(p.producer(presenter,scene),"deleting a nonpresenting shared peer does not erase the surviving object's namespace");
@@ -97,6 +100,27 @@ int main(){
         for(unsigned i=0;i<=GlTextureProvenance::frameLifetime;++i)p.nextFrame();
         require(p.observe(presenter,usage(true,{1000}),true)==1,"expired fixed slots are reusable without unbounded growth");
     }
-    std::puts("PASS: actual-consumer -> same/explicit-share FBO producer dependency, not share-group guessing; TTL/hop/capacity bounds, unrelated providers/displays/contexts/outputs, revision/source/texture/context teardown and handle reuse");
+    {
+        GlTextureProvenance p;p.synchronize(123,1);p.observe(presenter,composite,true);
+        const auto pb=GlColorResource::pbuffer(800),rb=GlColorResource::renderbuffer(50);
+        const auto pbufferDraw=usage(true,{1,2},{pb}),copy=usage(false,{pb},{50});
+        require(!p.producer(presenter,pbufferDraw)&&!p.producer(presenter,usage(false,{1},{rb})),
+                "neither known pbuffer nor same numeric renderbuffer/texture name is an upstream producer without a transfer");
+        require(p.observe(presenter,copy,false)==1&&p.producer(presenter,pbufferDraw),
+                "an observed copy of the exact default-pbuffer output into a consumed texture reaches its material producer");
+        require(!p.producer(presenter,usage(true,{1},{GlColorResource::pbuffer(801)}))&&!p.producer(unknown,pbufferDraw),
+                "another pbuffer lifetime and an unrelated namespace never inherit an observed copy's proof");
+        p.observe(presenter,usage(false,{rb},{50}),false);
+        require(p.producer(presenter,usage(false,{1},{rb})),"texture/RBO resolves cross typed resources, not global numeric names");
+        unsigned unrelated=800;p.deleted(1,1,&unrelated);
+        require(p.producer(presenter,pbufferDraw),"deleting a numerically equal TEXTURE does not retire a native pbuffer generation");
+        p.retiredPbuffer(1,801);require(p.producer(presenter,pbufferDraw),"another native pbuffer generation's teardown cannot revoke this one");
+        p.retiredPbuffer(1,800);
+        require(!p.producer(presenter,pbufferDraw)&&!p.producer(presenter,scene),"native pbuffer retirement revokes the entire inherited transfer path");
+        p.observe(presenter,composite,true);p.observe(presenter,usage(false,{rb},{50}),false);
+        unsigned name=50;p.deleted(1,1,&name,GlColorResource::Renderbuffer);
+        require(!p.producer(presenter,scene),"renderbuffer deletion is separately tracked and invalidates inherited resolve ancestors");
+    }
+    std::puts("PASS: actual-consumer -> same/explicit-share typed texture/RBO/pbuffer producer dependency, observed color transfers not share-group guessing; TTL/hop/capacity bounds, unrelated providers/displays/contexts/outputs, revision/source/resource teardown and handle reuse");
     std::puts("LIMIT: resource-policy unit fixture, not installed-game pixels or physical-driver certification");
 }

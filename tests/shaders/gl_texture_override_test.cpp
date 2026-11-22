@@ -48,7 +48,9 @@ struct Fake {
     I active=3,program=1,depthWrite=1,depthFunction=0x0203,depthBits=24,framebuffer=0;
     I depthWriteQueries=0,depthFunctionQueries=0,depthAttachmentQueries=0,shaderQueries=0;
     bool depth=true,blend=false,mips=true,colorWrite=true,drawBufferNone=false;
-    U colorAttachment=99;
+    U colorAttachment=99,readColorAttachment=88;
+    I readFramebuffer=2,colorType=0x1702,readColorType=0x1702,colorComponent=0x8c17,baseLevel=0;
+    bool readBufferNone=false,readComplete=true,drawComplete=true,missingTransferQuery=false;
     I format=0x8058;
     std::array<Sampler,256> samplers{};
     std::array<U,4> bindings{{1,2,0,0}},textures{{1,2,0,0}};
@@ -74,7 +76,8 @@ void GL_CALL getInteger(U name,I *out){
     case 0x84e0:*out=0x84c0+g.active;break;
     case 0x8069:*out=I(g.textures.at(std::size_t(g.active)));break;
     case 0x8919:*out=I(g.bindings.at(std::size_t(g.active)));break;
-    case 0x8ca6:*out=g.framebuffer;break;
+    case 0x8ca6:*out=g.framebuffer;break;case 0x8caa:*out=g.readFramebuffer;break;
+    case 0x0c02:*out=g.readBufferNone?0:g.readFramebuffer?0x8ce0:0x0405;break;
     case 0x8825:*out=g.drawBufferNone?0:g.framebuffer?0x8ce0:0x0405;break;
     default:require(false,"unexpected integer query in sampler fixture");
     }
@@ -110,7 +113,7 @@ void GL_CALL textureInteger(U,U name,I *out){
         ++g.textureProtectionQueries;if(!g.protectionExtension)++g.illegalQueries;
         *out=g.protectedTexture&&g.textures.at(std::size_t(g.active))==1;return;
     }
-    if(name==0x813c){*out=0;return;}if(name==0x813d){*out=1000;return;}
+    if(name==0x813c){*out=g.baseLevel;return;}if(name==0x813d){*out=1000;return;}
     samplerInteger(Sampler{},name,out);
 }
 void GL_CALL samplerInt(U sampler,U name,I *out){samplerInteger(g.samplers.at(sampler),name,out);}
@@ -121,10 +124,20 @@ void GL_CALL samplerFloat(U sampler,U name,F *out){
     *out=name==0x813a?s.low:name==0x813b?s.high:1;
 }
 void GL_CALL textureFloat(U,U name,F *out){samplerFloat(0,name,out);}
+U GL_CALL framebufferStatus(U target){
+    require(target==0x8ca8||target==0x8ca9,"only legal core READ/DRAW framebuffer completeness queries");
+    return (target==0x8ca8?g.readComplete:g.drawComplete)?0x8cd5:0x8cd6;
+}
 void GL_CALL attachment(U target,U attachment,U name,I *out){
-    if(target==0x8ca9&&g.framebuffer&&((attachment>=0x8ce0&&attachment<0x8ce4)||attachment==0x8d20)){
-        require(name==0x8cd0||name==0x8cd1,"public framebuffer texture type/name only");
-        *out=attachment==0x8ce0?(name==0x8cd0?0x1702:I(g.colorAttachment)):0;return;
+    const bool read=target==0x8ca8;
+    if((target==0x8ca8||target==0x8ca9)&&(read?g.readFramebuffer:g.framebuffer)
+       &&((attachment>=0x8ce0&&attachment<0x8ce4)||attachment==0x8d20)){
+        require(name==0x8cd0||name==0x8cd1||name==0x8211||(name>=0x8212&&name<=0x8214),"public color resource type/name/component metadata only");
+        *out=attachment!=0x8ce0?0:name==0x8cd0?(read?g.readColorType:g.colorType):name==0x8cd1?I(read?g.readColorAttachment:g.colorAttachment):name==0x8211?g.colorComponent:8;return;
+    }
+    if(!(read?g.readFramebuffer:g.framebuffer)&&((g.desktop&&attachment>=0x0400&&attachment<=0x0403)||(!g.desktop&&attachment==0x0405))){
+        require(name==0x8211||(name>=0x8212&&name<=0x8214),"default-color transfer queries use legal API-specific attachment metadata");
+        *out=name==0x8211?g.colorComponent:8;return;
     }
     require(target==0x8ca9&&attachment==(g.framebuffer?0x8d00u:0x1801u),"use the legal FBO/default depth attachment enum");
     require(name==0x8cd0||name==0x8216,"only public depth type/bit-size queries");
@@ -154,12 +167,13 @@ void GL_CALL bind(U unit,U sampler){g.bindings.at(unit)=sampler;g.refresh();}
 void GL_CALL unexpected(){require(false,"protected GL pipeline must stop before allocating/compiling/drawing");}
 void *resolve(const char *name,void*){
     if(g.missingBiasQuery&&std::strcmp(name,"glGetFloatv")==0)return nullptr;
+    if(g.missingTransferQuery&&std::strcmp(name,"glCheckFramebufferStatus")==0)return nullptr;
 #define ENTRY(gl,fn) if(std::strcmp(name,"gl" #gl)==0)return reinterpret_cast<void*>(&fn)
     ENTRY(GetString,getString);ENTRY(GetStringi,getStringi);ENTRY(GetIntegerv,getInteger);ENTRY(GetFloatv,getFloat);ENTRY(GetBooleanv,getBoolean);
     ENTRY(IsEnabled,enabled);ENTRY(ActiveTexture,active);ENTRY(GetProgramiv,program);ENTRY(GetActiveUniform,uniform);
     ENTRY(GetUniformLocation,location);ENTRY(GetUniformiv,uniformValue);ENTRY(GetTexLevelParameteriv,level);
     ENTRY(GetTexParameteriv,textureInteger);ENTRY(GetTexParameterfv,textureFloat);ENTRY(GetSamplerParameteriv,samplerInt);
-    ENTRY(GetSamplerParameterfv,samplerFloat);ENTRY(GetFramebufferAttachmentParameteriv,attachment);ENTRY(GenSamplers,gen);
+    ENTRY(GetSamplerParameterfv,samplerFloat);ENTRY(GetFramebufferAttachmentParameteriv,attachment);ENTRY(CheckFramebufferStatus,framebufferStatus);ENTRY(GenSamplers,gen);
     ENTRY(DeleteSamplers,remove);ENTRY(SamplerParameteri,parameterInt);ENTRY(SamplerParameterf,parameterFloat);
     ENTRY(SamplerParameterfv,parameterVector);ENTRY(BindSampler,bind);
 #undef ENTRY
@@ -201,6 +215,61 @@ int main(){
         g.colorWrite=true;g.drawBufferNone=true;require(!quality.usage(&usage),"DRAW_BUFFER0 NONE cannot authorize a producer");
         g.drawBufferNone=false;g.blend=true;require(!quality.usage(&usage),"blended UI/transparent draws do not seed producer evidence");
         unchanged();quality.release();
+    }
+    {
+        g.reset();g.framebuffer=1;g.textures[3]=3;GlTextureOverride quality;std::string error;GlTextureUsage usage;
+        require(quality.initialize(resolve,nullptr,&error),"initialize read-only color-transfer inspection");
+        const auto blit=GlColorTransfer::blit(1,2,61,62,3,4,59,60,0x4000,0x2600);
+        require(quality.transfer(blit,&usage)&&!usage.defaultFramebuffer&&usage.readCount==1&&usage.writeCount==1
+                &&usage.reads[0]==88&&usage.writes[0]==99,"observe the actual READ_BUFFER -> DRAW_BUFFER0 color resources without a shader/depth predicate");
+        g.colorWrite=false;g.blend=true;g.program=0;
+        failAfter=0;const bool allocationFree=quality.transfer(blit,&usage);failAfter=-1;
+        require(allocationFree,"copy/resolve evidence needs no allocation and ignores draw-only blend/color-mask/program state");
+        g.readColorType=0x8d41;g.readColorAttachment=99;
+        require(quality.transfer(blit,&usage)&&usage.reads[0]==GlColorResource::renderbuffer(99)&&usage.writes[0]==99,
+                "equal numeric texture/renderbuffer names are DIFFERENT typed color resources");
+        g.colorType=0x8d41;require(!quality.transfer(blit,&usage),"same actual typed read/write resource cannot self-authorize through a blit");
+        g.colorType=0x1702;g.readColorType=0x1702;g.readColorAttachment=88;
+        g.readComplete=false;require(!quality.transfer(blit,&usage),"incomplete read framebuffer is not transfer evidence");g.readComplete=true;
+        g.drawComplete=false;require(!quality.transfer(blit,&usage),"incomplete draw framebuffer is not transfer evidence");g.drawComplete=true;
+        g.readBufferNone=true;require(!quality.transfer(blit,&usage),"READ_BUFFER NONE is not a color source");g.readBufferNone=false;
+        g.drawBufferNone=true;require(!quality.transfer(blit,&usage),"DRAW_BUFFER0 NONE is not a color destination");g.drawBufferNone=false;
+        g.colorComponent=0x1406;require(!quality.transfer(blit,&usage),"HDR/float/integer attachment components are not qualified by color-copy capture");g.colorComponent=0x8c17;
+        auto invalid=blit;invalid.mask|=0x0100;require(!quality.transfer(invalid,&usage),"mixed depth/stencil transfers stay native and untracked");
+        invalid=blit;invalid.filter=0;require(!quality.transfer(invalid,&usage),"invalid blit filter is not evidence");
+        invalid=blit;invalid.source[2]=invalid.source[0];require(!quality.transfer(invalid,&usage),"zero-area blit cannot propagate ownership");
+        g.framebuffer=0;
+        require(quality.transfer(blit,&usage)&&usage.defaultFramebuffer&&usage.writes[0].kind==GlColorResource::Pbuffer&&!usage.writes[0],
+                "GL default framebuffer output needs native qualification, not a fabricated texture name");
+        g.readFramebuffer=0;
+        const auto copy=GlColorTransfer::copy(0x0de1,0,0,0,0,0,64,64);
+        require(quality.transfer(copy,&usage)&&!usage.defaultFramebuffer&&usage.reads[0].kind==GlColorResource::Pbuffer
+                &&!usage.reads[0]&&usage.writes[0]==3,"a default READ framebuffer copy leaves a zero-name native-pbuffer placeholder for the caller");
+        g.baseLevel=1;require(!quality.transfer(copy,&usage),"nonzero destination base level is not the captured level-zero transfer path");g.baseLevel=0;
+        for(auto bad:{GlColorTransfer::copy(0x8515,0,0,0,0,0,64,64),GlColorTransfer::copy(0x0de1,1,0,0,0,0,64,64),
+                      GlColorTransfer::copy(0x0de1,0,1,0,0,0,64,64),GlColorTransfer::copy(0x0de1,0,0,0,-1,0,64,64),
+                      GlColorTransfer::copy(0x0de1,0,0,0,0,0,0,64),GlColorTransfer::copy(0x0de1,0,0,0,0,0,std::numeric_limits<int>::max(),64)})
+            require(!quality.transfer(bad,&usage)&&!usage.readCount&&!usage.writeCount,"invalid/unsupported copy arguments leave no partial proof and do not overflow");
+        g.readFramebuffer=2;g.readColorAttachment=3;require(!quality.transfer(copy,&usage),"copy texture feedback is not a dependency");
+        unchanged();require(!g.creations&&!g.deletions,"read-only transfers never allocate/bind/delete any GL object");quality.release();
+    }
+    {
+        g.reset();g.protectionExtension=true;g.extensionCount=1;g.readFramebuffer=0;g.textures[3]=1;
+        GlTextureOverride quality;std::string error;GlTextureUsage usage;
+        require(quality.initialize(resolve,nullptr,&error),"initialize protected-resource-aware copy fixture");
+        const auto copy=GlColorTransfer::copy(0x0de1,0,0,0,0,0,64,64);
+        require(quality.transfer(copy,&usage),"an unprotected bound copy destination can be queried legally even when protected textures are supported");
+        g.protectedTexture=true;require(!quality.transfer(copy,&usage)&&!g.illegalQueries,"a protected copy destination never becomes resource proof");
+        g.protectedTexture=false;g.readFramebuffer=2;
+        require(!quality.transfer(copy,&usage),"unqueryable framebuffer attachment protection fails closed, not inferred from a numeric name");
+        unchanged();quality.release();
+    }
+    {
+        g.reset();g.missingTransferQuery=true;GlTextureOverride quality;std::string error;GlTextureUsage usage;
+        require(quality.initialize(resolve,nullptr,&error)&&!quality.transfer(GlColorTransfer::copy(0x0de1,0,0,0,0,0,64,64),&usage),
+                "missing optional completeness inspection disables only transfer capture");
+        require(quality.begin(TextureQuality::Strong,true,4,&error)==2,"older direct draw capture still works without optional transfer support");
+        quality.end();unchanged();quality.release();
     }
     {
         g.reset();g.protectionExtension=true;g.extensionCount=1;g.protectedTexture=true;

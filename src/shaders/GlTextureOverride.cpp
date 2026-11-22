@@ -63,6 +63,7 @@ struct GlTextureOverride::Impl {
     GL_FUNCTION(void,GetSamplerParameteriv,(U,U,I*))
     GL_FUNCTION(void,GetSamplerParameterfv,(U,U,F*))
     GL_FUNCTION(void,GetFramebufferAttachmentParameteriv,(U,U,U,I*))
+    GL_FUNCTION(U,CheckFramebufferStatus,(U))
     GL_FUNCTION(void,GenSamplers,(I,U*))
     GL_FUNCTION(void,DeleteSamplers,(I,const U*))
     GL_FUNCTION(void,SamplerParameteri,(U,U,I))
@@ -195,6 +196,9 @@ bool GlTextureOverride::initialize(ResolveGl resolve,void *user,std::string *err
     LOAD(GetSamplerParameteriv);LOAD(GetSamplerParameterfv);LOAD(GetFramebufferAttachmentParameteriv);
     LOAD(GenSamplers);LOAD(DeleteSamplers);LOAD(SamplerParameteri);LOAD(SamplerParameterf);LOAD(SamplerParameterfv);LOAD(BindSampler);
 #undef LOAD
+    // Optional to the older draw-only contract. Without it, transfer capture
+    // fails closed but the existing qualified private-sampler path still works.
+    g.CheckFramebufferStatus=reinterpret_cast<Impl::CheckFramebufferStatusType>(resolve("glCheckFramebufferStatus",user));
     const auto *raw=g.GetString(0x1f02);if(!raw)return fail("GL version could not be identified for Potato.");
     const std::string version(reinterpret_cast<const char*>(raw));g.es=version.find("OpenGL ES")!=std::string::npos;
     int major=0,minor=0;const auto first=version.find_first_of("0123456789");
@@ -239,6 +243,13 @@ bool GlTextureOverride::usage(GlTextureUsage *out){
         I type=0,name=0;g.GetFramebufferAttachmentParameteriv(0x8ca9,U(slot),0x8cd0,&type);
         if(type==0x1702)g.GetFramebufferAttachmentParameteriv(0x8ca9,U(slot),0x8cd1,&name);
         if(type==0x1702&&name)out->writes[out->writeCount++]=U(name);
+        // Renderbuffer names live in a DIFFERENT namespace. Where protected
+        // resources are possible there is no binding-free core GLES query for
+        // their protection; do not extend capture to that unqualified output.
+        if(type==0x8d41&&!g.protectedTextures){
+            g.GetFramebufferAttachmentParameteriv(0x8ca9,U(slot),0x8cd1,&name);
+            if(name)out->writes[out->writeCount++]=GlColorResource::renderbuffer(U(name));
+        }
     }
     struct ActiveRestore {Impl &g;I active;~ActiveRestore(){g.ActiveTexture(U(active));}} restore{g,0};
     g.GetIntegerv(0x84e0,&restore.active);std::array<bool,32> used{};
@@ -265,6 +276,69 @@ bool GlTextureOverride::usage(GlTextureUsage *out){
         }
     }
     return true;
+}
+bool GlTextureOverride::transfer(const GlColorTransfer &call,GlTextureUsage *out){
+    if(!out)return false;
+    *out={};auto &g=*impl;if(!g.ready||!g.CheckFramebufferStatus)return false;
+    const auto colorBuffer=[&](bool draw,GlColorResource *resource,bool *native){
+        const U target=draw?0x8ca9:0x8ca8; // DRAW/READ_FRAMEBUFFER
+        if(g.CheckFramebufferStatus(target)!=0x8cd5)return false;
+        I framebuffer=0,slot=0;g.GetIntegerv(draw?0x8ca6:0x8caa,&framebuffer);
+        g.GetIntegerv(draw?0x8825:0x0c02,&slot);if(!slot)return false;
+        *native=framebuffer==0;
+        const auto normalized=[&](U attachment){
+            I component=0,red=0,green=0,blue=0;
+            g.GetFramebufferAttachmentParameteriv(target,attachment,0x8211,&component);
+            g.GetFramebufferAttachmentParameteriv(target,attachment,0x8212,&red);
+            g.GetFramebufferAttachmentParameteriv(target,attachment,0x8213,&green);
+            g.GetFramebufferAttachmentParameteriv(target,attachment,0x8214,&blue);
+            return component==0x8c17&&red>0&&green>0&&blue>0;
+        };
+        if(!framebuffer){
+            // ES default attachment is BACK; desktop core requires a specific
+            // FRONT/BACK_LEFT/RIGHT attachment, not the Draw/ReadBuffer alias.
+            const U color=g.es?0x0405:slot==0x0405?0x0402:slot==0x0404?0x0400:U(slot);
+            if((g.es&&slot!=0x0405)||(!g.es&&(color<0x0400||color>0x0403))||!normalized(color))return false;
+            *resource=GlColorResource::pbuffer(0);return true;
+        }
+        if(slot<0x8ce0||slot>=0x8ce0+g.attachments||g.protectedTextures)return false;
+        // Core GLES has no binding-free per-attachment protection query. Do
+        // not infer an unprotected texture/RBO merely from a public object name.
+        I type=0,name=0;
+        g.GetFramebufferAttachmentParameteriv(target,U(slot),0x8cd0,&type);
+        if(type!=0x1702&&type!=0x8d41)return false;
+        g.GetFramebufferAttachmentParameteriv(target,U(slot),0x8cd1,&name);
+        if(name<=0||!normalized(U(slot)))return false;
+        *resource=type==0x1702?GlColorResource(U(name)):GlColorResource::renderbuffer(U(name));return true;
+    };
+    GlTextureUsage captured;GlColorResource source,destination;bool nativeRead=false,nativeDraw=false;
+    if(call.kind==GlColorTransfer::BlitFramebuffer){
+        if(call.mask!=0x4000||(call.filter!=0x2600&&call.filter!=0x2601))return false;
+        for(auto value:call.source)if(value<0||value>16384)return false;
+        for(auto value:call.destination)if(value<0||value>16384)return false;
+        if(call.source[0]==call.source[2]||call.source[1]==call.source[3]
+           ||call.destination[0]==call.destination[2]||call.destination[1]==call.destination[3])return false;
+        if(!colorBuffer(false,&source,&nativeRead)||!colorBuffer(true,&destination,&nativeDraw))return false;
+    }else if(call.kind==GlColorTransfer::CopyTexSubImage2D){
+        if(call.target!=texture2d||call.level!=0)return false;
+        const auto x=call.source[0],y=call.source[1],width=call.source[2],height=call.source[3];
+        const auto dx=call.destination[0],dy=call.destination[1];
+        if(x<0||y<0||width<=0||height<=0||x>16384-width||y>16384-height||dx<0||dy<0)return false;
+        I texture=0,base=-1,w=0,h=0,format=0;g.GetIntegerv(0x8069,&texture);if(texture<=0)return false;
+        if(g.protectedTextures){I secret=1;g.GetTexParameteriv(texture2d,0x8bfa,&secret);if(secret)return false;}
+        g.GetTexParameteriv(texture2d,0x813c,&base);if(base!=0)return false;
+        g.GetTexLevelParameteriv(texture2d,0,0x1000,&w);g.GetTexLevelParameteriv(texture2d,0,0x1001,&h);
+        g.GetTexLevelParameteriv(texture2d,0,0x1003,&format);
+        if(w<1||h<1||w>16384||h>16384||width>w||height>h||dx>w-width||dy>h-height||!colorFormat(format))return false;
+        if(!colorBuffer(false,&source,&nativeRead))return false;
+        destination=U(texture);
+    }else return false;
+    // Two different native default drawables cannot be identified by GL alone;
+    // leave both placeholders for the caller to resolve before equality/proof.
+    if(!nativeRead&&!nativeDraw&&source==destination)return false;
+    captured.defaultFramebuffer=nativeDraw;
+    captured.reads[captured.readCount++]=source;captured.writes[captured.writeCount++]=destination;
+    *out=captured;return true;
 }
 unsigned GlTextureOverride::begin(TextureQuality mode,bool reviewed,U primitive,std::string *detail,TextureDrawReason *reason,TextureDepthFailure *depthFailure,TextureDrawPolicy policy){
     auto &g=*impl;end();

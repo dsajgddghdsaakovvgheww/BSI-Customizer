@@ -18,11 +18,15 @@ a foreign producer or another renderer. The prior active-gameplay/Settings-close
 confirmation stands; repeating Save, lowering resolution or requesting the same
 diagnostics is not the implementation change.
 
-The **subsequent** report is **1,326 grading frames / 2,652 sampler inspections,
-all NoSampler / zero prepared bindings**, with compatibility confirmed active.
-Depth rejection is no longer its blocker. See the [updated renderer analysis](FREE-FIRE-RENDERER-ANALYSIS.md)
-and [resource-linked producer repair](POTATO-RESOURCE-PRODUCERS.md). NoSampler
-alone does not identify the installed-game cause; grading is not working Potato.
+The subsequent report had **1,326 grading frames / 2,652 sampler inspections,
+all NoSampler / zero prepared bindings**. After the resource-producer candidate,
+the latest report is **1,794 grading frames / 1,657 NoSampler, 1,657 observed
+presentation inputs, ZERO linked producers/preparations**. Compatibility is
+active; depth rejection is no longer the blocker. The latest bound sampler's
+combined mip/color/protection refusal does not prove absent mips. See the
+[renderer evidence](FREE-FIRE-RENDERER-ANALYSIS.md), [first resource-linked repair](POTATO-RESOURCE-PRODUCERS.md)
+and [current pbuffer/color-transfer follow-up](POTATO-COLOR-TRANSFERS.md).
+Grading and tracking are not working Potato textures.
 
 ## What the production path now does
 
@@ -39,8 +43,9 @@ For the exact owned game drawable already selected by presentation:
 1. Keep the existing provider/display/drawable/HWND authorization, protected
    EGL/GL checks and bounded draw detours. A new draw cannot claim another
    presentation or claim resource ownership from a context/share group alone.
-   The later resource-linked strategy adds only individually proven color-FBO
-   dependency producers; unknown offscreen/pbuffer/foreign routes stay native.
+   The later resource-linked strategy adds individually proven color-FBO and
+   copy/resolve-linked renderbuffer/default-pbuffer producers. An observed native
+   pbuffer is only a candidate; unknown offscreen/pbuffer/foreign routes stay native.
 2. Accept ordinary **unblended triangle calls without requiring depth testing,
    depth writes, a particular depth function or any depth attachment**. Do not
    change the application's depth state or pretend it passed scene validation.
@@ -140,14 +145,15 @@ execution remain separate from software GL pixels and from a running player.
 
 ## What has not been established
 
-The subsequent installed-player report confirms this compatibility policy is
-active but remains **not working**: all **2,652** sampler-inspection calls have
-NoSampler and no preparation. Removing the known early rejection did not make
-those bindings qualify. This does not prove every guest draw reaches this host
-route or that unknown resources are safe to adopt. The later resource-linked
-repair has separate fixture evidence, not installed-game acceptance. The original probe, desktop bias
-math, new production software pixels, Windows dispatch doubles and eventual
-game acceptance are distinct evidence sets.
+The latest installed-player report confirms this compatibility policy and
+presentation-input tracking are active but Potato remains **not working**:
+**1,657 NoSampler and zero linked producers/preparations**. Removing the known
+early depth rejection and adding direct texture-FBO provenance did not establish
+texture changes. This does not prove every guest draw reaches this host route
+or that unknown resources are safe to adopt. The current pbuffer/color-transfer
+repair has separate independent fixture evidence, not installed-game acceptance.
+The original probe, desktop bias math, production software pixels, Windows
+dispatch doubles and eventual game acceptance are distinct evidence sets.
 
 GLES remains floor-only: at native lambda 4 a floor of 3 does not change that
 sample, unlike desktop additive bias. Arbitrary shader lookup instructions,

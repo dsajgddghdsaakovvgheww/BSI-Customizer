@@ -10,7 +10,7 @@ struct Surface { HWND window=nullptr;bool protectedContent=false; } surfaces[32]
 struct Context { bool protectedContent=false;EglDrawFixture::State gl; } contexts[16];
 unsigned surfaceCount=0,contextCount=0;
 int displayToken=0;
-thread_local Surface *currentSurface=nullptr;
+thread_local Surface *currentSurface=nullptr,*currentReadSurface=nullptr;
 thread_local Context *currentContext=nullptr;
 volatile LONG calls=0,glQueries=0,protectionQueries=0,illegalQueries=0,housekeeping=0;
 bool extensions=true;
@@ -38,7 +38,7 @@ bool protectedContext(){return currentContext&&currentContext->protectedContent;
 }
 API void *WINAPI eglGetCurrentContext(){return currentContext;}
 API void *WINAPI eglGetCurrentDisplay(){return currentContext?&displayToken:nullptr;}
-API void *WINAPI eglGetCurrentSurface(int){return currentSurface;}
+API void *WINAPI eglGetCurrentSurface(int which){return which==0x305a?currentReadSurface:currentSurface;}
 API unsigned WINAPI eglQueryAPI(){return 0x30a0;} // actual GLES, irrespective of configuration hint
 API const char *WINAPI eglQueryString(void*,int){return extensions?"EGL_EXT_protected_content EGL_EXT_protected_surface":"";}
 API void *WINAPI eglCreateWindowSurface(void*,void*,void *window,const int *attrs){InterlockedExchangeAdd(&housekeeping,1);return create(window,attrs);}
@@ -52,10 +52,10 @@ API void *WINAPI eglCreateContext(void*,void*,void*,const int *attributes){
 }
 API void *WINAPI eglCreatePbufferSurface(void*,void*,const int *attributes){return pbuffer(attributes);}
 API unsigned WINAPI eglDestroySurface(void*,void *value){
-    InterlockedExchangeAdd(&housekeeping,4);if(currentSurface==value)currentSurface=nullptr;return value!=nullptr;
+    InterlockedExchangeAdd(&housekeeping,4);if(currentSurface==value)currentSurface=nullptr;if(currentReadSurface==value)currentReadSurface=nullptr;return value!=nullptr;
 }
 API unsigned WINAPI eglDestroyContext(void*,void *value){
-    InterlockedExchangeAdd(&housekeeping,5);if(currentContext==value){currentContext=nullptr;currentSurface=nullptr;}return value!=nullptr;
+    InterlockedExchangeAdd(&housekeeping,5);if(currentContext==value){currentContext=nullptr;currentSurface=currentReadSurface=nullptr;}return value!=nullptr;
 }
 API unsigned WINAPI eglQuerySurface(void*,void *value,int name,int *out){
     if(!value||!out)return 0;const auto &surface=*static_cast<Surface*>(value);
@@ -68,8 +68,8 @@ API unsigned WINAPI eglQueryContext(void*,void *value,int name,int *out){
 }
 API void *WINAPI eglGetProcAddress(const char *name){InterlockedIncrement(&glQueries);return EglDrawFixture::resolve(name);}
 API unsigned WINAPI eglSwapBuffers(void*,void*){InterlockedIncrement(&calls);return 1;}
-API unsigned WINAPI eglMakeCurrent(void*,void *draw,void*,void *context){
-    currentSurface=static_cast<Surface*>(draw);currentContext=static_cast<Context*>(context);return 1;
+API unsigned WINAPI eglMakeCurrent(void*,void *draw,void *read,void *context){
+    currentSurface=static_cast<Surface*>(draw);currentReadSurface=static_cast<Surface*>(read);currentContext=static_cast<Context*>(context);return 1;
 }
 API void *bsiFixtureDisplay(){return &displayToken;}
 API void *bsiFixtureContext(int protectedContent){return context(protectedContent!=0);}
@@ -90,11 +90,22 @@ API LONG bsiFixtureDrawCalls(){return EglDrawFixture::draws;}
 API LONG bsiFixturePrivateDraws(){return EglDrawFixture::privateDraws;}
 API LONG bsiFixtureTextureDeletes(){return EglDrawFixture::textureDeletes;}
 API void bsiFixtureResourceState(unsigned mode,unsigned output){
-    auto &g=EglDrawFixture::state();g.framebuffer=mode==2?7:0;g.output=output;
+    auto &g=EglDrawFixture::state();g.readFramebuffer=g.framebuffer=(mode==2||mode==3)?7:0;g.output=output;
+    g.outputType=mode==3?0x8d41:0x1702;
     g.textures=mode==1?std::array<unsigned,4>{{output,0,0,0}}:std::array<unsigned,4>{{1,2,0,0}};
     g.mips=mode!=1;g.depth=false;g.depthWrite=false;g.depthBits=0;
     g.blend=g.protectedTexture=false;g.colorWrite=true;
 }
+API void bsiFixtureGlProtection(int available){EglDrawFixture::state().protectionExtension=available!=0;}
+API void bsiFixtureTransferState(unsigned readKind,unsigned source,unsigned destination){
+    auto &g=EglDrawFixture::state();g.readFramebuffer=readKind?8:0;g.framebuffer=7;
+    g.readOutput=source;g.readOutputType=readKind==2?0x8d41:0x1702;g.output=destination;g.outputType=0x1702;
+    g.textures[3]=destination;g.readComplete=g.drawComplete=true;g.colorWrite=false;g.blend=true;
+}
+API void bsiFixtureTransfer(unsigned copy,unsigned alias){EglDrawFixture::invokeTransfer(copy!=0,alias);}
+API LONG bsiFixtureTransferCalls(){return EglDrawFixture::transfers;}
+API LONG bsiFixtureTransferArgumentsIntact(){return EglDrawFixture::lastTransferHash==EglDrawFixture::expectedTransferHash;}
+API void bsiFixtureOnTransfer(void(WINAPI *callback)()){EglDrawFixture::onTransfer=callback;}
 API LONG bsiFixtureInvalidGl(){return EglDrawFixture::invalid;}
 API LONG bsiFixtureLastPrivateBindings(){return LONG(EglDrawFixture::lastPrivateBindings);}
 API LONG bsiFixtureArgumentsIntact(){return EglDrawFixture::nestedArgumentsIntact&&EglDrawFixture::lastHash==EglDrawFixture::expectedHash;}

@@ -30,6 +30,7 @@ struct Metrics {
     // Resource-link observations, not pixel consumption or successful effects.
     std::uint64_t textureConsumerDraws=0,textureConsumerInputs=0;
     std::uint64_t textureProducerInspected=0,textureProducerDraws=0,textureProducerBindings=0;
+    std::uint64_t textureTransferCalls=0,textureTransferInputs=0;
     std::string textureLastBypass;
     std::string textureStatus="Potato graphic is off; native texture sampling retained.";
     std::string status="Waiting for the game's presentation API. Multi-renderer support is not complete.";
@@ -70,6 +71,7 @@ public:
     TextureConfiguration texture();
     TextureRoute textureRoute();
     void textureConsumerReport(unsigned inputs,std::uint64_t revision);
+    void textureTransferReport(unsigned inputs,std::uint64_t revision);
     void textureReport(unsigned bindings,const std::string &detail,bool supported,
                        TextureDrawReason reason=TextureDrawReason::NotInspected,
                        TextureDepthFailure depthFailure=TextureDepthFailure::None,bool nested=false,

@@ -1,0 +1,10 @@
+LIBRARY BsiWglFixture
+EXPORTS
+    wglGetCurrentContext=bsiWglGetCurrentContext
+    wglGetCurrentDC=bsiWglGetCurrentDC
+    wglCreateContext=bsiWglCreateContext
+    wglDeleteContext=bsiWglDeleteContext
+    wglShareLists=bsiWglShareLists
+    wglMakeCurrent=bsiWglMakeCurrent
+    wglSwapBuffers=bsiWglSwapBuffers
+    wglGetProcAddress=bsiWglGetProcAddress

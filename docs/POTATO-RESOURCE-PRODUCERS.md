@@ -1,11 +1,23 @@
 # Potato: resource-linked color-FBO producers
 
-## Failure addressed, not an invented game diagnosis
+## Latest result and follow-up
 
-The latest installed report has **1,326 processed OpenGL grading frames,
+The first resource-producer candidate, `e68e030`, passed shader/software-pixel
+and Windows hook/Qt CI. The next installed report nevertheless has **1,794
+grading frames, 1,657 sampler inspections/NoSampler, 1,657 presentation-input
+draws/bindings, and ZERO linked producer inspections/preparations**. Its latest
+bound sampler is rejected by the combined mip/color/protection bucket, not by
+descriptor planning. No absent-mip, depth, stale-install or texture-success
+diagnosis follows. The [current color-transfer/pbuffer repair](POTATO-COLOR-TRANSFERS.md)
+adds supported missing output/transfer paths; this page retains the original
+texture-FBO mechanism and its separately tested evidence.
+
+## Failure originally addressed, not an invented game diagnosis
+
+The preceding report had **1,326 processed OpenGL grading frames,
 2,652 depth-independent sampler inspections, 2,652 NoSampler, zero prepared
-bindings/draws**, and no depth/blend/other or nested activity. Grading works;
-texture Potato does not. The old depth gate is no longer the reported blocker.
+bindings/draws**, and no depth/blend/other or nested activity. Grading worked;
+texture Potato did not. The old depth gate was no longer the reported blocker.
 See [renderer evidence](FREE-FIRE-RENDERER-ANALYSIS.md).
 
 `NoSampler` combined many refusals. The report does not prove a missing mip
@@ -52,13 +64,17 @@ preference key, driver profile, resolution write or restart is introduced.
 4. **Require an output dependency too.** A nonselected-drawable candidate must
    write an exact, recently observed input texture from that namespace, through
    draw buffer zero of its current color FBO. Sharing alone is insufficient.
-   Only another captured drawable on the **same selected game HWND**, or an
-   **observed unprotected EGL pbuffer**, is a candidate. Unknown/pre-existing
-   window surfaces, unmapped/surfaceless routes, unknown WGL DCs, other HWNDs,
-   other APIs/processes, default framebuffer outputs, renderbuffers and
-   unobserved relationships remain native. Protection is queried legally
-   before optional GL initialization; protected textures never seed roots.
-   Other MRT outputs are not authorized using buffer zero's write mask.
+   In the first repair, only another captured drawable on the **same selected
+   game HWND**, or an **observed unprotected EGL pbuffer**, was a candidate.
+   The current [transfer follow-up](POTATO-COLOR-TRANSFERS.md) additionally
+   recognizes exact successful WGL pbuffer DC acquisitions (including driver
+   hidden-window DCs) and typed renderbuffer/default-pbuffer dependencies reached
+   through an actual submitted color copy/resolve. None can seed its own
+   ownership. Unknown window/DC/surfaceless routes, other APIs/processes and
+   unobserved sharing remain native. Protection is queried legally before
+   optional GL initialization; protected textures never seed roots. Unqueryable
+   attachment protection fails closed for transfers. Other MRT outputs are not
+   authorized using buffer zero's write mask.
 5. **Apply at the material draw, not the compositor.** A proven producer uses
    the existing complete-mip/color/descriptor/protection/driver-review checks.
    Only its qualifying input samplers get private queried/bounded desktop
@@ -89,11 +105,16 @@ arguments. Texture deletion tracing must install successfully before dependency
 capture is enabled. GL deletion uses the same public dispatch targets the caller
 resolves; it is not a complete interop/driver-internal object-lifetime oracle.
 
-New creation/sharing/deletion callbacks do not wait on the render mutex. They
-publish **32 fixed events**, consumed under the render lock. Queue contention,
-oversized deletion lists or overflow fail closed by forgetting that provider's
-namespaces/dependencies; no unbounded queue or name-based reconstruction is used.
-A lifecycle change during an observation prevents it from becoming new evidence.
+Creation/sharing/deletion callbacks do not wait on the render mutex. They
+publish **32 fixed events**, consumed under the render lock. The follow-up
+separates lost object retirement from lost context topology: deletion/retirement
+contention, oversized lists or overflow clear resource evidence while retaining
+already observed successful sharing. Missing context creation/share events
+still forget namespaces as well, since handle reuse may have been missed. No
+unbounded queue or name-based reconstruction is used. Captures require the
+current serial to equal the last **drained** lifecycle serial, not merely an
+unprocessed newer snapshot. Changes during observation/original transfer prevent
+it from becoming new evidence.
 This relies on the host's normal GL shared-object synchronization; no extra
 cross-context GPU fences, context migration, ownership by share-group membership,
 or reconstruction of unobserved past events is claimed.
@@ -142,8 +163,11 @@ zero output is not relabelled a successful effect.
   all 46 draw signatures/aliases, native once-only argument forwarding, private
   bindings **inside** the original, unrelated/protected/unmapped/Qt rejection,
   deletion, expiry, Off and selected-surface teardown. **Compilation is not
-  execution**: the existing shader CI must execute this Windows contract and
-  actual desktop/GLES pixels before those results may be claimed.
+  execution**: that first repair subsequently passed all six jobs in
+  [shader run 44974822410](https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/44974822410),
+  including actual Windows hooks/lifecycle/Qt fixtures and Mesa desktop/GLES
+  production pixels. The current transfer follow-up requires its own exact-head
+  execution; historical CI is not a pass for a later patch.
 
 No original DLL payload was redistributed or blindly deployed. No installed
 Free Fire texture change, exact in-game Off, physical Intel/AMD/NVIDIA matrix,

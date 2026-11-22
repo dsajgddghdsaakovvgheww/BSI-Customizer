@@ -1,59 +1,89 @@
 # Free Fire: host presentation is not scene-texture capture
 
-## Latest installed-player follow-up: depth-independent inspection, 2,652 NoSampler
+## Latest installed-player follow-up: 1,657 inputs, zero linked producers
 
-The user's **"still not working"** report supersedes the old depth-gate failure:
+The latest **still-not-working** result was supplied after delivery of the
+`e68e030` resource-producer candidate. It supersedes the 1,326/2,652 report:
 
 ```text
 Requested API: Automatic; configured / observed host API: OpenGL / OpenGL
-Processed presentation-shader frames: 1326
-Texture policy: Owned mip compatibility (depth independent); inspection armed: yes
-Texture calls / sampler-inspection calls: 2652 / 2652
-NoSampler: 2652; depth / blended / other bypass: 0 / 0 / 0
+Processed presentation-shader frames: 1794
+Texture policy: Owned mip compatibility (depth independent)
+Texture calls / sampler-inspection calls / NoSampler: 1657 / 1657 / 1657
 Prepared draws / overridden bindings: 0 / 0
-All first-depth-blocker subcounts: 0; nested inspected / prepared: 0 / 0
+Depth / blended / other / nested: all 0
+Latest sampler2D slots / bound textures: 1 / 1
+Feedback / sampler-policy / private-sampler failures: 0 / 0 / 0
+Ineligible mip/color/protection: 1
+Presentation-input observations: 1657 draws / 1657 color bindings
+Resource-linked FBO producers: 0 inspected / 0 prepared / 0 private bindings
 Vulkan: 1 loader, 1 instance, 1 device; 0 surfaces/swapchains/presents
 Qt bridge / host: 5.15.2 / 5.15.4
 ```
 
-**Presentation grading works; Potato textures still do not.** All counted calls
-now reach sampler inspection. Do not diagnose this run as TestDisabled, an
-unsaved toggle, inactive gameplay or a Qt patch-version failure. `NoSampler`
-combined shader layout/type/unit/binding, feedback, protection, mip/color,
-descriptor policy and replacement failures; it does **not** prove no mipmaps.
-The frame/call ratio does not prove complete scene coverage or two draws per
-frame because their evidence intervals differ. The report establishes neither
-a particular producer/API/process nor permission to adopt unknown resources.
+**Presentation grading and input tracking work; Potato textures still do not.**
+The bound presentation input fails before sampler descriptor planning. Its
+combined mip/color/protection bucket does **not** establish missing mipmaps.
+The resource-aware path has not matched an upstream producer. Do not call this
+a depth failure, unsaved setting, inactive gameplay, Qt mismatch or successful
+texture reduction. No installed module hash, exact in-game Off, texture-change
+or FPS acceptance was supplied; neither a stale installation nor a particular
+unobserved game renderer is inferred from that absence.
 
-## Current repair: follow a bound presentation input to its exact FBO producer
+## Current repair: native pbuffer outputs and color-transfer dependencies
 
-Saved On still uses [depth-independent owned-mip compatibility](POTATO-DEPTH-COMPATIBILITY.md).
-A new [resource-linked producer path](POTATO-RESOURCE-PRODUCERS.md) repairs an
-independently reproduced gap: a one-level compositor correctly has no reducible
-mips, while the material draw that fills its input may use another drawable.
-Previously even that **same context's** nonpresenting producer was never
-inspected. The new path seeds resource evidence only from the selected
-presentation's active color bindings, then requires the candidate FBO to write
-the exact recently referenced texture in the same or **observed successfully
-shared** namespace. A provider/share group or equal numeric names alone never
-qualifies. Known unprotected EGL pbuffers are candidates, not new presentation
-sources; unknown/foreign/Qt/protected routes remain excluded. The original
-sampler/protection/mip/Off and nested/concurrency safeguards still apply.
+The previous implementation could only trace sampler2D draw inputs to
+texture-backed `DRAW_BUFFER0` FBO outputs. It excluded **all WGL pbuffers**, did
+not represent native default-pbuffer/RBO outputs, and intercepted **no framebuffer
+copy/blit transfers**. A scene that renders to a pbuffer and copies/resolves its
+color into a one-level presentation texture therefore remained unreachable,
+even with working input tracking and an observed shared namespace.
 
-Real software pixels reproduce **compositor bindings 0 -> linked material
-producer bindings 1**, a changed full presented image and byte-exact full-frame
-Off. A negative control disabling production producer qualification fails the
-expected material-pixel assertion. This is a behavioral repair, not merely more
-status text or a blur/resolution substitute. The new NoSampler detail also
-separates discovered slots/bindings from mip/color/protection, descriptor and
-private-sampler failures; producer/input observations have separate counters.
+The [color-transfer repair](POTATO-COLOR-TRANSFERS.md) independently reproduces
+and fixes these supported gaps. It adds exact successful native WGL pbuffer DC
+acquisition/release/destruction tracking, typed texture/renderbuffer/pbuffer
+identities, and read-only core/alias color blit plus 2D subimage-copy observations.
+Only an exact recent selected-presentation dependency can qualify an upstream
+draw; recognizing a pbuffer or share group is never ownership. The actual current
+**READ** drawable is qualified separately from DRAW. Unknown/foreign/Qt/protected
+routes remain native. Object-deletion overflow clears resource evidence without
+permanently discarding already observed context sharing; missed context events
+still fail closed by forgetting namespaces.
 
-**This new repair has not been deployed to the reported game and is not its
-established root cause or texture/FPS acceptance.** Unsupported shader/sampler
-kinds, unobserved sharing, other processes/APIs and nontexture transfer paths
-remain native. No repeat Save/gameplay/report request or blind DLL deployment
-is proposed. Historical gate/guard statements below describe earlier revisions,
-not this latest installed-player result.
+Android's pinned open-source host renderer demonstrates both WGL pbuffers and
+copy/resolve paths. That establishes a viable reproduction, **not that this
+BlueStacks/Free Fire build uses that implementation or that this is its root
+cause**. No source from it or original Potato DLL binary/code is incorporated.
+
+Actual production GLES/SwiftShader pixels now cover **material -> renderbuffer
+blit OR default-pbuffer copy -> unchanged one-level compositor**. Each path has
+zero compositor replacements, one material replacement, a changed full output
+and byte-exact full-frame Off at unchanged resolution. Independent controls
+disabling only each new typed producer fail the expected material-mip assertion.
+Windows native-hook regressions additionally cover leases, hidden-window DCs,
+separate READ pbuffer, exact original arguments/results, lifecycle/revision
+changes during originals, and deletion-overflow relearning. Executed/pending
+validation is separated in the repair document and draft PR121.
+
+This is a behavioral capture change, not another diagnostics-only stop, a
+final-frame blur or a resolution/FPS claim. **Installed Free Fire remains
+unresolved until actual texture behavior is established.** Unobserved sharing,
+EGLImage/private interop, unsupported shader kinds and other APIs/processes
+remain outside this resource proof. No repeated Save/gameplay/report request
+or blind original-DLL deployment is proposed.
+
+## Previous report: depth-independent inspection, 2,652 NoSampler
+
+The preceding run had **1,326 grading frames / 2,652 sampler inspections,
+all NoSampler / zero prepared bindings**, no depth/blend/other/nested activity,
+Automatic requested and configured/actual OpenGL, Qt bridge/host 5.15.2/5.15.4.
+It established neither absent mipmaps nor a safe upstream boundary. The first
+[resource-producer repair](POTATO-RESOURCE-PRODUCERS.md) extended
+[owned-mip compatibility](POTATO-DEPTH-COMPATIBILITY.md) to an exact recently
+consumed texture-backed FBO output in the same or observed-successfully-shared
+namespace. It passed independent software pixels and Windows hook/Qt CI, but
+the newer report above still has **zero linked producers**. Candidate delivery
+and authored tests did not establish installed-game success.
 
 ## Previous installed-player follow-up: all 4,506 inspected calls had depth testing disabled
 

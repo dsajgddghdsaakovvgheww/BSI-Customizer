@@ -50,12 +50,27 @@ struct Fixture {
         reinterpret_cast<void(WINAPI*)(int,const unsigned*)>(entry)(1,&name);
         require(count("bsiFixtureTextureDeletes")==before+1,"original texture deletion executes exactly once");
     }
+    void oversizedDeletion(){
+        unsigned names[65]{};for(unsigned i=0;i<65;++i)names[i]=1000+i;
+        const auto entry=function<void*(WINAPI*)(const char*)>("eglGetProcAddress")("glDeleteTextures");
+        const auto before=count("bsiFixtureTextureDeletes");reinterpret_cast<void(WINAPI*)(int,const unsigned*)>(entry)(65,names);
+        require(count("bsiFixtureTextureDeletes")==before+65,"oversized native deletion forwards count/names once without scanning beyond its safe capture bound");
+    }
     void *surface(HWND window,int variant=0,bool protectedContent=false){
         const int attrs[]{0x32c0,protectedContent,0x3038};
         if(variant==1){const std::intptr_t wide[]{0x32c0,protectedContent,0x3038};return function<void*(WINAPI*)(void*,void*,void*,const std::intptr_t*)>("eglCreatePlatformWindowSurface")(display,nullptr,window,wide);}
         return function<void*(WINAPI*)(void*,void*,void*,const int*)>(variant==2?"eglCreatePlatformWindowSurfaceEXT":"eglCreateWindowSurface")(display,nullptr,window,attrs);
     }
-    void current(void *surface,void *context){require(function<unsigned(WINAPI*)(void*,void*,void*,void*)>("eglMakeCurrent")(display,surface,surface,context)!=0,"bind exact fixture context and drawable");}
+    void current(void *surface,void *context,void *read=nullptr){require(function<unsigned(WINAPI*)(void*,void*,void*,void*)>("eglMakeCurrent")(display,surface,read?read:surface,context)!=0,"bind exact fixture context and separate draw/read drawables");}
+    void transferState(unsigned readKind,unsigned source,unsigned destination=50){function<void(*)(unsigned,unsigned,unsigned)>("bsiFixtureTransferState")(readKind,source,destination);}
+    void transfer(bool copy,unsigned alias=0){
+        const auto before=count("bsiFixtureTransferCalls");
+        function<void(*)(unsigned,unsigned)>("bsiFixtureTransfer")(copy,alias);
+        require(count("bsiFixtureTransferCalls")==before+1&&count("bsiFixtureTransferArgumentsIntact")
+                &&count("bsiFixtureBindingsRestored")&&!count("bsiFixtureInvalidGl"),
+                "each native color copy/resolve runs exactly once with all original arguments, no private samplers and unchanged active/binding state");
+    }
+    void onTransfer(void(WINAPI *callback)()){function<void(*)(void(WINAPI*)())>("bsiFixtureOnTransfer")(callback);}
     LONG count(const char *name="bsiFixtureSwapCalls"){return function<LONG(*)()>(name)();}
     void swap(void *surface){
         const auto before=count();require(function<unsigned(WINAPI*)(void*,void*)>("eglSwapBuffers")(display,surface)!=0,"original EGL presentation succeeds");
@@ -84,6 +99,15 @@ struct Fixture {
     void removeSurface(void *value){require(function<unsigned(WINAPI*)(void*,void*)>("eglDestroySurface")(display,value)!=0,"native surface teardown");}
     void removeContext(void *value){require(function<unsigned(WINAPI*)(void*,void*)>("eglDestroyContext")(display,value)!=0,"native context teardown");}
 };
+Fixture *transferFixture=nullptr;
+std::uint64_t unpublishedTransferCalls=0;
+unsigned transferProbeMode=0;
+void WINAPI transferProbe(){
+    auto &runtime=Runtime::instance();
+    require(runtime.metrics().textureTransferCalls==unpublishedTransferCalls,"resource transfer evidence is not published before its original returns");
+    if(transferProbeMode==1){runtime.setTexture({false,true,TextureDrawPolicy::OwnedMipCompatibility});runtime.setTexture({true,true,TextureDrawPolicy::OwnedMipCompatibility});}
+    if(transferProbeMode==2)transferFixture->deleteTexture(50);
+}
 }
 int main(int argc,char **argv){
     require(argc==3,"pass two authored EGL provider DLL paths");
@@ -313,6 +337,65 @@ int main(int argc,char **argv){
     require(!runtime.metrics().textureInspected&&!runtime.metrics().textureProducerDraws,"Off->On revokes old dependencies even with the same presentation/context");
     b.current(secondTarget,second);b.resource(1);b.draw(GlDrawKind::Arrays,0,0);
     b.current(offscreen,shared);b.resource(2);b.draw();
+
+    // New missing producer paths: a real detoured copy from default pbuffer,
+    // or an RBO resolve. No blanket pbuffer/share-group authorization.
+    b.function<void(*)(int)>("bsiFixtureExtensions")(0);
+    const auto transferContext=b.context(false,second),readPbuffer=b.pbuffer();
+    require(transferContext&&readPbuffer,"independent transfer context plus distinct native READ pbuffer");
+    b.current(offscreen,transferContext);b.function<void(*)(int)>("bsiFixtureGlProtection")(0);
+    const auto consume=[&]{
+        runtime.setTexture({false,true,TextureDrawPolicy::OwnedMipCompatibility});
+        runtime.setTexture({true,true,TextureDrawPolicy::OwnedMipCompatibility});
+        b.current(secondTarget,second);b.resource(1);b.draw(GlDrawKind::Arrays,0,0);
+        b.current(offscreen,transferContext);
+    };
+    consume();b.resource(4);b.draw(GlDrawKind::Arrays,0,0);
+    require(!runtime.metrics().textureProducerInspected,"a default pbuffer does not become a producer merely because it is known/shared");
+    transferFixture=&b;unpublishedTransferCalls=0;transferProbeMode=0;b.onTransfer(transferProbe);
+    b.transferState(0,0);b.transfer(true);b.onTransfer(nullptr);
+    require(runtime.metrics().textureTransferCalls==1&&runtime.metrics().textureTransferInputs==1
+            &&!runtime.metrics().textureProducerInspected,"copy evidence is published after the native original, without counting a sampler preparation");
+    b.resource(4);b.draw();
+    require(runtime.metrics().textureProducerDraws==1&&runtime.metrics().textureProducerBindings==2,
+            "an observed exact pbuffer -> consumed texture copy reaches material samplers INSIDE the original DEFAULT-framebuffer draw");
+    for(unsigned overflow=0;overflow<2;++overflow){
+        if(!overflow)b.oversizedDeletion();else for(unsigned i=0;i<40;++i)b.deleteTexture(1000+i);
+        const auto prepared=runtime.metrics().textureProducerDraws;
+        b.resource(4);b.draw(GlDrawKind::Arrays,0,0);
+        require(runtime.metrics().textureProducerDraws==prepared,"oversized/overflowed deletion invalidates every old resource dependency");
+        b.current(secondTarget,second);b.resource(1);b.draw(GlDrawKind::Arrays,0,0);
+        b.current(offscreen,transferContext);b.transferState(0,0);b.transfer(true);b.resource(4);b.draw();
+        require(runtime.metrics().textureProducerDraws==prepared+1,
+                "an object-deletion overflow must retain observed native context sharing: a fresh consumer/copy can relearn without a new context/share call");
+    }
+    consume();b.resource(3,70);b.draw(GlDrawKind::Arrays,0,0);
+    b.transferState(2,70,51);b.transfer(false);
+    require(!runtime.metrics().textureTransferCalls&&!runtime.metrics().textureProducerInspected,"an unrelated copy destination cannot qualify an RBO producer");
+    for(unsigned alias=0;alias<4;++alias){b.transferState(2,70);b.transfer(false,alias);}
+    b.resource(3,70);b.draw();
+    require(runtime.metrics().textureTransferCalls==4&&runtime.metrics().textureTransferInputs==4&&runtime.metrics().textureProducerDraws==1,
+            "all four core/EXT/ANGLE/NV blit targets propagate typed RBO -> texture evidence without treating their numeric names as aliases");
+    for(unsigned alias=0;alias<2;++alias){b.transferState(1,80);b.transfer(true,alias);}
+    b.resource(2,80);b.draw();
+    require(runtime.metrics().textureTransferCalls==6&&runtime.metrics().textureProducerDraws==2,"both copy entry points preserve arguments and reach their exact texture-backed producer");
+    consume();b.current(offscreen,transferContext,unknownPbuffer);b.transferState(0,0);b.transfer(true);
+    require(!runtime.metrics().textureTransferCalls,"a known DRAW pbuffer does not authorize an UNKNOWN default READ surface");
+    b.current(offscreen,transferContext,protectedPbuffer);b.transferState(0,0);b.transfer(true);
+    require(!runtime.metrics().textureTransferCalls,"a protected/untracked default READ pbuffer never seeds upstream ownership");
+    b.current(offscreen,transferContext,readPbuffer);b.transferState(0,0);b.transfer(true);
+    b.current(offscreen,transferContext);b.resource(4);b.draw(GlDrawKind::Arrays,0,0);
+    require(!runtime.metrics().textureProducerDraws,"a copy from a DIFFERENT known READ pbuffer must not authorize the DRAW pbuffer's material pass");
+    b.current(readPbuffer,transferContext);b.resource(4);b.draw();
+    require(runtime.metrics().textureProducerDraws==1,"the actual separately observed READ pbuffer is the qualified native resource");
+    consume();b.transferState(0,0);unpublishedTransferCalls=0;transferProbeMode=1;b.onTransfer(transferProbe);b.transfer(true);b.onTransfer(nullptr);
+    b.resource(4);b.draw(GlDrawKind::Arrays,0,0);
+    require(!runtime.metrics().textureTransferCalls&&!runtime.metrics().textureProducerDraws,"Off->On INSIDE the original copy rejects its stale captured revision");
+    consume();b.transferState(0,0);unpublishedTransferCalls=0;transferProbeMode=2;b.onTransfer(transferProbe);b.transfer(true);b.onTransfer(nullptr);
+    b.resource(4);b.draw(GlDrawKind::Arrays,0,0);
+    require(!runtime.metrics().textureTransferCalls&&!runtime.metrics().textureProducerDraws,"a native texture deletion INSIDE the original rejects a stale transfer/resource serial without blocking that original");
+    b.removeContext(transferContext);b.removeSurface(readPbuffer);
+    b.current(offscreen,shared);b.resource(2);
     b.removeSurface(secondTarget);b.draw(GlDrawKind::Arrays,0,0);
     require(!runtime.metrics().observed&&!runtime.metrics().textureProducerDraws&&!runtime.metrics().textureInspected,
             "destroying the selected surface immediately revokes all resource-linked producers without adopting their pbuffer as a new presentation");
@@ -323,6 +406,6 @@ int main(int argc,char **argv){
     b.removeContext(second);a.removeContext(uiContext);a.removeSurface(uiTarget);
     require(!runtime.metrics().observed&&!runtime.metrics().textureDraws&&!a.count("bsiFixtureInvalidGl")&&!b.count("bsiFixtureInvalidGl"),"teardown and dispatch fixtures leave no stale presentation/texture success or invalid GL state");
     runtime.setTexture({});runtime.stop();DestroyWindow(ui);DestroyWindow(game);DestroyWindow(root);UnregisterClassW(cls.lpszClassName,cls.hInstance);
-    std::printf("PASS: production EGL/MinHook lifecycle plus %u draw signature/alias detours; exact arguments/once-only native draws, private samplers DURING base-vertex/multi/indirect/instanced draws, zero-binding wrapper -> nested scene versus live-override guards, precise first depth blockers, exact owned drawable plus proven same/explicit-share color-FBO dependency producers, unrelated/UI/protected/unmapped routes excluded, texture deletion, expiry, Off/source reset and teardown\n",variants);
+    std::printf("PASS: production EGL/MinHook lifecycle plus %u draw signature/alias detours; exact arguments/once-only native draws, private samplers DURING base-vertex/multi/indirect/instanced draws, zero-binding wrapper -> nested scene versus live-override guards, precise first depth blockers, exact owned drawable plus proven same/explicit-share FBO/default-pbuffer producers via native copy/resolve detours, separate READ pbuffer identity, no pre-original publication, revision/resource-serial changes inside originals, deletion overflow recovery without lost native sharing, unrelated/UI/protected/unmapped routes excluded, expiry, Off/source reset and teardown\n",variants);
     std::puts("LIMIT: authored EGL/GL state doubles only, no GL driver/game pixels, protected GPU memory or physical GPU/player certification");
 }
