@@ -16,7 +16,8 @@ Item {
     readonly property var bsiTabs:tabEntries()
     property bool appearanceOpen:false
     readonly property int nativeIndex:bsiHost?bsiHost.pCurrentTabIndex:0
-    readonly property int selectedIndex:appearanceOpen?nativeTabs.length:nativeIndex
+    readonly property int appearanceIndex:Math.min(3,nativeTabs.length)
+    readonly property int selectedIndex:appearanceOpen?appearanceIndex:nativeIndex+(nativeIndex>=appearanceIndex?1:0)
     readonly property var currentRow:nativeIndex>=0 && nativeIndex<nativeTabs.length?nativeTabs[nativeIndex]:null
     readonly property string currentKind:appearanceOpen?"palette":currentRow?iconForEntry(currentRow):"preferences"
     readonly property var nativePage:currentRow && currentRow.pComponentObj?currentRow.pComponentObj:null
@@ -27,7 +28,8 @@ Item {
     function tabEntries(){
         var result=[]
         for(var i=0;i<nativeTabs.length;++i)result.push({entry:nativeTabs[i],nativeIndex:i,appearance:false})
-        result.push({entry:{pButtonId:"appearance",pButtonText:"Appearance",pShowRedDot:false},nativeIndex:-1,appearance:true})
+        // Keep Appearance discoverable above the fold, even with every OEM tab.
+        result.splice(appearanceIndex,0,{entry:{pButtonId:"appearance",pButtonText:"Appearance",pShowRedDot:false},nativeIndex:-1,appearance:true})
         return result
     }
     function iconForEntry(entry){return Icons.kindForTab(entry.pButtonId,entry.pQmlSource||"",entry.pButtonText)}
