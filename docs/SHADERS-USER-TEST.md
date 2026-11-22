@@ -51,9 +51,12 @@ do not establish that your player's game presentation works on your GPU/driver.
    Nothing is installed on page entry or by inspection. Read the report and
    hashes. Unsupported versions, insufficient fixed resource space, edited
    sources, unowned files, running players or pending recovery block installation.
-4. Choose **2. Review installation**, read the risk dialog, explicitly acknowledge
-   it, and choose **Install native shaders**. Updates/reapplies use the same
-   reviewed flow. A DLL-only update invalidates old install/remove reviews.
+4. Choose **2. Review installation** (or **2. Review update** when an updated
+   module is available), read the risk dialog, explicitly acknowledge it, and
+   choose **Install native shaders**. Reapplies use **2. Review reapply** with
+   the same reviewed flow. **Replacing the Customizer EXE alone does not update
+   the installed shader DLL.** A DLL-only update invalidates old install/remove
+   reviews.
 5. Launch that exact player EXE normally. Use the retained sidebar **Settings**
    button. **Drag/scroll the horizontal top-tab strip left to its right-hand end**
    to find **Shaders immediately before About**. Check this before opening the
@@ -126,13 +129,18 @@ requires explicit review of existing driver LOD/AA overrides, and currently has
 a GL 3.3/GLES 3.1 draw-time path only. No supplied DLL is installed. See
 [exact coverage and resource-provenance limits](TEXTURE-QUALITY-PORTABILITY.md).
 
-**Latest reported result remains not working:** 1,577 OpenGL grading frames /
-3,145 NoSampler inspections and 2,993 frames / 856 NoSampler inspections, both
-with zero linked producers, prepared draws/private bindings or captured
-transfers, saved strength 100%. The inspected mutable RGB 256x256 image now
-specifically reports legal **GL_LINEAR 0x2601 / non-mip-filter=1**, not missing
-required mip 1. This is not a small Potato effect. Grading and saved/armed state
-are not game texture changes. The [resource-only route repair](POTATO-RESOURCE-ONLY-ROUTES.md),
+**Latest reported result remains not working:** **3,154 presentation frames /
+6,297 NoSampler inspections**, with zero replacements, linked producers or
+qualified transfers, saved strength 100%. The installed module hash is unknown;
+that is not proof of a stale installation. The inspected mutable RGB 256x256
+image specifically reports legal **GL_LINEAR 0x2601 / non-mip-filter=1**, not
+missing required mip 1. This is not a small Potato effect. Grading and saved/armed
+state are not game texture changes. The [PF-driven split-EGL lifecycle repair and exact new test downloads](POTATO-EGL-LIFECYCLE-ALIASES.md)
+reproduce a separate public-dispatch defect and pass the new Windows contracts;
+this is not proof that this is the launched game's renderer branch or a
+successful game-texture repair. That candidate's copied status must identify
+module build **`00c1b7c…`** and capture **`gl-egl-lifecycle-alias-v3`** after the
+reviewed native-module update. The [resource-only route repair](POTATO-RESOURCE-ONLY-ROUTES.md),
 [native image links](POTATO-NATIVE-IMAGE-BINDINGS.md) and
 [immutable-mip evidence](POTATO-MIP-QUALIFICATION.md) fix independently reproduced
 gaps, not an established game root cause. See [strength/status semantics](POTATO-STRENGTH.md).

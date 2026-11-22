@@ -1,0 +1,3203 @@
+{
+  "schema": "bsi.egl-lifecycle-alias-regression.v1",
+  "pfEvidence": "potato-player-program-files.json",
+  "repairCommit": "ec75261a9406e269d2769e93e3a6768eb87fc5b6",
+  "candidateSourceCommit": "00c1b7c1d4caf5ce1ac7e0ddaf08494f0aa6c45d",
+  "nativeModuleCaptureVersion": "gl-egl-lifecycle-alias-v3",
+  "beforeProductionHooksSha256": "f9e43f6363c589018ec5d23eb271a9790e84eea4753d4019a97d44a938463a34",
+  "candidateFileSha256": {
+    "src/shaders/PresentationHooks.cpp": "784845177c6cfdf97bee4a6f1a018b3dcf94d641d7e1521fa704431402671c41",
+    "src/shaders/EglDispatchScope.h": "6ae600fedcbac267679d7598efefe122ec3714e2cc7993ad971e2711c29720a8",
+    "src/shaders/ShaderBridge.cpp": "5e28eea6089aa02708cb40e19bc672fd3ec7085ccb3e856cd49555a491ddc84b",
+    "src/shaders/GlTextureOverride.cpp": "7d975a74d3bdb1f53d1d45bb7d26eb59ed0a060f8f9dc90e7fc710d940625fc0",
+    "src/shaders/Runtime.cpp": "6ecc6015a6832e865e8d68636c449cbb8c364b9862afa1fadaf136d499000bcb",
+    "src/shaders/CMakeLists.txt": "930e5eda6c1a7a46a8c6f4a2740705ea0ade1da52514b3cbaa470a98b1fec485",
+    "tests/shaders/egl_split_fixture_api.h": "4b7ce8fdcc5cd60dc8732e0cfaa61ee33af7486ef175d076d5af72ba9ced8092",
+    "tests/shaders/egl_split_backend_fixture.cpp": "54e13f681b4b9593fa2b24b07c6f9b37b93f93c63016593880cd70c139a212c6",
+    "tests/shaders/egl_split_shim_fixture.cpp": "aff039b2a6069c0abf4516d0b4d91820dd4db0801b0dcb278b6e86a42d4e182e",
+    "tests/shaders/egl_split_dispatch_test.cpp": "7e0e3f93b90a0c5f4373778176b227e20f4a54bd27c3565dadcdbbc74085bca0",
+    "tests/shaders/egl_dispatch_scope_test.cpp": "4add5a575ff87ef774cc564c710765dd106bfcae0e06fc6986f72bdcc4f2cbe9",
+    "tests/shaders/CMakeLists.txt": "1a10449f317b549c52b3aaf7d157e158f52e07cafc7bac7188aac3e5816befda",
+    "tests/shaders/run_ci_tests.py": "170bc4b56abe3dbccb2fcd5a865ea0a0f8438da8167ab7403f1360868143cda9",
+    "tests/artifact_download_test.py": "d809d85b0ca39708253805c80d1b35f94f62c0b18166311283abbc6e56cc2701",
+    "scripts/Build-ShaderBundle.ps1": "88e4f6c03acb361d587a8a3dc2d79dae7446cfacc2fc4b02c8e5292751ec95d1",
+    "scripts/Verify-ArtifactDownload.py": "d04820d81c4aa10e7d3d07d89ea6b29019048d13e8d45778e45318b3d3ce0ceb",
+    ".github/workflows/release.yml": "e39e05d8a33c93b59b6ccf7f6faa11ff11b5fa6c5e5617bf06da5c76547cb0f0",
+    ".github/workflows/shaders.yml": "c3d94ec44fa92dbf45489ad6a9d340fa5aa707f34c90eddbc4733e941f693bb5",
+    ".github/workflows/egl-split-dispatch.yml": "908c7cd8c2345f201f72755a8a308cb07f7149e3620a556704b2bd4bb6092cd2"
+  },
+  "proprietaryPfFilesLoadedExecutedPatchedOrRedistributed": false,
+  "privateOffsetsUsedAsHooksOrCallableAbi": false,
+  "local": {
+    "strictWin64CrossCompilation": {
+      "compiler": "ziglang 0.13.0 clang C++17",
+      "flags": "-O2 -Wall -Wextra -Werror",
+      "executedWindows": false
+    },
+    "nativeCtest": {
+      "passed": 10,
+      "failed": 0,
+      "vulkanIcd": "Explicit @sparticuz/chromium 133.0.0 SwiftShader library",
+      "qtUiAndWindowsTestsIncluded": false
+    },
+    "asanUbsanLeakCtest": {
+      "passed": 10,
+      "failed": 0,
+      "leakDetection": true,
+      "vulkanIcd": "Explicit SwiftShader library"
+    },
+    "pfAuditRerun": {
+      "passed": 19,
+      "failed": 0,
+      "skipped": 0,
+      "independentSelectedObjdumpComparisons": 139
+    },
+    "renderingPolicySourceUnchangedFromBefore": true,
+    "pixelRegression": {
+      "before": {
+        "jsonReports": {
+          "gles/evidence.json": {
+            "api": "gles",
+            "version": "OpenGL ES 3.1.0 (ANGLE 2.1.24600 git hash: 8304737811a7)",
+            "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver-5.0.0)",
+            "maxBias": 0.0,
+            "offCycles": 128,
+            "depthIndependentCycles": 64,
+            "depthTestAndWritesDisabled": true,
+            "noDepthAttachmentRGBA": [
+              255,
+              255,
+              0,
+              173
+            ],
+            "mipPixels": [
+              {
+                "source": "sampler",
+                "lambda": 0,
+                "mode": 1,
+                "rgba": [
+                  0,
+                  128,
+                  128,
+                  173
+                ],
+                "off": [
+                  255,
+                  0,
+                  0,
+                  173
+                ]
+              },
+              {
+                "source": "sampler",
+                "lambda": 0,
+                "mode": 2,
+                "rgba": [
+                  255,
+                  255,
+                  0,
+                  173
+                ],
+                "off": [
+                  255,
+                  0,
+                  0,
+                  173
+                ]
+              },
+              {
+                "source": "sampler",
+                "lambda": 4,
+                "mode": 1,
+                "rgba": [
+                  255,
+                  0,
+                  255,
+                  173
+                ],
+                "off": [
+                  255,
+                  0,
+                  255,
+                  173
+                ]
+              },
+              {
+                "source": "sampler",
+                "lambda": 4,
+                "mode": 2,
+                "rgba": [
+                  255,
+                  0,
+                  255,
+                  173
+                ],
+                "off": [
+                  255,
+                  0,
+                  255,
+                  173
+                ]
+              },
+              {
+                "source": "texture",
+                "lambda": 0,
+                "mode": 1,
+                "rgba": [
+                  0,
+                  128,
+                  128,
+                  173
+                ],
+                "off": [
+                  255,
+                  0,
+                  0,
+                  173
+                ]
+              },
+              {
+                "source": "texture",
+                "lambda": 0,
+                "mode": 2,
+                "rgba": [
+                  255,
+                  255,
+                  0,
+                  173
+                ],
+                "off": [
+                  255,
+                  0,
+                  0,
+                  173
+                ]
+              },
+              {
+                "source": "texture",
+                "lambda": 4,
+                "mode": 1,
+                "rgba": [
+                  255,
+                  0,
+                  255,
+                  173
+                ],
+                "off": [
+                  255,
+                  0,
+                  255,
+                  173
+                ]
+              },
+              {
+                "source": "texture",
+                "lambda": 4,
+                "mode": 2,
+                "rgba": [
+                  255,
+                  0,
+                  255,
+                  173
+                ],
+                "off": [
+                  255,
+                  0,
+                  255,
+                  173
+                ]
+              }
+            ],
+            "material": [
+              {
+                "source": "sampler",
+                "nativeEdgeEnergy": 2483712,
+                "strongEdgeEnergy": 62784,
+                "nativeSha256": "322819cac683c81d48f83c1a5d00aa8b7453c8fd98a965b543eebc0eb3d952ab",
+                "strongSha256": "ac43e9856339e89d48eb752fbe9fd6100c62d5e3a3e30d00aa6fa348737c871d",
+                "offExact": true
+              },
+              {
+                "source": "texture",
+                "nativeEdgeEnergy": 2483712,
+                "strongEdgeEnergy": 62784,
+                "nativeSha256": "322819cac683c81d48f83c1a5d00aa8b7453c8fd98a965b543eebc0eb3d952ab",
+                "strongSha256": "ac43e9856339e89d48eb752fbe9fd6100c62d5e3a3e30d00aa6fa348737c871d",
+                "offExact": true
+              }
+            ],
+            "resourceLinkedProducer": {
+              "singleLevelCompositorBindings": 0,
+              "linkedProducerBindings": 1,
+              "nativeRGBA": [
+                255,
+                0,
+                0,
+                173
+              ],
+              "strongRGBA": [
+                255,
+                255,
+                0,
+                173
+              ],
+              "presentedOffExact": true,
+              "revisionExpiryMaskBypass": true,
+              "nativeSha256": "cdc6776c7860f67df2707bd0585c1c7eb02d91e4d09a70e890b39c59e3ea2fd0",
+              "strongSha256": "032050fa57217bb47afbfc2e20c9b8c7fc718e7cf690f359fd90f536d6c0eeeb"
+            },
+            "colorTransfers": [
+              {
+                "path": "renderbuffer-blit",
+                "producerBindings": 1,
+                "compositorBindings": 0,
+                "nativeRGBA": [
+                  255,
+                  0,
+                  0,
+                  173
+                ],
+                "strongRGBA": [
+                  255,
+                  255,
+                  0,
+                  173
+                ],
+                "offExact": true,
+                "expiryAndPendingError": true
+              },
+              {
+                "path": "default-pbuffer-copy",
+                "producerBindings": 1,
+                "compositorBindings": 0,
+                "nativeRGBA": [
+                  255,
+                  0,
+                  0,
+                  173
+                ],
+                "strongRGBA": [
+                  255,
+                  255,
+                  0,
+                  173
+                ],
+                "offExact": true,
+                "expiryAndPendingError": true
+              }
+            ],
+            "immutableMips": {
+              "sourceModes": 2,
+              "cases": [
+                {
+                  "case": "storage4",
+                  "floor": 3,
+                  "native": [
+                    255,
+                    0,
+                    0,
+                    173
+                  ],
+                  "strong": [
+                    255,
+                    255,
+                    0,
+                    173
+                  ],
+                  "offExact": true
+                },
+                {
+                  "case": "storage2",
+                  "floor": 1,
+                  "native": [
+                    255,
+                    0,
+                    0,
+                    173
+                  ],
+                  "strong": [
+                    0,
+                    255,
+                    0,
+                    173
+                  ],
+                  "offExact": true
+                },
+                {
+                  "case": "base1",
+                  "floor": 2,
+                  "native": [
+                    0,
+                    255,
+                    0,
+                    173
+                  ],
+                  "strong": [
+                    255,
+                    255,
+                    0,
+                    173
+                  ],
+                  "offExact": true
+                },
+                {
+                  "case": "max1",
+                  "floor": 1,
+                  "native": [
+                    255,
+                    0,
+                    0,
+                    173
+                  ],
+                  "strong": [
+                    0,
+                    255,
+                    0,
+                    173
+                  ],
+                  "offExact": true
+                },
+                {
+                  "case": "single",
+                  "floor": 0,
+                  "native": [
+                    255,
+                    0,
+                    0,
+                    173
+                  ],
+                  "strong": [
+                    255,
+                    0,
+                    0,
+                    173
+                  ],
+                  "offExact": true
+                }
+              ],
+              "pendingErrorAndSourceState": true
+            },
+            "strength": {
+              "percent": [
+                0,
+                25,
+                50,
+                75,
+                100
+              ],
+              "rgba": [
+                [
+                  255,
+                  0,
+                  0,
+                  173
+                ],
+                [
+                  64,
+                  191,
+                  0,
+                  173
+                ],
+                [
+                  0,
+                  128,
+                  128,
+                  173
+                ],
+                [
+                  64,
+                  64,
+                  191,
+                  173
+                ],
+                [
+                  255,
+                  255,
+                  0,
+                  173
+                ]
+              ],
+              "sourceModes": 2,
+              "gradients": 2,
+              "fullOffAndSourceExact": true
+            },
+            "limit": "authored software resources; NOT player, physical GPU, allocated-memory or FPS evidence"
+          },
+          "gles/native-image/evidence.json": {
+            "api": "gles",
+            "path": "actual-eglBindTexImage",
+            "nonsharingContexts": true,
+            "version": "OpenGL ES 3.1.0 (ANGLE 2.1.24600 git hash: 8304737811a7)",
+            "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver-5.0.0)",
+            "rawNativeBindingExactBeforeProduction": true,
+            "strength": [
+              0,
+              50,
+              100
+            ],
+            "rgba": [
+              [
+                255,
+                0,
+                0,
+                173
+              ],
+              [
+                0,
+                128,
+                128,
+                173
+              ],
+              [
+                255,
+                255,
+                0,
+                173
+              ]
+            ],
+            "sourceModes": 2,
+            "producerBindings": 1,
+            "compositorBindings": 0,
+            "offFullFrameExact": true,
+            "sourceAndPendingErrorsExact": true,
+            "revisionAndExpiry": true,
+            "nativeSha256": "cdc6776c7860f67df2707bd0585c1c7eb02d91e4d09a70e890b39c59e3ea2fd0",
+            "strongSha256": "032050fa57217bb47afbfc2e20c9b8c7fc718e7cf690f359fd90f536d6c0eeeb",
+            "limit": "authored software EGL, not WGL/player/hardware/FPS"
+          },
+          "gles/resource-only-evidence.json": {
+            "api": "gles",
+            "version": "OpenGL ES 3.1.0 (ANGLE 2.1.24600 git hash: 8304737811a7)",
+            "actualNullDrawAndReadSurface": true,
+            "sourceModes": [
+              {
+                "source": "sampler",
+                "strengthRGBA": [
+                  [
+                    255,
+                    0,
+                    0,
+                    173
+                  ],
+                  [
+                    0,
+                    128,
+                    128,
+                    173
+                  ],
+                  [
+                    255,
+                    255,
+                    0,
+                    173
+                  ]
+                ],
+                "producerBindings": 1,
+                "compositorBindings": 0,
+                "offExact": true
+              },
+              {
+                "source": "texture",
+                "strengthRGBA": [
+                  [
+                    255,
+                    0,
+                    0,
+                    173
+                  ],
+                  [
+                    0,
+                    128,
+                    128,
+                    173
+                  ],
+                  [
+                    255,
+                    255,
+                    0,
+                    173
+                  ]
+                ],
+                "producerBindings": 1,
+                "compositorBindings": 0,
+                "offExact": true
+              }
+            ],
+            "sourceStatePendingErrorRevisionTTL": true,
+            "limit": "actual software EGL/GL resources, not Win32 route or game certification"
+          }
+        },
+        "pngs": [
+          {
+            "name": "gles/default-pbuffer-copy-native.png",
+            "bytes": 206,
+            "sha256": "bbeaacf314bcc8f12ddf4352490314c3dc11afc8dba2fd762fb4693a5e5940a2",
+            "decodedRgbaTopDownSha256": "cdc6776c7860f67df2707bd0585c1c7eb02d91e4d09a70e890b39c59e3ea2fd0",
+            "width": 64,
+            "height": 64,
+            "allAlpha": 173,
+            "allChunkCrcsAndDeflateValidated": true
+          },
+          {
+            "name": "gles/default-pbuffer-copy-off.png",
+            "bytes": 206,
+            "sha256": "bbeaacf314bcc8f12ddf4352490314c3dc11afc8dba2fd762fb4693a5e5940a2",
+            "decodedRgbaTopDownSha256": "cdc6776c7860f67df2707bd0585c1c7eb02d91e4d09a70e890b39c59e3ea2fd0",
+            "width": 64,
+            "height": 64,
+            "allAlpha": 173,
+            "allChunkCrcsAndDeflateValidated": true
+          },
+          {
+            "name": "gles/default-pbuffer-copy-strong.png",
+            "bytes": 207,
+            "sha256": "9007133fbf446182a3f6396efa82dd47e7f5486a474efa313ac3d4119f7d87a2",
+            "decodedRgbaTopDownSha256": "032050fa57217bb47afbfc2e20c9b8c7fc718e7cf690f359fd90f536d6c0eeeb",
+            "width": 64,
+            "height": 64,
+            "allAlpha": 173,
+            "allChunkCrcsAndDeflateValidated": true
+          },
+          {
+            "name": "gles/immutable-storage4-native.png",
+            "bytes": 206,
+            "sha256": "bbeaacf314bcc8f12ddf4352490314c3dc11afc8dba2fd762fb4693a5e5940a2",
+            "decodedRgbaTopDownSha256": "cdc6776c7860f67df2707bd0585c1c7eb02d91e4d09a70e890b39c59e3ea2fd0",
+            "width": 64,
+            "height": 64,
+            "allAlpha": 173,
+            "allChunkCrcsAndDeflateValidated": true
+          },
+          {
+            "name": "gles/immutable-storage4-off.png",
+            "bytes": 206,
+            "sha256": "bbeaacf314bcc8f12ddf4352490314c3dc11afc8dba2fd762fb4693a5e5940a2",
+            "decodedRgbaTopDownSha256": "cdc6776c7860f67df2707bd0585c1c7eb02d91e4d09a70e890b39c59e3ea2fd0",
+            "width": 64,
+            "height": 64,
+            "allAlpha": 173,
+            "allChunkCrcsAndDeflateValidated": true
+          },
+          {
+            "name": "gles/immutable-storage4-strong.png",
+            "bytes": 207,
+            "sha256": "9007133fbf446182a3f6396efa82dd47e7f5486a474efa313ac3d4119f7d87a2",
+            "decodedRgbaTopDownSha256": "032050fa57217bb47afbfc2e20c9b8c7fc718e7cf690f359fd90f536d6c0eeeb",
+            "width": 64,
+            "height": 64,
+            "allAlpha": 173,
+            "allChunkCrcsAndDeflateValidated": true
+          },
+          {
+            "name": "gles/native-image/native.png",
+            "bytes": 206,
+            "sha256": "bbeaacf314bcc8f12ddf4352490314c3dc11afc8dba2fd762fb4693a5e5940a2",
+            "decodedRgbaTopDownSha256": "cdc6776c7860f67df2707bd0585c1c7eb02d91e4d09a70e890b39c59e3ea2fd0",
+            "width": 64,
+            "height": 64,
+            "allAlpha": 173,
+            "allChunkCrcsAndDeflateValidated": true
+          },
+          {
+            "name": "gles/native-image/off.png",
+            "bytes": 206,
+            "sha256": "bbeaacf314bcc8f12ddf4352490314c3dc11afc8dba2fd762fb4693a5e5940a2",
+            "decodedRgbaTopDownSha256": "cdc6776c7860f67df2707bd0585c1c7eb02d91e4d09a70e890b39c59e3ea2fd0",
+            "width": 64,
+            "height": 64,
+            "allAlpha": 173,
+            "allChunkCrcsAndDeflateValidated": true
+          },
+          {
+            "name": "gles/native-image/strong.png",
+            "bytes": 207,
+            "sha256": "9007133fbf446182a3f6396efa82dd47e7f5486a474efa313ac3d4119f7d87a2",
+            "decodedRgbaTopDownSha256": "032050fa57217bb47afbfc2e20c9b8c7fc718e7cf690f359fd90f536d6c0eeeb",
+            "width": 64,
+            "height": 64,
+            "allAlpha": 173,
+            "allChunkCrcsAndDeflateValidated": true
+          },
+          {
+            "name": "gles/renderbuffer-blit-native.png",
+            "bytes": 206,
+            "sha256": "bbeaacf314bcc8f12ddf4352490314c3dc11afc8dba2fd762fb4693a5e5940a2",
+            "decodedRgbaTopDownSha256": "cdc6776c7860f67df2707bd0585c1c7eb02d91e4d09a70e890b39c59e3ea2fd0",
+            "width": 64,
+            "height": 64,
+            "allAlpha": 173,
+            "allChunkCrcsAndDeflateValidated": true
+          },
+          {
+            "name": "gles/renderbuffer-blit-off.png",
+            "bytes": 206,
+            "sha256": "bbeaacf314bcc8f12ddf4352490314c3dc11afc8dba2fd762fb4693a5e5940a2",
+            "decodedRgbaTopDownSha256": "cdc6776c7860f67df2707bd0585c1c7eb02d91e4d09a70e890b39c59e3ea2fd0",
+            "width": 64,
+            "height": 64,
+            "allAlpha": 173,
+            "allChunkCrcsAndDeflateValidated": true
+          },
+          {
+            "name": "gles/renderbuffer-blit-strong.png",
+            "bytes": 207,
+            "sha256": "9007133fbf446182a3f6396efa82dd47e7f5486a474efa313ac3d4119f7d87a2",
+            "decodedRgbaTopDownSha256": "032050fa57217bb47afbfc2e20c9b8c7fc718e7cf690f359fd90f536d6c0eeeb",
+            "width": 64,
+            "height": 64,
+            "allAlpha": 173,
+            "allChunkCrcsAndDeflateValidated": true
+          },
+          {
+            "name": "gles/sampler-native.png",
+            "bytes": 249,
+            "sha256": "505d0d3489a26c7fccf0681cadd163bb33fb70f89f6ce4649322049cda83c4e9",
+            "decodedRgbaTopDownSha256": "876c44af86083db08684442f553a1986a733c78de481eaff722b956c7e069258",
+            "width": 64,
+            "height": 64,
+            "allAlpha": 173,
+            "allChunkCrcsAndDeflateValidated": true
+          },
+          {
+            "name": "gles/sampler-off.png",
+            "bytes": 249,
+            "sha256": "505d0d3489a26c7fccf0681cadd163bb33fb70f89f6ce4649322049cda83c4e9",
+            "decodedRgbaTopDownSha256": "876c44af86083db08684442f553a1986a733c78de481eaff722b956c7e069258",
+            "width": 64,
+            "height": 64,
+            "allAlpha": 173,
+            "allChunkCrcsAndDeflateValidated": true
+          },
+          {
+            "name": "gles/sampler-strong.png",
+            "bytes": 498,
+            "sha256": "36fd453fe632056ba975b400cbce79238f448a6babad1ed61a448a8fbedca5f7",
+            "decodedRgbaTopDownSha256": "3a918da567884de9b6d042c9fe5cf83fb6c64d2ae094b7ff169906f3819159e2",
+            "width": 64,
+            "height": 64,
+            "allAlpha": 173,
+            "allChunkCrcsAndDeflateValidated": true
+          },
+          {
+            "name": "gles/surfaceless-sampler-native.png",
+            "bytes": 206,
+            "sha256": "bbeaacf314bcc8f12ddf4352490314c3dc11afc8dba2fd762fb4693a5e5940a2",
+            "decodedRgbaTopDownSha256": "cdc6776c7860f67df2707bd0585c1c7eb02d91e4d09a70e890b39c59e3ea2fd0",
+            "width": 64,
+            "height": 64,
+            "allAlpha": 173,
+            "allChunkCrcsAndDeflateValidated": true
+          },
+          {
+            "name": "gles/surfaceless-sampler-off.png",
+            "bytes": 206,
+            "sha256": "bbeaacf314bcc8f12ddf4352490314c3dc11afc8dba2fd762fb4693a5e5940a2",
+            "decodedRgbaTopDownSha256": "cdc6776c7860f67df2707bd0585c1c7eb02d91e4d09a70e890b39c59e3ea2fd0",
+            "width": 64,
+            "height": 64,
+            "allAlpha": 173,
+            "allChunkCrcsAndDeflateValidated": true
+          },
+          {
+            "name": "gles/surfaceless-sampler-strong.png",
+            "bytes": 207,
+            "sha256": "9007133fbf446182a3f6396efa82dd47e7f5486a474efa313ac3d4119f7d87a2",
+            "decodedRgbaTopDownSha256": "032050fa57217bb47afbfc2e20c9b8c7fc718e7cf690f359fd90f536d6c0eeeb",
+            "width": 64,
+            "height": 64,
+            "allAlpha": 173,
+            "allChunkCrcsAndDeflateValidated": true
+          },
+          {
+            "name": "gles/surfaceless-texture-native.png",
+            "bytes": 206,
+            "sha256": "bbeaacf314bcc8f12ddf4352490314c3dc11afc8dba2fd762fb4693a5e5940a2",
+            "decodedRgbaTopDownSha256": "cdc6776c7860f67df2707bd0585c1c7eb02d91e4d09a70e890b39c59e3ea2fd0",
+            "width": 64,
+            "height": 64,
+            "allAlpha": 173,
+            "allChunkCrcsAndDeflateValidated": true
+          },
+          {
+            "name": "gles/surfaceless-texture-off.png",
+            "bytes": 206,
+            "sha256": "bbeaacf314bcc8f12ddf4352490314c3dc11afc8dba2fd762fb4693a5e5940a2",
+            "decodedRgbaTopDownSha256": "cdc6776c7860f67df2707bd0585c1c7eb02d91e4d09a70e890b39c59e3ea2fd0",
+            "width": 64,
+            "height": 64,
+            "allAlpha": 173,
+            "allChunkCrcsAndDeflateValidated": true
+          },
+          {
+            "name": "gles/surfaceless-texture-strong.png",
+            "bytes": 207,
+            "sha256": "9007133fbf446182a3f6396efa82dd47e7f5486a474efa313ac3d4119f7d87a2",
+            "decodedRgbaTopDownSha256": "032050fa57217bb47afbfc2e20c9b8c7fc718e7cf690f359fd90f536d6c0eeeb",
+            "width": 64,
+            "height": 64,
+            "allAlpha": 173,
+            "allChunkCrcsAndDeflateValidated": true
+          },
+          {
+            "name": "gles/texture-native.png",
+            "bytes": 249,
+            "sha256": "505d0d3489a26c7fccf0681cadd163bb33fb70f89f6ce4649322049cda83c4e9",
+            "decodedRgbaTopDownSha256": "876c44af86083db08684442f553a1986a733c78de481eaff722b956c7e069258",
+            "width": 64,
+            "height": 64,
+            "allAlpha": 173,
+            "allChunkCrcsAndDeflateValidated": true
+          },
+          {
+            "name": "gles/texture-off.png",
+            "bytes": 249,
+            "sha256": "505d0d3489a26c7fccf0681cadd163bb33fb70f89f6ce4649322049cda83c4e9",
+            "decodedRgbaTopDownSha256": "876c44af86083db08684442f553a1986a733c78de481eaff722b956c7e069258",
+            "width": 64,
+            "height": 64,
+            "allAlpha": 173,
+            "allChunkCrcsAndDeflateValidated": true
+          },
+          {
+            "name": "gles/texture-strong.png",
+            "bytes": 498,
+            "sha256": "36fd453fe632056ba975b400cbce79238f448a6babad1ed61a448a8fbedca5f7",
+            "decodedRgbaTopDownSha256": "3a918da567884de9b6d042c9fe5cf83fb6c64d2ae094b7ff169906f3819159e2",
+            "width": 64,
+            "height": 64,
+            "allAlpha": 173,
+            "allChunkCrcsAndDeflateValidated": true
+          }
+        ],
+        "source": "Linux real software ANGLE/SwiftShader, NOT Win32 PresentationHooks or a player",
+        "triplets": [
+          {
+            "native": "gles/default-pbuffer-copy-native.png",
+            "off": "gles/default-pbuffer-copy-off.png",
+            "strong": "gles/default-pbuffer-copy-strong.png",
+            "fullDecodedOffEqualsNative": true,
+            "strongDiffersFromNative": true
+          },
+          {
+            "native": "gles/immutable-storage4-native.png",
+            "off": "gles/immutable-storage4-off.png",
+            "strong": "gles/immutable-storage4-strong.png",
+            "fullDecodedOffEqualsNative": true,
+            "strongDiffersFromNative": true
+          },
+          {
+            "native": "gles/native-image/native.png",
+            "off": "gles/native-image/off.png",
+            "strong": "gles/native-image/strong.png",
+            "fullDecodedOffEqualsNative": true,
+            "strongDiffersFromNative": true
+          },
+          {
+            "native": "gles/renderbuffer-blit-native.png",
+            "off": "gles/renderbuffer-blit-off.png",
+            "strong": "gles/renderbuffer-blit-strong.png",
+            "fullDecodedOffEqualsNative": true,
+            "strongDiffersFromNative": true
+          },
+          {
+            "native": "gles/sampler-native.png",
+            "off": "gles/sampler-off.png",
+            "strong": "gles/sampler-strong.png",
+            "fullDecodedOffEqualsNative": true,
+            "strongDiffersFromNative": true
+          },
+          {
+            "native": "gles/surfaceless-sampler-native.png",
+            "off": "gles/surfaceless-sampler-off.png",
+            "strong": "gles/surfaceless-sampler-strong.png",
+            "fullDecodedOffEqualsNative": true,
+            "strongDiffersFromNative": true
+          },
+          {
+            "native": "gles/surfaceless-texture-native.png",
+            "off": "gles/surfaceless-texture-off.png",
+            "strong": "gles/surfaceless-texture-strong.png",
+            "fullDecodedOffEqualsNative": true,
+            "strongDiffersFromNative": true
+          },
+          {
+            "native": "gles/texture-native.png",
+            "off": "gles/texture-off.png",
+            "strong": "gles/texture-strong.png",
+            "fullDecodedOffEqualsNative": true,
+            "strongDiffersFromNative": true
+          }
+        ]
+      },
+      "after": {
+        "jsonReports": {
+          "gles/evidence.json": {
+            "api": "gles",
+            "version": "OpenGL ES 3.1.0 (ANGLE 2.1.24600 git hash: 8304737811a7)",
+            "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver-5.0.0)",
+            "maxBias": 0.0,
+            "offCycles": 128,
+            "depthIndependentCycles": 64,
+            "depthTestAndWritesDisabled": true,
+            "noDepthAttachmentRGBA": [
+              255,
+              255,
+              0,
+              173
+            ],
+            "mipPixels": [
+              {
+                "source": "sampler",
+                "lambda": 0,
+                "mode": 1,
+                "rgba": [
+                  0,
+                  128,
+                  128,
+                  173
+                ],
+                "off": [
+                  255,
+                  0,
+                  0,
+                  173
+                ]
+              },
+              {
+                "source": "sampler",
+                "lambda": 0,
+                "mode": 2,
+                "rgba": [
+                  255,
+                  255,
+                  0,
+                  173
+                ],
+                "off": [
+                  255,
+                  0,
+                  0,
+                  173
+                ]
+              },
+              {
+                "source": "sampler",
+                "lambda": 4,
+                "mode": 1,
+                "rgba": [
+                  255,
+                  0,
+                  255,
+                  173
+                ],
+                "off": [
+                  255,
+                  0,
+                  255,
+                  173
+                ]
+              },
+              {
+                "source": "sampler",
+                "lambda": 4,
+                "mode": 2,
+                "rgba": [
+                  255,
+                  0,
+                  255,
+                  173
+                ],
+                "off": [
+                  255,
+                  0,
+                  255,
+                  173
+                ]
+              },
+              {
+                "source": "texture",
+                "lambda": 0,
+                "mode": 1,
+                "rgba": [
+                  0,
+                  128,
+                  128,
+                  173
+                ],
+                "off": [
+                  255,
+                  0,
+                  0,
+                  173
+                ]
+              },
+              {
+                "source": "texture",
+                "lambda": 0,
+                "mode": 2,
+                "rgba": [
+                  255,
+                  255,
+                  0,
+                  173
+                ],
+                "off": [
+                  255,
+                  0,
+                  0,
+                  173
+                ]
+              },
+              {
+                "source": "texture",
+                "lambda": 4,
+                "mode": 1,
+                "rgba": [
+                  255,
+                  0,
+                  255,
+                  173
+                ],
+                "off": [
+                  255,
+                  0,
+                  255,
+                  173
+                ]
+              },
+              {
+                "source": "texture",
+                "lambda": 4,
+                "mode": 2,
+                "rgba": [
+                  255,
+                  0,
+                  255,
+                  173
+                ],
+                "off": [
+                  255,
+                  0,
+                  255,
+                  173
+                ]
+              }
+            ],
+            "material": [
+              {
+                "source": "sampler",
+                "nativeEdgeEnergy": 2483712,
+                "strongEdgeEnergy": 62784,
+                "nativeSha256": "322819cac683c81d48f83c1a5d00aa8b7453c8fd98a965b543eebc0eb3d952ab",
+                "strongSha256": "ac43e9856339e89d48eb752fbe9fd6100c62d5e3a3e30d00aa6fa348737c871d",
+                "offExact": true
+              },
+              {
+                "source": "texture",
+                "nativeEdgeEnergy": 2483712,
+                "strongEdgeEnergy": 62784,
+                "nativeSha256": "322819cac683c81d48f83c1a5d00aa8b7453c8fd98a965b543eebc0eb3d952ab",
+                "strongSha256": "ac43e9856339e89d48eb752fbe9fd6100c62d5e3a3e30d00aa6fa348737c871d",
+                "offExact": true
+              }
+            ],
+            "resourceLinkedProducer": {
+              "singleLevelCompositorBindings": 0,
+              "linkedProducerBindings": 1,
+              "nativeRGBA": [
+                255,
+                0,
+                0,
+                173
+              ],
+              "strongRGBA": [
+                255,
+                255,
+                0,
+                173
+              ],
+              "presentedOffExact": true,
+              "revisionExpiryMaskBypass": true,
+              "nativeSha256": "cdc6776c7860f67df2707bd0585c1c7eb02d91e4d09a70e890b39c59e3ea2fd0",
+              "strongSha256": "032050fa57217bb47afbfc2e20c9b8c7fc718e7cf690f359fd90f536d6c0eeeb"
+            },
+            "colorTransfers": [
+              {
+                "path": "renderbuffer-blit",
+                "producerBindings": 1,
+                "compositorBindings": 0,
+                "nativeRGBA": [
+                  255,
+                  0,
+                  0,
+                  173
+                ],
+                "strongRGBA": [
+                  255,
+                  255,
+                  0,
+                  173
+                ],
+                "offExact": true,
+                "expiryAndPendingError": true
+              },
+              {
+                "path": "default-pbuffer-copy",
+                "producerBindings": 1,
+                "compositorBindings": 0,
+                "nativeRGBA": [
+                  255,
+                  0,
+                  0,
+                  173
+                ],
+                "strongRGBA": [
+                  255,
+                  255,
+                  0,
+                  173
+                ],
+                "offExact": true,
+                "expiryAndPendingError": true
+              }
+            ],
+            "immutableMips": {
+              "sourceModes": 2,
+              "cases": [
+                {
+                  "case": "storage4",
+                  "floor": 3,
+                  "native": [
+                    255,
+                    0,
+                    0,
+                    173
+                  ],
+                  "strong": [
+                    255,
+                    255,
+                    0,
+                    173
+                  ],
+                  "offExact": true
+                },
+                {
+                  "case": "storage2",
+                  "floor": 1,
+                  "native": [
+                    255,
+                    0,
+                    0,
+                    173
+                  ],
+                  "strong": [
+                    0,
+                    255,
+                    0,
+                    173
+                  ],
+                  "offExact": true
+                },
+                {
+                  "case": "base1",
+                  "floor": 2,
+                  "native": [
+                    0,
+                    255,
+                    0,
+                    173
+                  ],
+                  "strong": [
+                    255,
+                    255,
+                    0,
+                    173
+                  ],
+                  "offExact": true
+                },
+                {
+                  "case": "max1",
+                  "floor": 1,
+                  "native": [
+                    255,
+                    0,
+                    0,
+                    173
+                  ],
+                  "strong": [
+                    0,
+                    255,
+                    0,
+                    173
+                  ],
+                  "offExact": true
+                },
+                {
+                  "case": "single",
+                  "floor": 0,
+                  "native": [
+                    255,
+                    0,
+                    0,
+                    173
+                  ],
+                  "strong": [
+                    255,
+                    0,
+                    0,
+                    173
+                  ],
+                  "offExact": true
+                }
+              ],
+              "pendingErrorAndSourceState": true
+            },
+            "strength": {
+              "percent": [
+                0,
+                25,
+                50,
+                75,
+                100
+              ],
+              "rgba": [
+                [
+                  255,
+                  0,
+                  0,
+                  173
+                ],
+                [
+                  64,
+                  191,
+                  0,
+                  173
+                ],
+                [
+                  0,
+                  128,
+                  128,
+                  173
+                ],
+                [
+                  64,
+                  64,
+                  191,
+                  173
+                ],
+                [
+                  255,
+                  255,
+                  0,
+                  173
+                ]
+              ],
+              "sourceModes": 2,
+              "gradients": 2,
+              "fullOffAndSourceExact": true
+            },
+            "limit": "authored software resources; NOT player, physical GPU, allocated-memory or FPS evidence"
+          },
+          "gles/native-image/evidence.json": {
+            "api": "gles",
+            "path": "actual-eglBindTexImage",
+            "nonsharingContexts": true,
+            "version": "OpenGL ES 3.1.0 (ANGLE 2.1.24600 git hash: 8304737811a7)",
+            "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver-5.0.0)",
+            "rawNativeBindingExactBeforeProduction": true,
+            "strength": [
+              0,
+              50,
+              100
+            ],
+            "rgba": [
+              [
+                255,
+                0,
+                0,
+                173
+              ],
+              [
+                0,
+                128,
+                128,
+                173
+              ],
+              [
+                255,
+                255,
+                0,
+                173
+              ]
+            ],
+            "sourceModes": 2,
+            "producerBindings": 1,
+            "compositorBindings": 0,
+            "offFullFrameExact": true,
+            "sourceAndPendingErrorsExact": true,
+            "revisionAndExpiry": true,
+            "nativeSha256": "cdc6776c7860f67df2707bd0585c1c7eb02d91e4d09a70e890b39c59e3ea2fd0",
+            "strongSha256": "032050fa57217bb47afbfc2e20c9b8c7fc718e7cf690f359fd90f536d6c0eeeb",
+            "limit": "authored software EGL, not WGL/player/hardware/FPS"
+          },
+          "gles/resource-only-evidence.json": {
+            "api": "gles",
+            "version": "OpenGL ES 3.1.0 (ANGLE 2.1.24600 git hash: 8304737811a7)",
+            "actualNullDrawAndReadSurface": true,
+            "sourceModes": [
+              {
+                "source": "sampler",
+                "strengthRGBA": [
+                  [
+                    255,
+                    0,
+                    0,
+                    173
+                  ],
+                  [
+                    0,
+                    128,
+                    128,
+                    173
+                  ],
+                  [
+                    255,
+                    255,
+                    0,
+                    173
+                  ]
+                ],
+                "producerBindings": 1,
+                "compositorBindings": 0,
+                "offExact": true
+              },
+              {
+                "source": "texture",
+                "strengthRGBA": [
+                  [
+                    255,
+                    0,
+                    0,
+                    173
+                  ],
+                  [
+                    0,
+                    128,
+                    128,
+                    173
+                  ],
+                  [
+                    255,
+                    255,
+                    0,
+                    173
+                  ]
+                ],
+                "producerBindings": 1,
+                "compositorBindings": 0,
+                "offExact": true
+              }
+            ],
+            "sourceStatePendingErrorRevisionTTL": true,
+            "limit": "actual software EGL/GL resources, not Win32 route or game certification"
+          }
+        },
+        "pngs": [
+          {
+            "name": "gles/default-pbuffer-copy-native.png",
+            "bytes": 206,
+            "sha256": "bbeaacf314bcc8f12ddf4352490314c3dc11afc8dba2fd762fb4693a5e5940a2",
+            "decodedRgbaTopDownSha256": "cdc6776c7860f67df2707bd0585c1c7eb02d91e4d09a70e890b39c59e3ea2fd0",
+            "width": 64,
+            "height": 64,
+            "allAlpha": 173,
+            "allChunkCrcsAndDeflateValidated": true
+          },
+          {
+            "name": "gles/default-pbuffer-copy-off.png",
+            "bytes": 206,
+            "sha256": "bbeaacf314bcc8f12ddf4352490314c3dc11afc8dba2fd762fb4693a5e5940a2",
+            "decodedRgbaTopDownSha256": "cdc6776c7860f67df2707bd0585c1c7eb02d91e4d09a70e890b39c59e3ea2fd0",
+            "width": 64,
+            "height": 64,
+            "allAlpha": 173,
+            "allChunkCrcsAndDeflateValidated": true
+          },
+          {
+            "name": "gles/default-pbuffer-copy-strong.png",
+            "bytes": 207,
+            "sha256": "9007133fbf446182a3f6396efa82dd47e7f5486a474efa313ac3d4119f7d87a2",
+            "decodedRgbaTopDownSha256": "032050fa57217bb47afbfc2e20c9b8c7fc718e7cf690f359fd90f536d6c0eeeb",
+            "width": 64,
+            "height": 64,
+            "allAlpha": 173,
+            "allChunkCrcsAndDeflateValidated": true
+          },
+          {
+            "name": "gles/immutable-storage4-native.png",
+            "bytes": 206,
+            "sha256": "bbeaacf314bcc8f12ddf4352490314c3dc11afc8dba2fd762fb4693a5e5940a2",
+            "decodedRgbaTopDownSha256": "cdc6776c7860f67df2707bd0585c1c7eb02d91e4d09a70e890b39c59e3ea2fd0",
+            "width": 64,
+            "height": 64,
+            "allAlpha": 173,
+            "allChunkCrcsAndDeflateValidated": true
+          },
+          {
+            "name": "gles/immutable-storage4-off.png",
+            "bytes": 206,
+            "sha256": "bbeaacf314bcc8f12ddf4352490314c3dc11afc8dba2fd762fb4693a5e5940a2",
+            "decodedRgbaTopDownSha256": "cdc6776c7860f67df2707bd0585c1c7eb02d91e4d09a70e890b39c59e3ea2fd0",
+            "width": 64,
+            "height": 64,
+            "allAlpha": 173,
+            "allChunkCrcsAndDeflateValidated": true
+          },
+          {
+            "name": "gles/immutable-storage4-strong.png",
+            "bytes": 207,
+            "sha256": "9007133fbf446182a3f6396efa82dd47e7f5486a474efa313ac3d4119f7d87a2",
+            "decodedRgbaTopDownSha256": "032050fa57217bb47afbfc2e20c9b8c7fc718e7cf690f359fd90f536d6c0eeeb",
+            "width": 64,
+            "height": 64,
+            "allAlpha": 173,
+            "allChunkCrcsAndDeflateValidated": true
+          },
+          {
+            "name": "gles/native-image/native.png",
+            "bytes": 206,
+            "sha256": "bbeaacf314bcc8f12ddf4352490314c3dc11afc8dba2fd762fb4693a5e5940a2",
+            "decodedRgbaTopDownSha256": "cdc6776c7860f67df2707bd0585c1c7eb02d91e4d09a70e890b39c59e3ea2fd0",
+            "width": 64,
+            "height": 64,
+            "allAlpha": 173,
+            "allChunkCrcsAndDeflateValidated": true
+          },
+          {
+            "name": "gles/native-image/off.png",
+            "bytes": 206,
+            "sha256": "bbeaacf314bcc8f12ddf4352490314c3dc11afc8dba2fd762fb4693a5e5940a2",
+            "decodedRgbaTopDownSha256": "cdc6776c7860f67df2707bd0585c1c7eb02d91e4d09a70e890b39c59e3ea2fd0",
+            "width": 64,
+            "height": 64,
+            "allAlpha": 173,
+            "allChunkCrcsAndDeflateValidated": true
+          },
+          {
+            "name": "gles/native-image/strong.png",
+            "bytes": 207,
+            "sha256": "9007133fbf446182a3f6396efa82dd47e7f5486a474efa313ac3d4119f7d87a2",
+            "decodedRgbaTopDownSha256": "032050fa57217bb47afbfc2e20c9b8c7fc718e7cf690f359fd90f536d6c0eeeb",
+            "width": 64,
+            "height": 64,
+            "allAlpha": 173,
+            "allChunkCrcsAndDeflateValidated": true
+          },
+          {
+            "name": "gles/renderbuffer-blit-native.png",
+            "bytes": 206,
+            "sha256": "bbeaacf314bcc8f12ddf4352490314c3dc11afc8dba2fd762fb4693a5e5940a2",
+            "decodedRgbaTopDownSha256": "cdc6776c7860f67df2707bd0585c1c7eb02d91e4d09a70e890b39c59e3ea2fd0",
+            "width": 64,
+            "height": 64,
+            "allAlpha": 173,
+            "allChunkCrcsAndDeflateValidated": true
+          },
+          {
+            "name": "gles/renderbuffer-blit-off.png",
+            "bytes": 206,
+            "sha256": "bbeaacf314bcc8f12ddf4352490314c3dc11afc8dba2fd762fb4693a5e5940a2",
+            "decodedRgbaTopDownSha256": "cdc6776c7860f67df2707bd0585c1c7eb02d91e4d09a70e890b39c59e3ea2fd0",
+            "width": 64,
+            "height": 64,
+            "allAlpha": 173,
+            "allChunkCrcsAndDeflateValidated": true
+          },
+          {
+            "name": "gles/renderbuffer-blit-strong.png",
+            "bytes": 207,
+            "sha256": "9007133fbf446182a3f6396efa82dd47e7f5486a474efa313ac3d4119f7d87a2",
+            "decodedRgbaTopDownSha256": "032050fa57217bb47afbfc2e20c9b8c7fc718e7cf690f359fd90f536d6c0eeeb",
+            "width": 64,
+            "height": 64,
+            "allAlpha": 173,
+            "allChunkCrcsAndDeflateValidated": true
+          },
+          {
+            "name": "gles/sampler-native.png",
+            "bytes": 249,
+            "sha256": "505d0d3489a26c7fccf0681cadd163bb33fb70f89f6ce4649322049cda83c4e9",
+            "decodedRgbaTopDownSha256": "876c44af86083db08684442f553a1986a733c78de481eaff722b956c7e069258",
+            "width": 64,
+            "height": 64,
+            "allAlpha": 173,
+            "allChunkCrcsAndDeflateValidated": true
+          },
+          {
+            "name": "gles/sampler-off.png",
+            "bytes": 249,
+            "sha256": "505d0d3489a26c7fccf0681cadd163bb33fb70f89f6ce4649322049cda83c4e9",
+            "decodedRgbaTopDownSha256": "876c44af86083db08684442f553a1986a733c78de481eaff722b956c7e069258",
+            "width": 64,
+            "height": 64,
+            "allAlpha": 173,
+            "allChunkCrcsAndDeflateValidated": true
+          },
+          {
+            "name": "gles/sampler-strong.png",
+            "bytes": 498,
+            "sha256": "36fd453fe632056ba975b400cbce79238f448a6babad1ed61a448a8fbedca5f7",
+            "decodedRgbaTopDownSha256": "3a918da567884de9b6d042c9fe5cf83fb6c64d2ae094b7ff169906f3819159e2",
+            "width": 64,
+            "height": 64,
+            "allAlpha": 173,
+            "allChunkCrcsAndDeflateValidated": true
+          },
+          {
+            "name": "gles/surfaceless-sampler-native.png",
+            "bytes": 206,
+            "sha256": "bbeaacf314bcc8f12ddf4352490314c3dc11afc8dba2fd762fb4693a5e5940a2",
+            "decodedRgbaTopDownSha256": "cdc6776c7860f67df2707bd0585c1c7eb02d91e4d09a70e890b39c59e3ea2fd0",
+            "width": 64,
+            "height": 64,
+            "allAlpha": 173,
+            "allChunkCrcsAndDeflateValidated": true
+          },
+          {
+            "name": "gles/surfaceless-sampler-off.png",
+            "bytes": 206,
+            "sha256": "bbeaacf314bcc8f12ddf4352490314c3dc11afc8dba2fd762fb4693a5e5940a2",
+            "decodedRgbaTopDownSha256": "cdc6776c7860f67df2707bd0585c1c7eb02d91e4d09a70e890b39c59e3ea2fd0",
+            "width": 64,
+            "height": 64,
+            "allAlpha": 173,
+            "allChunkCrcsAndDeflateValidated": true
+          },
+          {
+            "name": "gles/surfaceless-sampler-strong.png",
+            "bytes": 207,
+            "sha256": "9007133fbf446182a3f6396efa82dd47e7f5486a474efa313ac3d4119f7d87a2",
+            "decodedRgbaTopDownSha256": "032050fa57217bb47afbfc2e20c9b8c7fc718e7cf690f359fd90f536d6c0eeeb",
+            "width": 64,
+            "height": 64,
+            "allAlpha": 173,
+            "allChunkCrcsAndDeflateValidated": true
+          },
+          {
+            "name": "gles/surfaceless-texture-native.png",
+            "bytes": 206,
+            "sha256": "bbeaacf314bcc8f12ddf4352490314c3dc11afc8dba2fd762fb4693a5e5940a2",
+            "decodedRgbaTopDownSha256": "cdc6776c7860f67df2707bd0585c1c7eb02d91e4d09a70e890b39c59e3ea2fd0",
+            "width": 64,
+            "height": 64,
+            "allAlpha": 173,
+            "allChunkCrcsAndDeflateValidated": true
+          },
+          {
+            "name": "gles/surfaceless-texture-off.png",
+            "bytes": 206,
+            "sha256": "bbeaacf314bcc8f12ddf4352490314c3dc11afc8dba2fd762fb4693a5e5940a2",
+            "decodedRgbaTopDownSha256": "cdc6776c7860f67df2707bd0585c1c7eb02d91e4d09a70e890b39c59e3ea2fd0",
+            "width": 64,
+            "height": 64,
+            "allAlpha": 173,
+            "allChunkCrcsAndDeflateValidated": true
+          },
+          {
+            "name": "gles/surfaceless-texture-strong.png",
+            "bytes": 207,
+            "sha256": "9007133fbf446182a3f6396efa82dd47e7f5486a474efa313ac3d4119f7d87a2",
+            "decodedRgbaTopDownSha256": "032050fa57217bb47afbfc2e20c9b8c7fc718e7cf690f359fd90f536d6c0eeeb",
+            "width": 64,
+            "height": 64,
+            "allAlpha": 173,
+            "allChunkCrcsAndDeflateValidated": true
+          },
+          {
+            "name": "gles/texture-native.png",
+            "bytes": 249,
+            "sha256": "505d0d3489a26c7fccf0681cadd163bb33fb70f89f6ce4649322049cda83c4e9",
+            "decodedRgbaTopDownSha256": "876c44af86083db08684442f553a1986a733c78de481eaff722b956c7e069258",
+            "width": 64,
+            "height": 64,
+            "allAlpha": 173,
+            "allChunkCrcsAndDeflateValidated": true
+          },
+          {
+            "name": "gles/texture-off.png",
+            "bytes": 249,
+            "sha256": "505d0d3489a26c7fccf0681cadd163bb33fb70f89f6ce4649322049cda83c4e9",
+            "decodedRgbaTopDownSha256": "876c44af86083db08684442f553a1986a733c78de481eaff722b956c7e069258",
+            "width": 64,
+            "height": 64,
+            "allAlpha": 173,
+            "allChunkCrcsAndDeflateValidated": true
+          },
+          {
+            "name": "gles/texture-strong.png",
+            "bytes": 498,
+            "sha256": "36fd453fe632056ba975b400cbce79238f448a6babad1ed61a448a8fbedca5f7",
+            "decodedRgbaTopDownSha256": "3a918da567884de9b6d042c9fe5cf83fb6c64d2ae094b7ff169906f3819159e2",
+            "width": 64,
+            "height": 64,
+            "allAlpha": 173,
+            "allChunkCrcsAndDeflateValidated": true
+          }
+        ],
+        "source": "Linux real software ANGLE/SwiftShader, NOT Win32 PresentationHooks or a player",
+        "triplets": [
+          {
+            "native": "gles/default-pbuffer-copy-native.png",
+            "off": "gles/default-pbuffer-copy-off.png",
+            "strong": "gles/default-pbuffer-copy-strong.png",
+            "fullDecodedOffEqualsNative": true,
+            "strongDiffersFromNative": true
+          },
+          {
+            "native": "gles/immutable-storage4-native.png",
+            "off": "gles/immutable-storage4-off.png",
+            "strong": "gles/immutable-storage4-strong.png",
+            "fullDecodedOffEqualsNative": true,
+            "strongDiffersFromNative": true
+          },
+          {
+            "native": "gles/native-image/native.png",
+            "off": "gles/native-image/off.png",
+            "strong": "gles/native-image/strong.png",
+            "fullDecodedOffEqualsNative": true,
+            "strongDiffersFromNative": true
+          },
+          {
+            "native": "gles/renderbuffer-blit-native.png",
+            "off": "gles/renderbuffer-blit-off.png",
+            "strong": "gles/renderbuffer-blit-strong.png",
+            "fullDecodedOffEqualsNative": true,
+            "strongDiffersFromNative": true
+          },
+          {
+            "native": "gles/sampler-native.png",
+            "off": "gles/sampler-off.png",
+            "strong": "gles/sampler-strong.png",
+            "fullDecodedOffEqualsNative": true,
+            "strongDiffersFromNative": true
+          },
+          {
+            "native": "gles/surfaceless-sampler-native.png",
+            "off": "gles/surfaceless-sampler-off.png",
+            "strong": "gles/surfaceless-sampler-strong.png",
+            "fullDecodedOffEqualsNative": true,
+            "strongDiffersFromNative": true
+          },
+          {
+            "native": "gles/surfaceless-texture-native.png",
+            "off": "gles/surfaceless-texture-off.png",
+            "strong": "gles/surfaceless-texture-strong.png",
+            "fullDecodedOffEqualsNative": true,
+            "strongDiffersFromNative": true
+          },
+          {
+            "native": "gles/texture-native.png",
+            "off": "gles/texture-off.png",
+            "strong": "gles/texture-strong.png",
+            "fullDecodedOffEqualsNative": true,
+            "strongDiffersFromNative": true
+          }
+        ]
+      }
+    },
+    "beforeAndAfterPixelJsonReportsEqual": true,
+    "artifactDownloadVerifierOfflineRerun": {
+      "passed": 19,
+      "failed": 0,
+      "executesExes": false
+    },
+    "ctestAndPfLogCheckpoints": {
+      "native-after.log": {
+        "sha256": "b47ce2b3e97e56ecdce60a04436b934640e8c7728c50ec6af23c8f2ef4e2e578",
+        "text": "Internal ctest changing into directory: /home/user/BSI-Customizer/.cache/egl-split-audit/native-after\nTest project /home/user/BSI-Customizer/.cache/egl-split-audit/native-after\n      Start  1: shader-renderer-routing\n 1/10 Test  #1: shader-renderer-routing ...........   Passed    0.00 sec\n      Start  2: shader-texture-quality-policy\n 2/10 Test  #2: shader-texture-quality-policy .....   Passed    0.00 sec\n      Start  3: shader-gl-texture-safety\n 3/10 Test  #3: shader-gl-texture-safety ..........   Passed    0.01 sec\n      Start  4: shader-egl-dispatch-attribution\n 4/10 Test  #4: shader-egl-dispatch-attribution ...   Passed    0.00 sec\n      Start  5: shader-gl-draw-scope\n 5/10 Test  #5: shader-gl-draw-scope ..............   Passed    0.00 sec\n      Start  6: shader-gl-texture-provenance\n 6/10 Test  #6: shader-gl-texture-provenance ......   Passed    0.00 sec\n      Start  7: shader-gl-producer-route\n 7/10 Test  #7: shader-gl-producer-route ..........   Passed    0.00 sec\n      Start  8: shader-wgl-pbuffer-registry\n 8/10 Test  #8: shader-wgl-pbuffer-registry .......   Passed    0.00 sec\n      Start  9: shader-vulkan-present-contract\n 9/10 Test  #9: shader-vulkan-present-contract ....   Passed    0.00 sec\n      Start 10: shader-vulkan-pixels\n10/10 Test #10: shader-vulkan-pixels ..............   Passed    0.09 sec\n\n100% tests passed, 0 tests failed out of 10\n\nTotal Test time (real) =   0.13 sec\n"
+      },
+      "native-asan.log": {
+        "sha256": "7826e4bebba7d81071c755f800d3973f693c9314707c6f81a4c48005423e3691",
+        "text": "Internal ctest changing into directory: /home/user/BSI-Customizer/.cache/egl-split-audit/native-asan\nTest project /home/user/BSI-Customizer/.cache/egl-split-audit/native-asan\n      Start  1: shader-renderer-routing\n 1/10 Test  #1: shader-renderer-routing ...........   Passed    0.03 sec\n      Start  2: shader-texture-quality-policy\n 2/10 Test  #2: shader-texture-quality-policy .....   Passed    0.03 sec\n      Start  3: shader-gl-texture-safety\n 3/10 Test  #3: shader-gl-texture-safety ..........   Passed    0.08 sec\n      Start  4: shader-egl-dispatch-attribution\n 4/10 Test  #4: shader-egl-dispatch-attribution ...   Passed    0.05 sec\n      Start  5: shader-gl-draw-scope\n 5/10 Test  #5: shader-gl-draw-scope ..............   Passed    0.04 sec\n      Start  6: shader-gl-texture-provenance\n 6/10 Test  #6: shader-gl-texture-provenance ......   Passed    0.03 sec\n      Start  7: shader-gl-producer-route\n 7/10 Test  #7: shader-gl-producer-route ..........   Passed    0.04 sec\n      Start  8: shader-wgl-pbuffer-registry\n 8/10 Test  #8: shader-wgl-pbuffer-registry .......   Passed    0.04 sec\n      Start  9: shader-vulkan-present-contract\n 9/10 Test  #9: shader-vulkan-present-contract ....   Passed    0.02 sec\n      Start 10: shader-vulkan-pixels\n10/10 Test #10: shader-vulkan-pixels ..............   Passed    0.69 sec\n\n100% tests passed, 0 tests failed out of 10\n\nTotal Test time (real) =   1.05 sec\n"
+      },
+      "pf-audit-rerun.log": {
+        "sha256": "1e1b076e908bcf82f884a6fec7502767f0291954dd55289853e63225200eb45d",
+        "text": "test_archive_is_crc_checked_without_extraction_or_changes (__main__.ProgramFilesAuditTests.test_archive_is_crc_checked_without_extraction_or_changes) ... ok\ntest_corrupt_deflate_cli_failure_stays_machine_readable (__main__.ProgramFilesAuditTests.test_corrupt_deflate_cli_failure_stays_machine_readable) ... ok\ntest_corrupted_member_crc_is_rejected (__main__.ProgramFilesAuditTests.test_corrupted_member_crc_is_rejected) ... ok\ntest_data_and_zero_fill_are_not_callable_exports (__main__.ProgramFilesAuditTests.test_data_and_zero_fill_are_not_callable_exports) ... ok\ntest_duplicate_case_and_linked_members_refuse (__main__.ProgramFilesAuditTests.test_duplicate_case_and_linked_members_refuse) ... ok\ntest_encrypted_and_reparse_members_are_refused (__main__.ProgramFilesAuditTests.test_encrypted_and_reparse_members_are_refused) ... ok\ntest_forwarder_is_not_disassembled_as_a_jump (__main__.ProgramFilesAuditTests.test_forwarder_is_not_disassembled_as_a_jump) ... ok\ntest_jump_pattern_inside_an_immediate_is_not_a_thunk (__main__.ProgramFilesAuditTests.test_jump_pattern_inside_an_immediate_is_not_a_thunk) ... ok\ntest_linked_path_and_machine_readable_cli_failure (__main__.ProgramFilesAuditTests.test_linked_path_and_machine_readable_cli_failure) ... ok\ntest_mismatched_import_symbol_never_guesses_a_target (__main__.ProgramFilesAuditTests.test_mismatched_import_symbol_never_guesses_a_target) ... ok\ntest_missing_inputs_are_reported_without_adjacent_file_search (__main__.ProgramFilesAuditTests.test_missing_inputs_are_reported_without_adjacent_file_search) ... ok\ntest_nonlinked_nested_names_and_unrelated_assets_are_inventoried_only (__main__.ProgramFilesAuditTests.test_nonlinked_nested_names_and_unrelated_assets_are_inventoried_only) ... ok\ntest_only_declared_import_jump_joins_exact_named_export (__main__.ProgramFilesAuditTests.test_only_declared_import_jump_joins_exact_named_export) ... ok\ntest_original_pf_identity_and_angle_edges (__main__.ProgramFilesAuditTests.test_original_pf_identity_and_angle_edges) ... ok\ntest_original_selected_instructions_against_independent_objdump (__main__.ProgramFilesAuditTests.test_original_selected_instructions_against_independent_objdump) ... ok\ntest_selected_sidecar_must_be_an_x64_dll (__main__.ProgramFilesAuditTests.test_selected_sidecar_must_be_an_x64_dll) ... ok\ntest_too_many_and_oversized_members_refuse_before_payload_reads (__main__.ProgramFilesAuditTests.test_too_many_and_oversized_members_refuse_before_payload_reads) ... ok\ntest_traversal_absolute_drive_and_ambiguous_names_refuse (__main__.ProgramFilesAuditTests.test_traversal_absolute_drive_and_ambiguous_names_refuse) ... ok\ntest_unknown_hash_gets_no_seeded_map_or_installed_identity (__main__.ProgramFilesAuditTests.test_unknown_hash_gets_no_seeded_map_or_installed_identity) ... ok\n\n----------------------------------------------------------------------\nRan 19 tests in 30.543s\n\nOK\n"
+      }
+    }
+  },
+  "beforeWindows": {
+    "id": 45036397728,
+    "run_attempt": 1,
+    "head_sha": "28e21295eb9e91d10b50e94023aa1506f7a61033",
+    "head_branch": "arena/daa0fcb2-bsi-customizer",
+    "event": "workflow_dispatch",
+    "status": "completed",
+    "conclusion": "failure",
+    "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45036397728",
+    "created_at": "2026-11-22T15:05:55Z",
+    "updated_at": "2026-11-22T15:07:31Z",
+    "jobs": [
+      {
+        "id": 137251027853,
+        "name": "focused-egl / Actual Windows MinHook on authored split EGL DLLs",
+        "status": "completed",
+        "conclusion": "failure",
+        "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45036397728/job/137251027853",
+        "started_at": "2026-11-22T15:06:03Z",
+        "completed_at": "2026-11-22T15:07:31Z",
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v5",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/setup-python@v5",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Build production hooks and authored DLLs without Qt or proprietary files",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run all seven independent split-dispatch contracts and existing Windows contracts",
+            "status": "completed",
+            "conclusion": "failure"
+          },
+          {
+            "name": "Record scope",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/setup-python@v5",
+            "status": "completed",
+            "conclusion": "skipped"
+          },
+          {
+            "name": "Post Run actions/checkout@v5",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success"
+          }
+        ],
+        "annotations": [
+          {
+            "annotation_level": "warning",
+            "title": "",
+            "message": "Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/"
+          },
+          {
+            "annotation_level": "failure",
+            "title": "",
+            "message": "Process completed with exit code 1."
+          },
+          {
+            "annotation_level": "notice",
+            "title": "Split EGL contract result",
+            "message": "resolver exit=8 source=28e21295eb9e91d10b50e94023aa1506f7a61033"
+          },
+          {
+            "annotation_level": "failure",
+            "title": "Native shader test failure",
+            "message": "Internal ctest changing into directory: D:/a/BSI-Customizer/BSI-Customizer/build-egl-contracts\nTest project D:/a/BSI-Customizer/BSI-Customizer/build-egl-contracts\n    Start 25: shader-egl-split-resolver-contract\n1/1 Test #25: shader-egl-split-resolver-contract ...***Failed    0.66 sec\nFAIL: cached implementation resolver must cover a NEW returned GL target before its first native draw\nThe native player surface changed; waiting for eligible mip sampling on its selected game drawable.\n\n\n0% tests passed, 1 tests failed out of 1\n\nTotal Test time (real) =   0.66 sec\n\nThe following tests FAILED:\n\t 25 - shader-egl-split-resolver-contract (Failed)\nErrors while running CTest\n"
+          },
+          {
+            "annotation_level": "notice",
+            "title": "Split EGL contract result",
+            "message": "retire-context exit=8 source=28e21295eb9e91d10b50e94023aa1506f7a61033"
+          },
+          {
+            "annotation_level": "failure",
+            "title": "Native shader test failure",
+            "message": "Internal ctest changing into directory: D:/a/BSI-Customizer/BSI-Customizer/build-egl-contracts\nTest project D:/a/BSI-Customizer/BSI-Customizer/build-egl-contracts\n    Start 24: shader-egl-split-retire-context-contract\n1/1 Test #24: shader-egl-split-retire-context-contract ...***Failed    0.66 sec\nFAIL: SUCCESSFUL implementation teardown must revoke selected presentation immediately\nDepth-independent Potato compatibility is armed on the selected game drawable. Waiting for eligible mip-color bindings; no texture change is confirmed yet.\n\n\n0% tests passed, 1 tests failed out of 1\n\nTotal Test time (real) =   0.66 sec\n\nThe following tests FAILED:\n\t 24 - shader-egl-split-retire-context-contract (Failed)\nErrors while running CTest\n"
+          },
+          {
+            "annotation_level": "notice",
+            "title": "Split EGL contract result",
+            "message": "retire-surface exit=8 source=28e21295eb9e91d10b50e94023aa1506f7a61033"
+          },
+          {
+            "annotation_level": "failure",
+            "title": "Native shader test failure",
+            "message": "Internal ctest changing into directory: D:/a/BSI-Customizer/BSI-Customizer/build-egl-contracts\nTest project D:/a/BSI-Customizer/BSI-Customizer/build-egl-contracts\n    Start 23: shader-egl-split-retire-surface-contract\n1/1 Test #23: shader-egl-split-retire-surface-contract ...***Failed    0.66 sec\nFAIL: SUCCESSFUL implementation teardown must revoke selected presentation immediately\nDepth-independent Potato compatibility is armed on the selected game drawable. Waiting for eligible mip-color bindings; no texture change is confirmed yet.\n\n\n0% tests passed, 1 tests failed out of 1\n\nTotal Test time (real) =   0.66 sec\n\nThe following tests FAILED:\n\t 23 - shader-egl-split-retire-surface-contract (Failed)\nErrors while running CTest\n"
+          },
+          {
+            "annotation_level": "notice",
+            "title": "Split EGL contract result",
+            "message": "present exit=8 source=28e21295eb9e91d10b50e94023aa1506f7a61033"
+          },
+          {
+            "annotation_level": "failure",
+            "title": "Native shader test failure",
+            "message": "Internal ctest changing into directory: D:/a/BSI-Customizer/BSI-Customizer/build-egl-contracts\nTest project D:/a/BSI-Customizer/BSI-Customizer/build-egl-contracts\n    Start 22: shader-egl-split-present-contract\n1/1 Test #22: shader-egl-split-present-contract ...***Failed    0.68 sec\nFAIL: owned create/current/present through split dispatch must select the exact game drawable\nThe native player surface changed; waiting for eligible mip sampling on its selected game drawable.\n\n\n0% tests passed, 1 tests failed out of 1\n\nTotal Test time (real) =   0.68 sec\n\nThe following tests FAILED:\n\t 22 - shader-egl-split-present-contract (Failed)\nErrors while running CTest\n"
+          },
+          {
+            "annotation_level": "notice",
+            "title": "Split EGL contract result",
+            "message": "cached exit=8 source=28e21295eb9e91d10b50e94023aa1506f7a61033"
+          },
+          {
+            "annotation_level": "failure",
+            "title": "Native shader test failure",
+            "message": "Internal ctest changing into directory: D:/a/BSI-Customizer/BSI-Customizer/build-egl-contracts\nTest project D:/a/BSI-Customizer/BSI-Customizer/build-egl-contracts\n    Start 21: shader-egl-split-cached-contract\n1/1 Test #21: shader-egl-split-cached-contract ...***Failed    0.31 sec\nFAIL: owned create/current/present through split dispatch must select the exact game drawable\nThe native player surface changed; waiting for eligible mip sampling on its selected game drawable.\n\n\n0% tests passed, 1 tests failed out of 1\n\nTotal Test time (real) =   0.32 sec\n\nThe following tests FAILED:\n\t 21 - shader-egl-split-cached-contract (Failed)\nErrors while running CTest\n"
+          },
+          {
+            "annotation_level": "notice",
+            "title": "Split EGL contract result",
+            "message": "queried exit=8 source=28e21295eb9e91d10b50e94023aa1506f7a61033"
+          },
+          {
+            "annotation_level": "failure",
+            "title": "Native shader test failure",
+            "message": "Internal ctest changing into directory: D:/a/BSI-Customizer/BSI-Customizer/build-egl-contracts\nTest project D:/a/BSI-Customizer/BSI-Customizer/build-egl-contracts\n    Start 20: shader-egl-split-queried-contract\n1/1 Test #20: shader-egl-split-queried-contract ...***Failed    0.67 sec\nFAIL: owned create/current/present through split dispatch must select the exact game drawable\nThe native player surface changed; waiting for eligible mip sampling on its selected game drawable.\n\n\n0% tests passed, 1 tests failed out of 1\n\nTotal Test time (real) =   0.68 sec\n\nThe following tests FAILED:\n\t 20 - shader-egl-split-queried-contract (Failed)\nErrors while running CTest\n"
+          },
+          {
+            "annotation_level": "notice",
+            "title": "Split EGL contract result",
+            "message": "exports exit=0 source=28e21295eb9e91d10b50e94023aa1506f7a61033"
+          }
+        ]
+      },
+      {
+        "id": 137251028809,
+        "name": "Windows x64 bridge ${{ matrix.qt }} -> host ${{ matrix.host-qt }} and WARP",
+        "status": "completed",
+        "conclusion": "skipped",
+        "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45036397728/job/137251028809",
+        "started_at": "2026-11-22T15:06:01Z",
+        "completed_at": "2026-11-22T15:06:01Z",
+        "steps": [],
+        "annotations": []
+      },
+      {
+        "id": 137251029294,
+        "name": "Actual Qt 5 public bridge on a newer independent Qt 5 runtime (Linux fixture)",
+        "status": "completed",
+        "conclusion": "skipped",
+        "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45036397728/job/137251029294",
+        "started_at": "2026-11-22T15:06:01Z",
+        "completed_at": "2026-11-22T15:06:01Z",
+        "steps": [],
+        "annotations": []
+      },
+      {
+        "id": 137251029327,
+        "name": "Qt inventory and Phone-source recovery on four pinned player samples",
+        "status": "completed",
+        "conclusion": "skipped",
+        "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45036397728/job/137251029327",
+        "started_at": "2026-11-22T15:06:01Z",
+        "completed_at": "2026-11-22T15:06:01Z",
+        "steps": [],
+        "annotations": []
+      },
+      {
+        "id": 137251058882,
+        "name": "Native Vulkan and GLES pixels (Mesa software; not hardware)",
+        "status": "completed",
+        "conclusion": "skipped",
+        "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45036397728/job/137251058882",
+        "started_at": "2026-11-22T15:06:07Z",
+        "completed_at": "2026-11-22T15:06:01Z",
+        "steps": [],
+        "annotations": []
+      }
+    ]
+  },
+  "firstRepairWindows": {
+    "id": 45036727720,
+    "run_attempt": 1,
+    "head_sha": "ec75261a9406e269d2769e93e3a6768eb87fc5b6",
+    "head_branch": "arena/daa0fcb2-bsi-customizer",
+    "event": "workflow_dispatch",
+    "status": "completed",
+    "conclusion": "success",
+    "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45036727720",
+    "created_at": "2026-11-22T15:09:27Z",
+    "updated_at": "2026-11-22T15:11:02Z",
+    "jobs": [
+      {
+        "id": 137252031728,
+        "name": "focused-egl / Actual Windows MinHook on authored split EGL DLLs",
+        "status": "completed",
+        "conclusion": "success",
+        "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45036727720/job/137252031728",
+        "started_at": "2026-11-22T15:09:31Z",
+        "completed_at": "2026-11-22T15:11:02Z",
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v5",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/setup-python@v5",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Build production hooks and authored DLLs without Qt or proprietary files",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run all seven independent split-dispatch contracts and existing Windows contracts",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Record scope",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/setup-python@v5",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/checkout@v5",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success"
+          }
+        ],
+        "annotations": [
+          {
+            "annotation_level": "warning",
+            "title": "",
+            "message": "Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/"
+          },
+          {
+            "annotation_level": "notice",
+            "title": "Existing native contract result",
+            "message": "Non-split CTest exit=0 source=ec75261a9406e269d2769e93e3a6768eb87fc5b6"
+          },
+          {
+            "annotation_level": "notice",
+            "title": "Split EGL contract result",
+            "message": "resolver exit=0 source=ec75261a9406e269d2769e93e3a6768eb87fc5b6"
+          },
+          {
+            "annotation_level": "notice",
+            "title": "Split EGL contract result",
+            "message": "retire-context exit=0 source=ec75261a9406e269d2769e93e3a6768eb87fc5b6"
+          },
+          {
+            "annotation_level": "notice",
+            "title": "Split EGL contract result",
+            "message": "retire-surface exit=0 source=ec75261a9406e269d2769e93e3a6768eb87fc5b6"
+          },
+          {
+            "annotation_level": "notice",
+            "title": "Split EGL contract result",
+            "message": "present exit=0 source=ec75261a9406e269d2769e93e3a6768eb87fc5b6"
+          },
+          {
+            "annotation_level": "notice",
+            "title": "Split EGL contract result",
+            "message": "cached exit=0 source=ec75261a9406e269d2769e93e3a6768eb87fc5b6"
+          },
+          {
+            "annotation_level": "notice",
+            "title": "Split EGL contract result",
+            "message": "queried exit=0 source=ec75261a9406e269d2769e93e3a6768eb87fc5b6"
+          },
+          {
+            "annotation_level": "notice",
+            "title": "Split EGL contract result",
+            "message": "exports exit=0 source=ec75261a9406e269d2769e93e3a6768eb87fc5b6"
+          }
+        ]
+      },
+      {
+        "id": 137252032902,
+        "name": "Native Vulkan and GLES pixels (Mesa software; not hardware)",
+        "status": "completed",
+        "conclusion": "skipped",
+        "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45036727720/job/137252032902",
+        "started_at": "2026-11-22T15:09:28Z",
+        "completed_at": "2026-11-22T15:09:28Z",
+        "steps": [],
+        "annotations": []
+      },
+      {
+        "id": 137252032929,
+        "name": "Windows x64 bridge ${{ matrix.qt }} -> host ${{ matrix.host-qt }} and WARP",
+        "status": "completed",
+        "conclusion": "skipped",
+        "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45036727720/job/137252032929",
+        "started_at": "2026-11-22T15:09:28Z",
+        "completed_at": "2026-11-22T15:09:28Z",
+        "steps": [],
+        "annotations": []
+      },
+      {
+        "id": 137252075343,
+        "name": "Qt inventory and Phone-source recovery on four pinned player samples",
+        "status": "completed",
+        "conclusion": "skipped",
+        "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45036727720/job/137252075343",
+        "started_at": "2026-11-22T15:09:37Z",
+        "completed_at": "2026-11-22T15:09:28Z",
+        "steps": [],
+        "annotations": []
+      },
+      {
+        "id": 137252079097,
+        "name": "Actual Qt 5 public bridge on a newer independent Qt 5 runtime (Linux fixture)",
+        "status": "completed",
+        "conclusion": "skipped",
+        "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45036727720/job/137252079097",
+        "started_at": "2026-11-22T15:09:38Z",
+        "completed_at": "2026-11-22T15:09:28Z",
+        "steps": [],
+        "annotations": []
+      }
+    ]
+  },
+  "extraGuardTestAttempt": {
+    "id": 45037065640,
+    "run_attempt": 1,
+    "head_sha": "1677e72135491059038bac2ffa196aa9aa2a2989",
+    "head_branch": "arena/daa0fcb2-bsi-customizer",
+    "event": "workflow_dispatch",
+    "status": "completed",
+    "conclusion": "failure",
+    "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45037065640",
+    "created_at": "2026-11-22T15:12:59Z",
+    "updated_at": "2026-11-22T15:14:55Z",
+    "jobs": [
+      {
+        "id": 137253059905,
+        "name": "focused-egl / Actual Windows MinHook on authored split EGL DLLs",
+        "status": "completed",
+        "conclusion": "failure",
+        "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45037065640/job/137253059905",
+        "started_at": "2026-11-22T15:13:03Z",
+        "completed_at": "2026-11-22T15:14:54Z",
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v5",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/setup-python@v5",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Build production hooks and authored DLLs without Qt or proprietary files",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run all nine independent split-dispatch contracts and existing Windows contracts",
+            "status": "completed",
+            "conclusion": "failure"
+          },
+          {
+            "name": "Record scope",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/setup-python@v5",
+            "status": "completed",
+            "conclusion": "skipped"
+          },
+          {
+            "name": "Post Run actions/checkout@v5",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success"
+          }
+        ],
+        "annotations": [
+          {
+            "annotation_level": "warning",
+            "title": "",
+            "message": "Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/"
+          },
+          {
+            "annotation_level": "failure",
+            "title": "",
+            "message": "Process completed with exit code 1."
+          },
+          {
+            "annotation_level": "notice",
+            "title": "Existing native contract result",
+            "message": "Non-split CTest exit=0 source=1677e72135491059038bac2ffa196aa9aa2a2989"
+          },
+          {
+            "annotation_level": "notice",
+            "title": "Split EGL contract result",
+            "message": "capacity exit=8 source=1677e72135491059038bac2ffa196aa9aa2a2989"
+          },
+          {
+            "annotation_level": "failure",
+            "title": "Native shader test failure",
+            "message": "Internal ctest changing into directory: D:/a/BSI-Customizer/BSI-Customizer/build-egl-contracts\nTest project D:/a/BSI-Customizer/BSI-Customizer/build-egl-contracts\n    Start 28: shader-egl-split-capacity-contract\n1/1 Test #28: shader-egl-split-capacity-contract ...***Failed    1.21 sec\nFAIL: bounded typed alias pool fails explicitly at capacity without changing returned address\nDepth-independent Potato prepared private coarser-mip samplers for this qualified game draw; original bindings restore after this draw. Opaque mipmapped HUD/RGB data maps may also change. Not measured game pixels/FPS.\n\n\n0% tests passed, 1 tests failed out of 1\n\nTotal Test time (real) =   1.21 sec\n\nThe following tests FAILED:\n\t 28 - shader-egl-split-capacity-contract (Failed)\nErrors while running CTest\n"
+          },
+          {
+            "annotation_level": "notice",
+            "title": "Split EGL contract result",
+            "message": "native-image exit=0 source=1677e72135491059038bac2ffa196aa9aa2a2989"
+          },
+          {
+            "annotation_level": "notice",
+            "title": "Split EGL contract result",
+            "message": "resolver exit=0 source=1677e72135491059038bac2ffa196aa9aa2a2989"
+          },
+          {
+            "annotation_level": "notice",
+            "title": "Split EGL contract result",
+            "message": "retire-context exit=0 source=1677e72135491059038bac2ffa196aa9aa2a2989"
+          },
+          {
+            "annotation_level": "notice",
+            "title": "Split EGL contract result",
+            "message": "retire-surface exit=0 source=1677e72135491059038bac2ffa196aa9aa2a2989"
+          },
+          {
+            "annotation_level": "notice",
+            "title": "Split EGL contract result",
+            "message": "present exit=0 source=1677e72135491059038bac2ffa196aa9aa2a2989"
+          },
+          {
+            "annotation_level": "notice",
+            "title": "Split EGL contract result",
+            "message": "cached exit=0 source=1677e72135491059038bac2ffa196aa9aa2a2989"
+          },
+          {
+            "annotation_level": "notice",
+            "title": "Split EGL contract result",
+            "message": "queried exit=0 source=1677e72135491059038bac2ffa196aa9aa2a2989"
+          },
+          {
+            "annotation_level": "notice",
+            "title": "Split EGL contract result",
+            "message": "exports exit=0 source=1677e72135491059038bac2ffa196aa9aa2a2989"
+          }
+        ]
+      },
+      {
+        "id": 137253061092,
+        "name": "Windows x64 bridge ${{ matrix.qt }} -> host ${{ matrix.host-qt }} and WARP",
+        "status": "completed",
+        "conclusion": "skipped",
+        "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45037065640/job/137253061092",
+        "started_at": "2026-11-22T15:13:01Z",
+        "completed_at": "2026-11-22T15:13:01Z",
+        "steps": [],
+        "annotations": []
+      },
+      {
+        "id": 137253061300,
+        "name": "Qt inventory and Phone-source recovery on four pinned player samples",
+        "status": "completed",
+        "conclusion": "skipped",
+        "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45037065640/job/137253061300",
+        "started_at": "2026-11-22T15:13:01Z",
+        "completed_at": "2026-11-22T15:13:01Z",
+        "steps": [],
+        "annotations": []
+      },
+      {
+        "id": 137253061383,
+        "name": "Actual Qt 5 public bridge on a newer independent Qt 5 runtime (Linux fixture)",
+        "status": "completed",
+        "conclusion": "skipped",
+        "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45037065640/job/137253061383",
+        "started_at": "2026-11-22T15:13:01Z",
+        "completed_at": "2026-11-22T15:13:01Z",
+        "steps": [],
+        "annotations": []
+      },
+      {
+        "id": 137253061509,
+        "name": "Native Vulkan and GLES pixels (Mesa software; not hardware)",
+        "status": "completed",
+        "conclusion": "skipped",
+        "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45037065640/job/137253061509",
+        "started_at": "2026-11-22T15:13:01Z",
+        "completed_at": "2026-11-22T15:13:01Z",
+        "steps": [],
+        "annotations": []
+      }
+    ]
+  },
+  "testHarnessCorrections": [
+    {
+      "run": 45035778852,
+      "reason": "Initial import-jump check omitted a normal REX prefix. Superseded/cancelled; not a production defect."
+    },
+    {
+      "run": 45037065640,
+      "reason": "Initial capacity expectation omitted provider B, which already uses a slot in the SAME global 16-entry typed code pool. Only the expectation was corrected in fd396c7, not production capacity."
+    }
+  ],
+  "candidateShaderMatrix": {
+    "id": 45037613555,
+    "run_attempt": 1,
+    "head_sha": "00c1b7c1d4caf5ce1ac7e0ddaf08494f0aa6c45d",
+    "head_branch": "arena/daa0fcb2-bsi-customizer",
+    "event": "workflow_dispatch",
+    "status": "completed",
+    "conclusion": "success",
+    "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45037613555",
+    "created_at": "2026-11-22T15:18:59Z",
+    "updated_at": "2026-11-22T15:28:32Z",
+    "jobs": [
+      {
+        "id": 137254746858,
+        "name": "Actual Qt 5 public bridge on a newer independent Qt 5 runtime (Linux fixture)",
+        "status": "completed",
+        "conclusion": "success",
+        "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45037613555/job/137254746858",
+        "started_at": "2026-11-22T15:19:04Z",
+        "completed_at": "2026-11-22T15:23:41Z",
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v5",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/setup-python@v5",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Install distro Qt 5 build SDK and a separate Python Qt 5 runtime",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v5",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Build the actual Qt 5 plugin, not a mocked bridge",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Stock Phone dropdown, native Save/Discard contract and qrc-to-local helper on Qt 5",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Physical controls, persistence, navigation and missing-module fallback on the independent host",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Live plugin preview shares one theme, stays opaque on every tab and preserves physical No/Discard",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Missing-font metrics cannot widen the Shaders form beyond its clip",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Unmodified native Qt 5 controls/theme, exact Save pixels, opacity and physical input on both pinned player families",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Selected-tab glass at host, 100/125/150/200 percent DPI and strict flat-image negative controls",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Retain glass capture diagnostics and negative controls",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Record scope",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/checkout@v5",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/setup-python@v5",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/checkout@v5",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success"
+          }
+        ],
+        "annotations": [
+          {
+            "annotation_level": "warning",
+            "title": "",
+            "message": "Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/setup-python@v5, actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/"
+          }
+        ]
+      },
+      {
+        "id": 137254747069,
+        "name": "Windows x64 bridge 5.15.2 -> host PyQt5-bundled-5.15 and WARP",
+        "status": "completed",
+        "conclusion": "success",
+        "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45037613555/job/137254747069",
+        "started_at": "2026-11-22T15:19:03Z",
+        "completed_at": "2026-11-22T15:26:00Z",
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v5",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v5",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run jurplel/install-qt-action@v4.3.1",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/setup-python@v5",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Install an independent Qt Python host for actual cross-version plugin tests",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Build regular plugin, MinHook and native DirectX tests (no system proxy)",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Native API pixels, routing, real GL draw detours and EGL/DXGI/Vulkan lifecycle contracts",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Read-only actual module/provider contract against the independent host runtime",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Actual C++ plugin import and physical shader-page controls (Qt fixture only)",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Unmodified native controls/theme, exact Save pixels, opacity and physical input on both pinned matching-Qt players",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Physical native Settings navigation, prompts and missing-module fallback (contract fixture)",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Live plugin preview shares one theme, stays opaque on every tab and preserves physical No/Discard",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Stock Phone dropdown, native Save/Discard contract and qrc-to-local helper on Windows",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Actual selected-tab glass pixels/input at host, 100/125/150/200 percent DPI and strict flat-image negative controls",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Retain glass capture diagnostics and negative controls",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Record limits rather than claim universal support",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/setup-python@v5",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run jurplel/install-qt-action@v4.3.1",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/checkout@v5",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/checkout@v5",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success"
+          }
+        ],
+        "annotations": [
+          {
+            "annotation_level": "warning",
+            "title": "",
+            "message": "Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/setup-python@v5, actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/"
+          }
+        ]
+      },
+      {
+        "id": 137254747119,
+        "name": "Windows x64 bridge 6.2.4 -> host 6.8.3 and WARP",
+        "status": "completed",
+        "conclusion": "success",
+        "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45037613555/job/137254747119",
+        "started_at": "2026-11-22T15:19:04Z",
+        "completed_at": "2026-11-22T15:28:31Z",
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v5",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v5",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run jurplel/install-qt-action@v4.3.1",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/setup-python@v5",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Install an independent Qt Python host for actual cross-version plugin tests",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Build regular plugin, MinHook and native DirectX tests (no system proxy)",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Native API pixels, routing, real GL draw detours and EGL/DXGI/Vulkan lifecycle contracts",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Read-only actual module/provider contract against the independent host runtime",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Actual C++ plugin import and physical shader-page controls (Qt fixture only)",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Unmodified native controls/theme, exact Save pixels, opacity and physical input on both pinned matching-Qt players",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Physical native Settings navigation, prompts and missing-module fallback (contract fixture)",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Live plugin preview shares one theme, stays opaque on every tab and preserves physical No/Discard",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Stock Phone dropdown, native Save/Discard contract and qrc-to-local helper on Windows",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Actual selected-tab glass pixels/input at host, 100/125/150/200 percent DPI and strict flat-image negative controls",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Retain glass capture diagnostics and negative controls",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Record limits rather than claim universal support",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/setup-python@v5",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run jurplel/install-qt-action@v4.3.1",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/checkout@v5",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/checkout@v5",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success"
+          }
+        ],
+        "annotations": [
+          {
+            "annotation_level": "warning",
+            "title": "",
+            "message": "Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/setup-python@v5, actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/"
+          }
+        ]
+      },
+      {
+        "id": 137254747138,
+        "name": "Qt inventory and Phone-source recovery on four pinned player samples",
+        "status": "completed",
+        "conclusion": "success",
+        "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45037613555/job/137254747138",
+        "started_at": "2026-11-22T15:19:03Z",
+        "completed_at": "2026-11-22T15:22:03Z",
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v5",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/setup-python@v5",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run python -m pip install pefile==2024.8.26",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v5",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Verify fixed-version, import-tag and compiler-header evidence without executing players",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Build the production Phone source and disk installer (Qt Core only)",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Realistic helper URLs, no-growth planning and disk recovery on disposable pinned-player copies",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Source-only public Qt bridge boundary guard",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Failure and timeout diagnostics never turn a failed test into a pass",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Independent Windows host path layouts never fall back to a build SDK",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/checkout@v5",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/setup-python@v5",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/checkout@v5",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success"
+          }
+        ],
+        "annotations": [
+          {
+            "annotation_level": "warning",
+            "title": "",
+            "message": "Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/"
+          }
+        ]
+      },
+      {
+        "id": 137254747279,
+        "name": "Windows x64 bridge 6.2.4 -> host 6.7.3 and WARP",
+        "status": "completed",
+        "conclusion": "success",
+        "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45037613555/job/137254747279",
+        "started_at": "2026-11-22T15:19:03Z",
+        "completed_at": "2026-11-22T15:27:44Z",
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v5",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v5",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run jurplel/install-qt-action@v4.3.1",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/setup-python@v5",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Install an independent Qt Python host for actual cross-version plugin tests",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Build regular plugin, MinHook and native DirectX tests (no system proxy)",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Native API pixels, routing, real GL draw detours and EGL/DXGI/Vulkan lifecycle contracts",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Read-only actual module/provider contract against the independent host runtime",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Actual C++ plugin import and physical shader-page controls (Qt fixture only)",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Unmodified native controls/theme, exact Save pixels, opacity and physical input on both pinned matching-Qt players",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Physical native Settings navigation, prompts and missing-module fallback (contract fixture)",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Live plugin preview shares one theme, stays opaque on every tab and preserves physical No/Discard",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Stock Phone dropdown, native Save/Discard contract and qrc-to-local helper on Windows",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Actual selected-tab glass pixels/input at host, 100/125/150/200 percent DPI and strict flat-image negative controls",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Retain glass capture diagnostics and negative controls",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Record limits rather than claim universal support",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/setup-python@v5",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run jurplel/install-qt-action@v4.3.1",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/checkout@v5",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/checkout@v5",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success"
+          }
+        ],
+        "annotations": [
+          {
+            "annotation_level": "warning",
+            "title": "",
+            "message": "Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/setup-python@v5, actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/"
+          }
+        ]
+      },
+      {
+        "id": 137254747345,
+        "name": "Native Vulkan and GLES pixels (Mesa software; not hardware)",
+        "status": "completed",
+        "conclusion": "success",
+        "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45037613555/job/137254747345",
+        "started_at": "2026-11-22T15:19:04Z",
+        "completed_at": "2026-11-22T15:25:22Z",
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v5",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/setup-node@v4",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Install real software graphics APIs",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Check committed SPIR-V matches the shared original source",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Native Mesa Vulkan pixels with mandatory Khronos lifetime/API validation",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "ASan/UBSan routing and native Vulkan on a second software ICD",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "ASan/UBSan native source, package, file recovery and every encoder allocation failure",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Production GLES and desktop OpenGL core pixels/state restoration",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Actual nonsharing native EGL pbuffer image pixels (mandatory ANGLE software)",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Retain authored native/Strong/Off texture images and measured mip evidence",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Record scope of results",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/setup-node@v4",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/checkout@v5",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success"
+          }
+        ],
+        "annotations": [
+          {
+            "annotation_level": "warning",
+            "title": "",
+            "message": "Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/setup-node@v4, actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/"
+          },
+          {
+            "annotation_level": "notice",
+            "title": "Native pbuffer image binding pixels (software)",
+            "message": "{\"api\":\"gles\",\"path\":\"actual-eglBindTexImage\",\"nonsharingContexts\":true,\"version\":\"OpenGL ES 3.1.0 (ANGLE 2.1.24600 git hash: 8304737811a7)\",\"renderer\":\"ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver-5.0.0)\",\"rawNativeBindingExactBeforeProduction\":true,\"strength\":[0,50,100],\"rgba\":[[255,0,0,173],[0,128,128,173],[255,255,0,173]],\"sourceModes\":2,\"producerBindings\":1,\"compositorBindings\":0,\"offFullFrameExact\":true,\"sourceAndPendingErrorsExact\":true,\"revisionAndExpiry\":true,\"nativeSha256\":\"cdc6776c7860f67df2707bd0585c1c7eb02d91e4d09a70e890b39c59e3ea2fd0\",\"strongSha256\":\"032050fa57217bb47afbfc2e20c9b8c7fc718e7cf690f359fd90f536d6c0eeeb\",\"limit\":\"authored software EGL, not WGL/player/hardware/FPS\"}"
+          },
+          {
+            "annotation_level": "notice",
+            "title": "Production depth-independent texture pixels (software)",
+            "message": "{\"api\":\"gles\",\"version\":\"OpenGL ES 3.1.0 (ANGLE 2.1.24600 git hash: 8304737811a7)\",\"renderer\":\"ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver-5.0.0)\",\"maxBias\":0.0,\"offCycles\":128,\"depthIndependentCycles\":64,\"depthTestAndWritesDisabled\":true,\"noDepthAttachmentRGBA\":[255,255,0,173],\"mipPixels\":[{\"source\":\"sampler\",\"lambda\":0,\"mode\":1,\"rgba\":[0,128,128,173],\"off\":[255,0,0,173]},{\"source\":\"sampler\",\"lambda\":0,\"mode\":2,\"rgba\":[255,255,0,173],\"off\":[255,0,0,173]},{\"source\":\"sampler\",\"lambda\":4,\"mode\":1,\"rgba\":[255,0,255,173],\"off\":[255,0,255,173]},{\"source\":\"sampler\",\"lambda\":4,\"mode\":2,\"rgba\":[255,0,255,173],\"off\":[255,0,255,173]},{\"source\":\"texture\",\"lambda\":0,\"mode\":1,\"rgba\":[0,128,128,173],\"off\":[255,0,0,173]},{\"source\":\"texture\",\"lambda\":0,\"mode\":2,\"rgba\":[255,255,0,173],\"off\":[255,0,0,173]},{\"source\":\"texture\",\"lambda\":4,\"mode\":1,\"rgba\":[255,0,255,173],\"off\":[255,0,255,173]},{\"source\":\"texture\",\"lambda\":4,\"mode\":2,\"rgba\":[255,0,255,173],\"off\":[255,0,255,173]}],\"material\":[{\"source\":\"sampler\",\"nativeEdgeEnergy\":2483712,\"strongEdgeEnergy\":62784,\"nativeSha256\":\"322819cac683c81d48f83c1a5d00aa8b7453c8fd98a965b543eebc0eb3d952ab\",\"strongSha256\":\"ac43e9856339e89d48eb752fbe9fd6100c62d5e3a3e30d00aa6fa348737c871d\",\"offExact\":true},{\"source\":\"texture\",\"nativeEdgeEnergy\":2483712,\"strongEdgeEnergy\":62784,\"nativeSha256\":\"322819cac683c81d48f83c1a5d00aa8b7453c8fd98a965b543eebc0eb3d952ab\",\"strongSha256\":\"ac43e9856339e89d48eb752fbe9fd6100c62d5e3a3e30d00aa6fa348737c871d\",\"offExact\":true}],\"resourceLinkedProducer\":{\"singleLevelCompositorBindings\":0,\"linkedProducerBindings\":1,\"nativeRGBA\":[255,0,0,173],\"strongRGBA\":[255,255,0,173],\"presentedOffExact\":true,\"revisionExpiryMaskBypass\":true,\"nativeSha256\":\"cdc6776c7860f67df2707bd0585c1c7eb02d91e4d09a70e890b39c59e3ea2fd0\",\"strongSha256\":\"032050fa57217bb47afbfc2e20c9b8c7fc718e7cf690f359fd90f536d6c0eeeb\"},\"colorTransfers\":[{\"path\":\"renderbuffer-blit\",\"producerBindings\":1,\"compositorBindings\":0,\"nativeRGBA\":[255,0,0,173],\"strongRGBA\":[255,255,0,173],\"offExact\":true,\"expiryAndPendingError\":true},{\"path\":\"default-pbuffer-copy\",\"producerBindings\":1,\"compositorBindings\":0,\"nativeRGBA\":[255,0,0,173],\"strongRGBA\":[255,255,0,173],\"offExact\":true,\"expiryAndPendingError\":true}],\"immutableMips\":{\"sourceModes\":2,\"cases\":[{\"case\":\"storage4\",\"floor\":3,\"native\":[255,0,0,173],\"strong\":[255,255,0,173],\"offExact\":true},{\"case\":\"storage2\",\"floor\":1,\"native\":[255,0,0,173],\"strong\":[0,255,0,173],\"offExact\":true},{\"case\":\"base1\",\"floor\":2,\"native\":[0,255,0,173],\"strong\":[255,255,0,173],\"offExact\":true},{\"case\":\"max1\",\"floor\":1,\"native\":[255,0,0,173],\"strong\":[0,255,0,173],\"offExact\":true},{\"case\":\"single\",\"floor\":0,\"native\":[255,0,0,173],\"strong\":[255,0,0,173],\"offExact\":true}],\"pendingErrorAndSourceState\":true},\"strength\":{\"percent\":[0,25,50,75,100],\"rgba\":[[255,0,0,173],[64,191,0,173],[0,128,128,173],[64,64,191,173],[255,255,0,173]],\"sourceModes\":2,\"gradients\":2,\"fullOffAndSourceExact\":true},\"limit\":\"authored software resources; NOT player, physical GPU, allocated-memory or FPS evidence\"}"
+          },
+          {
+            "annotation_level": "notice",
+            "title": "Actual surfaceless material producer pixels (software)",
+            "message": "{\"api\":\"gles\",\"version\":\"OpenGL ES 3.1.0 (ANGLE 2.1.24600 git hash: 8304737811a7)\",\"actualNullDrawAndReadSurface\":true,\"sourceModes\":[{\"source\":\"sampler\",\"strengthRGBA\":[[255,0,0,173],[0,128,128,173],[255,255,0,173]],\"producerBindings\":1,\"compositorBindings\":0,\"offExact\":true},{\"source\":\"texture\",\"strengthRGBA\":[[255,0,0,173],[0,128,128,173],[255,255,0,173]],\"producerBindings\":1,\"compositorBindings\":0,\"offExact\":true}],\"sourceStatePendingErrorRevisionTTL\":true,\"limit\":\"actual software EGL/GL resources, not Win32 route or game certification\"}"
+          },
+          {
+            "annotation_level": "notice",
+            "title": "Production depth-independent texture pixels (software)",
+            "message": "{\"api\":\"desktop\",\"version\":\"4.5 (Core Profile) Mesa 25.2.8-0ubuntu0.24.04.5\",\"renderer\":\"llvmpipe (LLVM 20.1.2, 256 bits)\",\"maxBias\":16.0,\"offCycles\":128,\"depthIndependentCycles\":64,\"depthTestAndWritesDisabled\":true,\"noDepthAttachmentRGBA\":[255,255,0,173],\"mipPixels\":[{\"source\":\"sampler\",\"lambda\":0,\"mode\":1,\"rgba\":[0,128,128,173],\"off\":[255,0,0,173]},{\"source\":\"sampler\",\"lambda\":0,\"mode\":2,\"rgba\":[255,255,0,173],\"off\":[255,0,0,173]},{\"source\":\"sampler\",\"lambda\":4,\"mode\":1,\"rgba\":[128,255,255,173],\"off\":[255,0,255,173]},{\"source\":\"sampler\",\"lambda\":4,\"mode\":2,\"rgba\":[255,255,255,173],\"off\":[255,0,255,173]},{\"source\":\"texture\",\"lambda\":0,\"mode\":1,\"rgba\":[0,128,128,173],\"off\":[255,0,0,173]},{\"source\":\"texture\",\"lambda\":0,\"mode\":2,\"rgba\":[255,255,0,173],\"off\":[255,0,0,173]},{\"source\":\"texture\",\"lambda\":4,\"mode\":1,\"rgba\":[128,255,255,173],\"off\":[255,0,255,173]},{\"source\":\"texture\",\"lambda\":4,\"mode\":2,\"rgba\":[255,255,255,173],\"off\":[255,0,255,173]}],\"material\":[{\"source\":\"sampler\",\"nativeEdgeEnergy\":2483712,\"strongEdgeEnergy\":62784,\"nativeSha256\":\"322819cac683c81d48f83c1a5d00aa8b7453c8fd98a965b543eebc0eb3d952ab\",\"strongSha256\":\"93085ad55237a8a4e149740f9e99cbf4bf6da31ce022764b3a13d4be6be7a205\",\"offExact\":true},{\"source\":\"texture\",\"nativeEdgeEnergy\":2483712,\"strongEdgeEnergy\":62784,\"nativeSha256\":\"322819cac683c81d48f83c1a5d00aa8b7453c8fd98a965b543eebc0eb3d952ab\",\"strongSha256\":\"93085ad55237a8a4e149740f9e99cbf4bf6da31ce022764b3a13d4be6be7a205\",\"offExact\":true}],\"resourceLinkedProducer\":{\"singleLevelCompositorBindings\":0,\"linkedProducerBindings\":1,\"nativeRGBA\":[255,0,0,173],\"strongRGBA\":[255,255,0,173],\"presentedOffExact\":true,\"revisionExpiryMaskBypass\":true,\"nativeSha256\":\"cdc6776c7860f67df2707bd0585c1c7eb02d91e4d09a70e890b39c59e3ea2fd0\",\"strongSha256\":\"032050fa57217bb47afbfc2e20c9b8c7fc718e7cf690f359fd90f536d6c0eeeb\"},\"colorTransfers\":[{\"path\":\"renderbuffer-blit\",\"producerBindings\":1,\"compositorBindings\":0,\"nativeRGBA\":[255,0,0,173],\"strongRGBA\":[255,255,0,173],\"offExact\":true,\"expiryAndPendingError\":true},{\"path\":\"default-pbuffer-copy\",\"producerBindings\":1,\"compositorBindings\":0,\"nativeRGBA\":[255,0,0,173],\"strongRGBA\":[255,255,0,173],\"offExact\":true,\"expiryAndPendingError\":true}],\"immutableMips\":{\"sourceModes\":2,\"cases\":[{\"case\":\"storage4\",\"floor\":3,\"native\":[255,0,0,173],\"strong\":[255,255,0,173],\"offExact\":true},{\"case\":\"storage2\",\"floor\":1,\"native\":[255,0,0,173],\"strong\":[0,255,0,173],\"offExact\":true},{\"case\":\"base1\",\"floor\":2,\"native\":[0,255,0,173],\"strong\":[255,255,0,173],\"offExact\":true},{\"case\":\"max1\",\"floor\":1,\"native\":[255,0,0,173],\"strong\":[0,255,0,173],\"offExact\":true},{\"case\":\"single\",\"floor\":0,\"native\":[255,0,0,173],\"strong\":[255,0,0,173],\"offExact\":true},{\"case\":\"view3of7\",\"floor\":2,\"native\":[255,0,0,173],\"strong\":[0,0,255,173],\"offExact\":true}],\"pendingErrorAndSourceState\":true},\"strength\":{\"percent\":[0,25,50,75,100],\"rgba\":[[255,0,0,173],[64,191,0,173],[0,128,128,173],[64,64,191,173],[255,255,0,173]],\"sourceModes\":2,\"gradients\":2,\"fullOffAndSourceExact\":true},\"limit\":\"authored software resources; NOT player, physical GPU, allocated-memory or FPS evidence\"}"
+          },
+          {
+            "annotation_level": "notice",
+            "title": "Actual named image-copy material pixels (software)",
+            "message": "{\"version\":\"4.5 (Core Profile) Mesa 25.2.8-0ubuntu0.24.04.5\",\"bindingFreeQueries\":true,\"cases\":[{\"entry\":\"glCopyImageSubData\",\"nativeRGBA\":[255,0,0,173],\"strongRGBA\":[255,255,0,173],\"offExact\":true,\"sourceStateAndPendingError\":true,\"compositorBindings\":0,\"producerBindings\":1},{\"entry\":\"glCopyImageSubDataNV\",\"nativeRGBA\":[255,0,0,173],\"strongRGBA\":[255,255,0,173],\"offExact\":true,\"sourceStateAndPendingError\":true,\"compositorBindings\":0,\"producerBindings\":1}],\"immutableQueries\":[{\"case\":\"immutable4\",\"storageLevels\":4,\"viewLevels\":4,\"pendingErrorAndSourceState\":true},{\"case\":\"view3of7\",\"storageLevels\":7,\"viewLevels\":3,\"pendingErrorAndSourceState\":true}],\"limit\":\"actual software GL image copies, NOT Windows hook or installed-game/GPU/FPS evidence\"}"
+          },
+          {
+            "annotation_level": "notice",
+            "title": "Actual surfaceless material producer pixels (software)",
+            "message": "{\"api\":\"desktop\",\"version\":\"4.5 (Core Profile) Mesa 25.2.8-0ubuntu0.24.04.5\",\"actualNullDrawAndReadSurface\":true,\"sourceModes\":[{\"source\":\"sampler\",\"strengthRGBA\":[[255,0,0,173],[0,128,128,173],[255,255,0,173]],\"producerBindings\":1,\"compositorBindings\":0,\"offExact\":true},{\"source\":\"texture\",\"strengthRGBA\":[[255,0,0,173],[0,128,128,173],[255,255,0,173]],\"producerBindings\":1,\"compositorBindings\":0,\"offExact\":true}],\"sourceStatePendingErrorRevisionTTL\":true,\"limit\":\"actual software EGL/GL resources, not Win32 route or game certification\"}"
+          },
+          {
+            "annotation_level": "notice",
+            "title": "Production depth-independent texture pixels (software)",
+            "message": "{\"api\":\"gles\",\"version\":\"OpenGL ES 3.2 Mesa 25.2.8-0ubuntu0.24.04.5\",\"renderer\":\"llvmpipe (LLVM 20.1.2, 256 bits)\",\"maxBias\":0.0,\"offCycles\":128,\"depthIndependentCycles\":64,\"depthTestAndWritesDisabled\":true,\"noDepthAttachmentRGBA\":[255,255,0,173],\"mipPixels\":[{\"source\":\"sampler\",\"lambda\":0,\"mode\":1,\"rgba\":[0,128,128,173],\"off\":[255,0,0,173]},{\"source\":\"sampler\",\"lambda\":0,\"mode\":2,\"rgba\":[255,255,0,173],\"off\":[255,0,0,173]},{\"source\":\"sampler\",\"lambda\":4,\"mode\":1,\"rgba\":[255,0,255,173],\"off\":[255,0,255,173]},{\"source\":\"sampler\",\"lambda\":4,\"mode\":2,\"rgba\":[255,0,255,173],\"off\":[255,0,255,173]},{\"source\":\"texture\",\"lambda\":0,\"mode\":1,\"rgba\":[0,128,128,173],\"off\":[255,0,0,173]},{\"source\":\"texture\",\"lambda\":0,\"mode\":2,\"rgba\":[255,255,0,173],\"off\":[255,0,0,173]},{\"source\":\"texture\",\"lambda\":4,\"mode\":1,\"rgba\":[255,0,255,173],\"off\":[255,0,255,173]},{\"source\":\"texture\",\"lambda\":4,\"mode\":2,\"rgba\":[255,0,255,173],\"off\":[255,0,255,173]}],\"material\":[{\"source\":\"sampler\",\"nativeEdgeEnergy\":2483712,\"strongEdgeEnergy\":62784,\"nativeSha256\":\"322819cac683c81d48f83c1a5d00aa8b7453c8fd98a965b543eebc0eb3d952ab\",\"strongSha256\":\"93085ad55237a8a4e149740f9e99cbf4bf6da31ce022764b3a13d4be6be7a205\",\"offExact\":true},{\"source\":\"texture\",\"nativeEdgeEnergy\":2483712,\"strongEdgeEnergy\":62784,\"nativeSha256\":\"322819cac683c81d48f83c1a5d00aa8b7453c8fd98a965b543eebc0eb3d952ab\",\"strongSha256\":\"93085ad55237a8a4e149740f9e99cbf4bf6da31ce022764b3a13d4be6be7a205\",\"offExact\":true}],\"resourceLinkedProducer\":{\"singleLevelCompositorBindings\":0,\"linkedProducerBindings\":1,\"nativeRGBA\":[255,0,0,173],\"strongRGBA\":[255,255,0,173],\"presentedOffExact\":true,\"revisionExpiryMaskBypass\":true,\"nativeSha256\":\"cdc6776c7860f67df2707bd0585c1c7eb02d91e4d09a70e890b39c59e3ea2fd0\",\"strongSha256\":\"032050fa57217bb47afbfc2e20c9b8c7fc718e7cf690f359fd90f536d6c0eeeb\"},\"colorTransfers\":[{\"path\":\"renderbuffer-blit\",\"producerBindings\":1,\"compositorBindings\":0,\"nativeRGBA\":[255,0,0,173],\"strongRGBA\":[255,255,0,173],\"offExact\":true,\"expiryAndPendingError\":true},{\"path\":\"default-pbuffer-copy\",\"producerBindings\":1,\"compositorBindings\":0,\"nativeRGBA\":[255,0,0,173],\"strongRGBA\":[255,255,0,173],\"offExact\":true,\"expiryAndPendingError\":true}],\"immutableMips\":{\"sourceModes\":2,\"cases\":[{\"case\":\"storage4\",\"floor\":3,\"native\":[255,0,0,173],\"strong\":[255,255,0,173],\"offExact\":true},{\"case\":\"storage2\",\"floor\":1,\"native\":[255,0,0,173],\"strong\":[0,255,0,173],\"offExact\":true},{\"case\":\"base1\",\"floor\":2,\"native\":[0,255,0,173],\"strong\":[255,255,0,173],\"offExact\":true},{\"case\":\"max1\",\"floor\":1,\"native\":[255,0,0,173],\"strong\":[0,255,0,173],\"offExact\":true},{\"case\":\"single\",\"floor\":0,\"native\":[255,0,0,173],\"strong\":[255,0,0,173],\"offExact\":true},{\"case\":\"view3of7\",\"floor\":2,\"native\":[255,0,0,173],\"strong\":[0,0,255,173],\"offExact\":true}],\"pendingErrorAndSourceState\":true},\"strength\":{\"percent\":[0,25,50,75,100],\"rgba\":[[255,0,0,173],[64,191,0,173],[0,128,128,173],[64,64,191,173],[255,255,0,173]],\"sourceModes\":2,\"gradients\":2,\"fullOffAndSourceExact\":true},\"limit\":\"authored software resources; NOT player, physical GPU, allocated-memory or FPS evidence\"}"
+          },
+          {
+            "annotation_level": "notice",
+            "title": "Actual surfaceless material producer pixels (software)",
+            "message": "{\"api\":\"gles\",\"version\":\"OpenGL ES 3.2 Mesa 25.2.8-0ubuntu0.24.04.5\",\"actualNullDrawAndReadSurface\":true,\"sourceModes\":[{\"source\":\"sampler\",\"strengthRGBA\":[[255,0,0,173],[0,128,128,173],[255,255,0,173]],\"producerBindings\":1,\"compositorBindings\":0,\"offExact\":true},{\"source\":\"texture\",\"strengthRGBA\":[[255,0,0,173],[0,128,128,173],[255,255,0,173]],\"producerBindings\":1,\"compositorBindings\":0,\"offExact\":true}],\"sourceStatePendingErrorRevisionTTL\":true,\"limit\":\"actual software EGL/GL resources, not Win32 route or game certification\"}"
+          }
+        ]
+      },
+      {
+        "id": 137254748040,
+        "name": "focused-egl",
+        "status": "completed",
+        "conclusion": "skipped",
+        "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45037613555/job/137254748040",
+        "started_at": "2026-11-22T15:19:01Z",
+        "completed_at": "2026-11-22T15:19:00Z",
+        "steps": [],
+        "annotations": []
+      }
+    ]
+  },
+  "candidatePackage": {
+    "id": 45037616353,
+    "run_attempt": 1,
+    "head_sha": "00c1b7c1d4caf5ce1ac7e0ddaf08494f0aa6c45d",
+    "head_branch": "arena/daa0fcb2-bsi-customizer",
+    "event": "workflow_dispatch",
+    "status": "completed",
+    "conclusion": "success",
+    "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45037616353",
+    "created_at": "2026-11-22T15:19:01Z",
+    "updated_at": "2026-11-22T15:31:03Z",
+    "jobs": [
+      {
+        "id": 137254754641,
+        "name": "Build & self-test (Windows x64)",
+        "status": "completed",
+        "conclusion": "success",
+        "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45037616353/job/137254754641",
+        "started_at": "2026-11-22T15:19:04Z",
+        "completed_at": "2026-11-22T15:31:02Z",
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Checkout",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Test archive integrity verifier offline (no EXEs executed)",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Resolve and validate release version",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Checkout pinned player UI source contracts (data only)",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Install Qt 5 tools for the separate regular shader module",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Remember the Qt 5 SDK without linking it into the Customizer",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Install the older public-API Qt 6 shader bridge SDK",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Remember the Qt 6 shader SDK separately from the Customizer SDK",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Install Qt 6 build tools",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Build and verify the public-API regular shader payload baselines",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Configure application and one-file package",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Build and verify single portable EXE",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Verify application administrator manifest",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run all engine tests including real Qt 5 and Qt 6 DLLs",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Report complete native test failures",
+            "status": "completed",
+            "conclusion": "skipped"
+          },
+          {
+            "name": "Record the one-file artifact",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Build the installer",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "The updater accepts the installer it just built",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Install, upgrade and uninstall the actual setup",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Upload tested portable EXE",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Upload tested installer",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Download both published ZIPs and verify CRC, hashes and Windows extraction",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Validate and publish the tested portable EXE",
+            "status": "completed",
+            "conclusion": "skipped"
+          },
+          {
+            "name": "Publish the self-update to the Discord releases channel",
+            "status": "completed",
+            "conclusion": "skipped"
+          },
+          {
+            "name": "Post Install Qt 6 build tools",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Install the older public-API Qt 6 shader bridge SDK",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Install Qt 5 tools for the separate regular shader module",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Checkout pinned player UI source contracts (data only)",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Checkout",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success"
+          }
+        ],
+        "annotations": [
+          {
+            "annotation_level": "warning",
+            "title": "",
+            "message": "Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/"
+          },
+          {
+            "annotation_level": "notice",
+            "title": "Windows ZIP extraction verified",
+            "message": "BSI-Customizer-4.0.1-setup.exe | EXE SHA256=e33098850d92ee48bdce5411e17c94bf1c73cdb238ad677a4d8eed97ace486f2"
+          },
+          {
+            "annotation_level": "notice",
+            "title": "Verified artifact download",
+            "message": "BSI-Customizer-4.0.1-setup.exe | ZIP bytes=46034392 | ZIP SHA256=bcd05bf347962ccf1e3c34c1d5a6cd854e31a07ef0c0663bdb70ecbbc59a1955 | EXE SHA256=e33098850d92ee48bdce5411e17c94bf1c73cdb238ad677a4d8eed97ace486f2"
+          },
+          {
+            "annotation_level": "notice",
+            "title": "Windows ZIP extraction verified",
+            "message": "BSI-Customizer-4.0.1-win64.exe | EXE SHA256=10d58b2134a07be0811d177ce66247cf1f958ab0904bd6e1887f050ea3b8c640"
+          },
+          {
+            "annotation_level": "notice",
+            "title": "Verified artifact download",
+            "message": "BSI-Customizer-4.0.1-win64.exe | ZIP bytes=43739903 | ZIP SHA256=c4b533b66ef9a6193e5a4afef03c86032daf92302ab079e92b2e99c372bab66f | EXE SHA256=10d58b2134a07be0811d177ce66247cf1f958ab0904bd6e1887f050ea3b8c640"
+          },
+          {
+            "annotation_level": "notice",
+            "title": "",
+            "message": "gate-diag ok=1 modules=[qt5core.dll]"
+          }
+        ]
+      }
+    ]
+  },
+  "installedGameAcceptance": {
+    "workingMaterialTextureEffectProved": false,
+    "offInUserGameProved": false,
+    "lastReportedFrames": 3154,
+    "lastReportedNoSampler": 6297,
+    "lastReportedReplacements": 0,
+    "installedNativeModuleHash": "unknown",
+    "activePrivateOrAngleBranchProved": false
+  },
+  "limits": [
+    "Windows MinHook contracts use authored EGL/GL dispatch/state DLL doubles, not a real EGL driver/game.",
+    "The independent Linux software-driver pixel suite executes production texture code, not Win32 PresentationHooks.",
+    "No general EGLImage/native-buffer/private transfer support, provider/resource namespace merge, forced LINEAR mips, hardware/FPS/account/anti-cheat certification or installed-game success is claimed."
+  ],
+  "candidateCoverage": {
+    "successfulFullMatrixJobs": 6,
+    "intentionallySkippedDuplicateJob": "focused-egl",
+    "configuredSplitCtestModes": [
+      "exports",
+      "queried",
+      "cached",
+      "present",
+      "retire-surface",
+      "retire-context",
+      "resolver",
+      "native-image",
+      "capacity"
+    ],
+    "windowsNativeCtestStepSuccessfulJobs": [
+      137254747069,
+      137254747119,
+      137254747279
+    ],
+    "basis": "The same candidate CMake registers all nine modes; each unfiltered fail-on-error Windows CTest step succeeded. A per-case full Windows log was not retrieved in this workspace.",
+    "completeSoftwarePixelJsonNoticesParsed": 8,
+    "failedCheckAnnotations": 0,
+    "publicReleaseAndDiscordPublicationSkipped": true,
+    "scope": "Authored native/Qt contracts, independent software-driver pixels and package tests, NOT installed-game material/Off/hardware/FPS acceptance."
+  },
+  "testDownloads": [
+    {
+      "artifactId": 14760925895,
+      "artifactName": "BSI-Customizer-4.0.1-setup-45037616353-r1",
+      "url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45037616353/artifacts/14760925895",
+      "sourceCommit": "00c1b7c1d4caf5ce1ac7e0ddaf08494f0aa6c45d",
+      "archiveBytes": 46034392,
+      "archiveSha256": "bcd05bf347962ccf1e3c34c1d5a6cd854e31a07ef0c0663bdb70ecbbc59a1955",
+      "singleInnerExeName": "BSI-Customizer-4.0.1-setup.exe",
+      "singleInnerExeSha256": "e33098850d92ee48bdce5411e17c94bf1c73cdb238ad677a4d8eed97ace486f2",
+      "githubReportedCreatedAt": "2026-11-22T15:30:55Z",
+      "githubReportedExpiresAt": "2026-11-25T15:30:54Z",
+      "expiredAtMetadataReadback": false,
+      "downloadZipCrcHashAndExactSingleExeVerified": true,
+      "windowsExpandArchiveThenExeHashVerified": true,
+      "archiveVerificationExecution": "Same GitHub-hosted windows-2022 build job; complete notices independently matched to artifact metadata in this Linux workspace.",
+      "zipDownloadedInThisLinuxWorkspace": false
+    },
+    {
+      "artifactId": 14760093940,
+      "artifactName": "BSI-Customizer-4.0.1-win64-45037616353-r1",
+      "url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45037616353/artifacts/14760093940",
+      "sourceCommit": "00c1b7c1d4caf5ce1ac7e0ddaf08494f0aa6c45d",
+      "archiveBytes": 43739903,
+      "archiveSha256": "c4b533b66ef9a6193e5a4afef03c86032daf92302ab079e92b2e99c372bab66f",
+      "singleInnerExeName": "BSI-Customizer-4.0.1-win64.exe",
+      "singleInnerExeSha256": "10d58b2134a07be0811d177ce66247cf1f958ab0904bd6e1887f050ea3b8c640",
+      "githubReportedCreatedAt": "2026-11-22T15:30:53Z",
+      "githubReportedExpiresAt": "2026-11-25T15:30:52Z",
+      "expiredAtMetadataReadback": false,
+      "downloadZipCrcHashAndExactSingleExeVerified": true,
+      "windowsExpandArchiveThenExeHashVerified": true,
+      "archiveVerificationExecution": "Same GitHub-hosted windows-2022 build job; complete notices independently matched to artifact metadata in this Linux workspace.",
+      "zipDownloadedInThisLinuxWorkspace": false
+    }
+  ],
+  "candidateValidationComplete": true
+}

@@ -17,11 +17,19 @@ analyzed. We can now distinguish private provider dispatch, public EGL export
 stubs, actual EGL implementations and lookup-returned GL targets using this
 archive's own code—not an assumed public source version.
 
-**This is not yet a working Potato fix.** Archive identity/co-location does not
-prove which path the launched game executes. Production was not changed, no new
-shader package was built, and the installed failure remains **3,154 frames /
-6,297 NoSampler / zero replacements**. A transfer success or a static test pass
-must not be presented as material-texture, Off, driver or FPS acceptance.
+**This static audit was not a working Potato fix.** Archive identity/co-location
+does not prove which path the launched game executes. At this audit stage,
+production was not changed and no new shader package was built. The subsequent
+repair/package is documented below; the installed failure still remains
+**3,154 frames / 6,297 NoSampler / zero replacements**. A transfer success or a
+static test pass must not be presented as material-texture, Off, driver or FPS
+acceptance.
+
+**Subsequent fix/testing:** the [split-EGL lifecycle regression and repair](POTATO-EGL-LIFECYCLE-ALIASES.md)
+now follows this audit's concrete stub/implementation topology. It first records
+before-repair Windows failures, rather than treating a distinct address as a
+missing hook. This audit's static-input identities and limitations are unchanged;
+the later authored/software tests are not installed-game acceptance.
 
 ## 1. Exact inputs
 
