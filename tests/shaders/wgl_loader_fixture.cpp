@@ -112,3 +112,5 @@ API LONG bsiFixtureTransferArgumentsIntact(){return EglDrawFixture::lastTransfer
 API LONG bsiFixtureImageBinds(){return imageBinds;}
 API void bsiFixtureNativeTextureTarget(unsigned name){EglDrawFixture::state().textures[3]=name;}
 API void bsiFixtureOnTransfer(void(WINAPI *callback)()){EglDrawFixture::onTransfer=callback;}
+
+API void bsiFixtureTransferToDefault(){EglDrawFixture::state().framebuffer=0;}

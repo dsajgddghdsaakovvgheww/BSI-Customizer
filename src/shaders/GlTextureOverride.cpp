@@ -418,6 +418,7 @@ bool GlTextureOverride::transfer(const GlColorTransfer &call,GlTextureUsage *out
     // leave both placeholders for the caller to resolve before equality/proof.
     if(!nativeRead&&!nativeDraw&&source==destination)return false;
     captured.defaultFramebuffer=nativeDraw;
+    if(nativeDraw)captured.nativeColorBuffer=destination.colorBuffer;
     captured.reads[captured.readCount++]=source;captured.writes[captured.writeCount++]=destination;
     *out=captured;return true;
 }

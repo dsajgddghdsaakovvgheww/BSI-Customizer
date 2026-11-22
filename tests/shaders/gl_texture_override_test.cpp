@@ -289,8 +289,9 @@ int main(){
         invalid=blit;invalid.filter=0;require(!quality.transfer(invalid,&usage),"invalid blit filter is not evidence");
         invalid=blit;invalid.source[2]=invalid.source[0];require(!quality.transfer(invalid,&usage),"zero-area blit cannot propagate ownership");
         g.framebuffer=0;
-        require(quality.transfer(blit,&usage)&&usage.defaultFramebuffer&&usage.writes[0].kind==GlColorResource::Pbuffer&&!usage.writes[0],
-                "GL default framebuffer output needs native qualification, not a fabricated texture name");
+        require(quality.transfer(blit,&usage)&&usage.defaultFramebuffer&&usage.writes[0].kind==GlColorResource::Pbuffer&&!usage.writes[0]
+                &&usage.writes[0].colorBuffer==0x0405&&usage.nativeColorBuffer==0x0405,
+                "native default DRAW blit must preserve its exact color aspect for native caller qualification");
         g.readFramebuffer=0;
         const auto copy=GlColorTransfer::copy(0x0de1,0,0,0,0,0,64,64);
         require(quality.transfer(copy,&usage)&&!usage.defaultFramebuffer&&usage.reads[0].kind==GlColorResource::Pbuffer

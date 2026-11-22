@@ -150,6 +150,10 @@ int main(int argc,char **argv){
             "successful native WGL image binding publishes an exact pbuffer-color -> consumed-texture link");
     f.current(pbDc,nativeScene);f.resource(4);f.draw(2);f.resource(2,50);f.draw(0);
     require(runtime.metrics().textureProducerDraws==1,"nonsharing renderer can write the exact native default output, but never inherits texture/RBO names from the consumer");
+    f.transferState(2,70);f.function<void(*)()>("bsiFixtureTransferToDefault")();f.transfer(false);
+    f.resource(3,70);f.draw(2);
+    require(runtime.metrics().textureTransferCalls==2&&runtime.metrics().textureProducerDraws==2,
+            "a blit into the native output must preserve its DRAW color aspect and reach the exact preceding RBO material producer");
     for(unsigned flags:{32u,64u,128u,256u,512u}){
         consume();f.nativeTarget(50);f.failures(flags);f.bindImage(pb,flags==32?FALSE:TRUE);f.failures(0);
         f.current(pbDc,nativeScene);f.resource(4);f.draw(0);
