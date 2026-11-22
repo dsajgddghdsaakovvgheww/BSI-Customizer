@@ -13,10 +13,11 @@ import time
 os.environ.setdefault('QT_QPA_PLATFORM','offscreen')
 os.environ.setdefault('QT_QUICK_BACKEND','software')
 os.environ.setdefault('QT_QUICK_CONTROLS_STYLE','Basic')
-from PySide6.QtCore import QUrl, QPointF, QMetaObject, Q_ARG
+from PySide6.QtCore import QUrl, QPointF, QPoint, QMetaObject, Q_ARG
 from PySide6.QtGui import QGuiApplication, QFontDatabase
 from PySide6.QtQml import QQmlEngine, QQmlComponent
 from PySide6.QtQuick import QQuickWindow
+from PySide6.QtTest import QTest
 
 ROOT=Path(__file__).resolve().parents[1]
 sp=importlib.util.spec_from_file_location('native_layout_suite',ROOT/'tools/full-emulator-ui/suite.py')
@@ -78,7 +79,6 @@ Item {
  function fUpdateFpsSliderValueAndText(checked){}
  function fHandleConfChange(){saved++}
  function fInitUi(){}
- function bottom(){iScrollView.contentItem.contentY=Math.max(0,iScrollView.contentHeight-iScrollView.availableHeight)}
  TREE
 }'''.replace('SKIN',url).replace('TREE',tree)
     # Native palette pass + the exact vertical source transformer used by install.
@@ -150,9 +150,11 @@ Window {
     cpu.setProperty('currentIndex',3);QMetaObject.invokeMethod(cpu,'activated',Q_ARG(int,3))
     ram.setProperty('currentIndex',1);QMetaObject.invokeMethod(ram,'activated',Q_ARG(int,1));settle()
     assert visual(root,'iCustomCpuCombobx').isVisible() and visual(root,'iCustomRamTextField').isVisible(),('custom native inputs lost',visual(root,'iCustomCpuCombobx').isVisible(),visual(root,'iCustomRamTextField').isVisible(),ram.property('currentIndex'),page.property('pRamModel'),warnings)
-    QMetaObject.invokeMethod(page,'bottom');settle()
+    scroll=visual(root,'iScrollView')
+    pos=scroll.mapToScene(QPointF(scroll.width()/2,scroll.height()/2))
+    QTest.wheelEvent(window,pos,QPoint(0,-2400));settle()
     last=visual(root,'iEnableFpsDisplayToggleBtn');p=last.mapToScene(QPointF(0,last.height()))
-    assert last.isVisible() and 200<p.y()<650,('third native FPS toggle unreachable',p)
+    assert last.isVisible() and 200<p.y()<650,('third native FPS toggle unreachable',p,scroll.property('contentHeight'),scroll.height(),warnings)
     assert window.grabWindow().save(str(output/'native-fps-fixture.png'))
     assert not warnings,'\n'.join(warnings)
     window.setVisible(False);window.deleteLater();settle()
