@@ -152,9 +152,17 @@ Window {
     assert visual(root,'iCustomCpuCombobx').isVisible() and visual(root,'iCustomRamTextField').isVisible(),('custom native inputs lost',visual(root,'iCustomCpuCombobx').isVisible(),visual(root,'iCustomRamTextField').isVisible(),ram.property('currentIndex'),page.property('pRamModel'),warnings)
     scroll=visual(root,'iScrollView')
     pos=scroll.mapToScene(QPointF(scroll.width()/2,scroll.height()/2))
-    QTest.wheelEvent(window,pos,QPoint(0,-2400));settle()
-    last=visual(root,'iEnableFpsDisplayToggleBtn');p=last.mapToScene(QPointF(0,last.height()))
-    assert last.isVisible() and 200<p.y()<650,('third native FPS toggle unreachable',p,scroll.property('contentHeight'),scroll.height(),warnings)
+    last=visual(root,'iEnableFpsDisplayToggleBtn')
+    top=scroll.mapToScene(QPointF(0,0)).y()
+    bottom=top+scroll.height()
+    # Realistic wheel notches, not a synthetic twenty-notch overscroll event.
+    # Stop when the last native row is inside the actual clipped viewport.
+    for _ in range(12):
+        p=last.mapToScene(QPointF(0,last.height()))
+        if top+last.height()<p.y()<bottom-8:break
+        QTest.wheelEvent(window,pos,QPoint(0,-120));settle()
+    p=last.mapToScene(QPointF(0,last.height()))
+    assert last.isVisible() and top+last.height()<p.y()<bottom-8,('third native FPS toggle unreachable',p,top,bottom,scroll.property('contentHeight'),warnings)
     assert window.grabWindow().save(str(output/'native-fps-fixture.png'))
     assert not warnings,'\n'.join(warnings)
     window.setVisible(False);window.deleteLater();settle()

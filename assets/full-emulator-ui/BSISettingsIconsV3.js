@@ -78,7 +78,9 @@ function classifyTab(value) {
     return "";
 }
 function kindForTab(id, pageSource, label) {
-    return classifyTab(pageSource) || classifyTab(id) || classifyTab(label) || "preferences";
+    // OEMs sometimes reuse Audio/Device page URLs for a differently named tab.
+    // Prefer the visible, recognized meaning; fall back for localized labels.
+    return classifyTab(label) || classifyTab(id) || classifyTab(pageSource) || "preferences";
 }
 
 // Static transparent 48px fallback; all Settings assets are silver-white.

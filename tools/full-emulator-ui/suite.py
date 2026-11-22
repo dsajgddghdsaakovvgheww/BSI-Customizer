@@ -548,7 +548,7 @@ def native_section_sources(module, desired, url):
                 fields+='pDescription:'+json.dumps(description)+'\n'
             # Explicit top alignment prevents a tall native ScrollView from
             # vertically centering (and clipping) the first CPU section.
-            fields+='Layout.alignment:Qt.AlignTop\n'
+            if 'Layout.alignment' not in bindings:fields+='Layout.alignment:Qt.AlignTop\n'
             edits.append((tokens[opening].end,tokens[opening].end,fields));count+=1
             for key in descendants(opening):
                 child=scopes[key];cb=child['bindings']

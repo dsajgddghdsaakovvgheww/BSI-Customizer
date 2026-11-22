@@ -171,13 +171,8 @@ Item {
             id:hero
             anchors.left:parent.left;anchors.right:parent.right;anchors.top:parent.top;height:shell.showInspector?108:66
             StudioGlyph {x:0;y:1;width:32;height:32;kind:shell.currentKind==="performance"?"gauge":shell.currentKind;tint:Theme.accent}
-            Text {x:45;y:0;width:parent.width-195;text:shell.intro()[0];color:Theme.text;font.family:Theme.fontFamily;font.pixelSize:23;font.weight:Font.DemiBold;elide:Text.ElideRight}
+            Text {x:45;y:0;width:parent.width-45;text:shell.intro()[0];color:Theme.text;font.family:Theme.fontFamily;font.pixelSize:23;font.weight:Font.DemiBold;elide:Text.ElideRight}
             Text {x:45;y:32;width:parent.width-45;text:shell.intro()[1];color:Theme.muted;font.family:Theme.fontFamily;font.pixelSize:11;elide:Text.ElideRight}
-            Rectangle {
-                anchors.right:parent.right;y:2;width:128;height:28;radius:14;color:Theme.surface;border.width:1;border.color:Theme.border
-                StudioGlyph {x:11;anchors.verticalCenter:parent.verticalCenter;width:14;height:14;kind:"layers";tint:Theme.muted}
-                Text {anchors.verticalCenter:parent.verticalCenter;x:33;text:"NATIVE SETTINGS";color:Theme.muted;font.family:Theme.fontFamily;font.pixelSize:9}
-            }
             Rectangle {
                 id:inspector;objectName:"voidNativeResourceSummary";visible:shell.showInspector
                 anchors.left:parent.left;anchors.right:parent.right;y:56;height:40
