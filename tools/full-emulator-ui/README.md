@@ -32,8 +32,8 @@ their compiled-cache owners are patched in the established backed-up transaction
 
 ## Scope
 
-- Black Settings shell with a full native-page stack, isolated source→ID→label
-  Settings icons, rounded selected navigation, version badge and restrained motion.
+- Black Settings shell with a full native-page stack, isolated label→ID→source
+  Settings icons, rounded selected navigation and restrained motion.
 - All eligible native Settings pages; original models, validation, Save/discard,
   page indices and backend callbacks remain. No optimizer tab is added.
 - Sidebar and topbar passive icon/hover styling; existing input/shortcuts remain.
@@ -61,7 +61,7 @@ six different background/surface/text/border/accent palettes, not six accents on
 one Carbon skin. Each also has its own corner and transition defaults.
 
 - Edit all seven color roles, font family, corners, motion and duration in Appearance.
-  **Apply my colors** stores a custom palette; **Reset** returns to OLED. Choosing
+  **Apply colors** stores a custom palette; **Reset** returns to OLED. Choosing
   a preset clears corner/duration overrides but keeps your font/motion preference.
 - Theme-aware masks tint Settings, known titlebar/sidebar and editor tool icons;
   the shared 57-name Icons.js contract is unchanged. Unknown native icons remain.
@@ -94,21 +94,21 @@ one Carbon skin. Each also has its own corner and transition defaults.
   OEM gradient, and relays live theme changes even when no command rail is present.
   It does not change `plr.qml`, guest rendering, startup/auth or window actions.
 - Settings keeps our existing colors, compact dimensions and reference layout.
-  FPS uses the original native slider, an inline native-caption/value badge and
-  right-side native toggles. Native bounds and recommended-FPS guidance remain.
-- The sidebar has a real “My theme” preset dropdown, plus the existing Appearance
-  page for custom colors. Native minimize/maximize/restore window actions remain
-  separate from native settings validation and Save.
+  FPS uses the original full-width native slider and its real value/range labels,
+  followed vertically by recommended-FPS guidance and native toggle rows.
+- The sidebar has a real “Theme” preset dropdown, plus the existing Appearance
+  page for custom colors. The Settings header has **Close only**, routed through
+  the native close/unsaved-change flow. The main player window actions are unchanged.
 - `VOID-Emulator.ico` is also included for a Windows **shortcut** icon (shortcut
   Properties → Change Icon). The pack does not claim to replace the Windows EXE's
   embedded icon or modify your existing shortcut target/arguments automatically.
 
-### Studio 15 — reference-inspired horizontal workspace
+### Studio 15 — vertical native workspace
 
-- Settings remains compact: **1000 × 680** logical pixels or less on a small desktop.
+- Settings remains compact: **940 × 700** logical pixels or less on a small desktop.
 - CPU, RAM and Performance mode use full-width, equal-edge cards. A coordinated
-  icon and label sit on the left; **the original native inputs align on the right**.
-  On narrow screens the inputs reflow below their labels instead of overlapping.
+  icon identifies each section; **the original native inputs sit below the title**,
+  aligned to one left edge, with short help. Lower settings remain scrollable.
 - The FPS section retains its native slider, recommended-FPS guidance and three
   native toggles, including their real limits and backend callbacks. Reference
   mockup numbers (such as 462 FPS) are not used as fake settings values.
@@ -126,7 +126,7 @@ one Carbon skin. Each also has its own corner and transition defaults.
 
 ### Native window/dialog coverage retained
 
-The Settings badge is **OLED STUDIO 14**. Native surface handling includes:
+Developer version badges have been removed from the visible workspace. Native surface handling includes:
 
 - Native Window/Popup `contentItem` and separate Dialog header/footer are visited.
   Previously a Window-root editor could get source colors but no control adapter.
@@ -193,7 +193,8 @@ No optimizer or helper is installed.
    permission elevation, if required, uses the existing explicit installer flow.
    Nothing disables security controls. Backup/journal and read-back checks cover
    every changed binary, external asset and the UI state.
-6. Restart the player. Settings must show **OLED STUDIO 14**. Test every native
+6. Restart the player. Verify the Close-only Settings header and vertical native
+   controls. Test every native
    page's controls/Save/discard, sidebar/topbar, volume/game-controls/exit popups,
    controls editor. Boot/auth must behave exactly as before.
 7. If a different/cached page appears or any safety check refuses, STOP. Run
