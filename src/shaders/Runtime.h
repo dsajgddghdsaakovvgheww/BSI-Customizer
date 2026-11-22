@@ -3,6 +3,7 @@
 #include "RendererCapabilities.h"
 #include "VulkanCapture.h"
 #include "TextureQuality.h"
+#include "GlTransferAudit.h"
 #include <array>
 #include <cstdint>
 #include <mutex>
@@ -36,6 +37,7 @@ struct Metrics {
     // Non-injected hook entries anywhere in this process while a GL game source
     // is selected and Potato is active. May include aliases/foreign routes.
     std::uint64_t textureHookDrawCalls=0,textureHookTransferCalls=0,textureHookImageCopyCalls=0,textureHookNativeImageCalls=0;
+    GlTransferAudit textureTransferAudit;
     std::string textureLastBypass;
     // Retain the actual producer's detail across later compositor inspections.
     // A final presentation-only refusal must not hide the upstream blocker.
@@ -80,7 +82,8 @@ public:
     TextureRoute textureRoute();
     // Replaces the callback's active-setting read (one mutex acquisition), and
     // separately counts pre-route coverage when a GL presentation is selected.
-    bool textureHookEntry(TextureHookKind kind);
+    bool textureHookEntry(TextureHookKind kind,std::uint64_t *revision=nullptr);
+    void textureTransferAuditReport(const GlTransferAttempt &attempt);
     void textureConsumerReport(unsigned inputs,std::uint64_t revision);
     void textureTransferReport(unsigned inputs,std::uint64_t revision);
     void textureReport(unsigned bindings,const std::string &detail,bool supported,

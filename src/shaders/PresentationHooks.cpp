@@ -270,15 +270,17 @@ struct GameCandidate {
     GameContext *session=nullptr;
     bool exact=false,protectionPossible=false;
     GlProducerRoute producerRoute=GlProducerRoute::Refuse;
-    bool find(unsigned index,const TextureRoute &route){
+    bool find(unsigned index,const TextureRoute &route,GlCandidateStop *stop=nullptr){
+        const auto refuse=[&](GlCandidateStop reason){if(stop)*stop=reason;return false;};
+        if(stop)*stop=GlCandidateStop::Qualified;
         provider=index;auto &h=hooks();auto &runtime=Runtime::instance();
-        if(provider&&(!h.egl[provider-1].lifecycleReady.load(std::memory_order_acquire)||h.egl[provider-1].lifecycleFault.load(std::memory_order_acquire)))return false;
-        context=contextFor(provider);if(!context)return false;
-        const auto renderer=rendererFor(provider);if(renderer!=route.renderer)return false;
+        if(provider&&(!h.egl[provider-1].lifecycleReady.load(std::memory_order_acquire)||h.egl[provider-1].lifecycleFault.load(std::memory_order_acquire)))return refuse(GlCandidateStop::Lifecycle);
+        context=contextFor(provider);if(!context)return refuse(GlCandidateStop::NoContext);
+        const auto renderer=rendererFor(provider);if(renderer!=route.renderer)return refuse(GlCandidateStop::Renderer);
         GameContext *source=nullptr;
         for(const auto &entry:h.contexts)
             if(std::get<0>(entry.first)==provider&&reinterpret_cast<std::uintptr_t>(entry.second.get())==route.object){source=entry.second.get();break;}
-        if(!source||!source->drawHooks||!runtime.isPresentation(renderer,route.object,route.window))return false;
+        if(!source||!source->drawHooks||!runtime.isPresentation(renderer,route.object,route.window))return refuse(GlCandidateStop::Source);
         const auto window=drawableFor(provider,&drawable);
         exact=source->window==window&&source->drawable==drawable;
         identity={provider,drawable.first,context};pbuffer=pbufferFor(provider,drawable);
@@ -288,14 +290,17 @@ struct GameCandidate {
         const bool resourceOnlyDrawable=provider?(drawable.first&&!drawable.second):(!window&&drawable.second);
         producerRoute=glProducerRoute(exact,pbuffer!=0,window!=nullptr,window==source->window,resourceOnlyDrawable);
         const auto &quality=route.configuration;
-        if(!exact&&(quality.drawPolicy!=TextureDrawPolicy::OwnedMipCompatibility||!quality.externalOverridesReviewed
-           ||!source->resourceHooks||(!h.provenance.hasDependencies(identity)&&!h.provenance.hasNativePbuffer(identity,pbuffer))
-           ||producerRoute==GlProducerRoute::Refuse))return false;
+        if(!exact){
+            if(quality.drawPolicy!=TextureDrawPolicy::OwnedMipCompatibility||!quality.externalOverridesReviewed)return refuse(GlCandidateStop::Policy);
+            if(!source->resourceHooks)return refuse(GlCandidateStop::ResourceHooks);
+            if(producerRoute==GlProducerRoute::Refuse)return refuse(GlCandidateStop::Drawable);
+            if(!h.provenance.hasDependencies(identity)&&!h.provenance.hasNativePbuffer(identity,pbuffer))return refuse(GlCandidateStop::Dependency);
+        }
         egl=provider?&h.egl[provider-1]:nullptr;
-        if(egl&&!unprotectedEgl(*egl,drawable,context,&protectionPossible))return false;
+        if(egl&&!unprotectedEgl(*egl,drawable,context,&protectionPossible))return refuse(GlCandidateStop::Protection);
         const ContextKey key{provider,drawable.first,context};auto found=h.contexts.find(key);
         if(found==h.contexts.end()){
-            if(h.contexts.size()>=16)return false;
+            if(h.contexts.size()>=16)return refuse(GlCandidateStop::Capacity);
             found=h.contexts.emplace(key,std::make_unique<GameContext>()).first;
         }
         session=found->second.get();
@@ -394,6 +399,7 @@ struct GameTransfer {
     GlDrawScope scope;
     inline static thread_local unsigned depth=0;
     const bool outer;
+    GlTransferAttempt audit;
     GlTextureUsage usage;
     GlContextIdentity identity{};
     DrawableKey drawable{};
@@ -402,48 +408,72 @@ struct GameTransfer {
     bool captured=false,exact=false;
     GameTransfer(unsigned providers,const GlColorTransfer &call)noexcept
         :scope(hooks().renderMutex,presenting),outer(++depth==1){
+        audit.api=call.kind;audit.providers=providers;
         try{
             auto &h=hooks();auto &runtime=Runtime::instance();
-            if(h.stopping.load()||presenting||!runtime.textureHookEntry(call.kind==GlColorTransfer::CopyImage?TextureHookKind::NamedImageCopy:TextureHookKind::ColorTransfer)
-               ||!outer||!scope.mayInspect()||!scope.tryLock())return;
-            drainResources();const auto route=runtime.textureRoute();const auto &quality=route.configuration;
-            h.provenance.synchronize(route.object,route.revision);
-            if(quality.active()&&quality.externalOverridesReviewed&&quality.drawPolicy==TextureDrawPolicy::OwnedMipCompatibility
-               &&route.object&&runtime.eligible(route.window)&&h.drainedResourceSerial==h.resourceSerial.load()){
+            if(h.stopping.load()||presenting||!runtime.textureHookEntry(call.kind==GlColorTransfer::CopyImage?TextureHookKind::NamedImageCopy:TextureHookKind::ColorTransfer,&audit.revision))return;
+            if(!outer){audit.stop=GlTransferStop::Nested;return;}
+            if(!scope.mayInspect()){audit.stop=GlTransferStop::Guarded;return;}
+            if(!scope.tryLock()){audit.stop=GlTransferStop::Busy;return;}
+            const auto capture=[&]{
+                drainResources();const auto route=runtime.textureRoute();const auto &quality=route.configuration;
+                h.provenance.synchronize(route.object,route.revision);
+                audit.stop=GlTransferStop::Policy;
+                if(!quality.active()||!quality.externalOverridesReviewed||quality.drawPolicy!=TextureDrawPolicy::OwnedMipCompatibility
+                   ||!route.object||!runtime.eligible(route.window))return;
+                audit.stop=GlTransferStop::ResourceChanged;
+                if(h.drainedResourceSerial!=h.resourceSerial.load())return;
                 for(unsigned provider=0;provider<=maximumEglProviders;++provider){
                     if(!(providers&(1u<<provider)))continue;
-                    GameCandidate candidate;if(!candidate.find(provider,route))continue;
+                    GameCandidate candidate;GlCandidateStop reason=GlCandidateStop::Qualified;
+                    const bool qualified=candidate.find(provider,route,&reason);
+                    ++audit.candidates[static_cast<std::size_t>(reason)];
+                    if(!qualified)continue;
                     scope.guardInspection();std::string detail;
-                    if(!candidate.initialize(&detail))break;
+                    audit.stop=GlTransferStop::Initialize;
+                    if(!candidate.initialize(&detail))return;
                     auto &session=*candidate.session;
                     if(!session.resourceHooks)session.resourceHooks=installResourceHooks(provider,candidate.egl);
                     serial=h.drainedResourceSerial;
-                    if(!session.resourceHooks||!session.potato.transfer(call,&usage)||!candidate.qualifyOutput(usage)
-                       ||!candidate.qualifyTransferInput(usage)||serial!=h.resourceSerial.load())break;
-                    if(!candidate.exact&&!h.provenance.producer(candidate.identity,usage))break;
+                    audit.stop=GlTransferStop::ResourceHooks;if(!session.resourceHooks)return;
+                    audit.stop=GlTransferStop::Descriptor;if(!session.potato.transfer(call,&usage,&audit.descriptor))return;
+                    audit.stop=GlTransferStop::Output;if(!candidate.qualifyOutput(usage))return;
+                    audit.stop=GlTransferStop::Input;if(!candidate.qualifyTransferInput(usage))return;
+                    audit.stop=GlTransferStop::ResourceChanged;if(serial!=h.resourceSerial.load())return;
+                    audit.stop=GlTransferStop::UnlinkedOutput;if(!candidate.exact&&!h.provenance.producer(candidate.identity,usage))return;
                     identity=candidate.identity;drawable=candidate.drawable;exact=candidate.exact;
-                    revision=route.revision;object=route.object;captured=true;break;
+                    revision=route.revision;object=route.object;captured=true;audit.stop=GlTransferStop::NativePending;return;
                 }
-            }
-        }catch(...){} // Metadata failure cannot modify/prevent the native call.
-        scope.releaseBypass();
+                audit.stop=GlTransferStop::NoCandidate;
+            };
+            capture();
+        }catch(...){audit.stop=GlTransferStop::Exception;} // Diagnostics cannot modify/prevent the native call.
+        scope.releaseBypass(); // NEVER hold a render lock or guard across the native original.
     }
     void complete()noexcept{
         if(!captured)return;
         try{
-            auto &h=hooks();if(h.stopping.load()||serial!=h.resourceSerial.load())return;
+            auto &h=hooks();audit.stop=GlTransferStop::ResourceChanged;
+            if(h.stopping.load()||serial!=h.resourceSerial.load())return;
+            audit.stop=GlTransferStop::Busy;
             std::unique_lock<std::mutex> lock(h.renderMutex,std::try_to_lock);if(!lock.owns_lock())return;
-            drainResources();if(serial!=h.resourceSerial.load())return;
+            drainResources();audit.stop=GlTransferStop::ResourceChanged;if(serial!=h.resourceSerial.load())return;
             auto &runtime=Runtime::instance();const auto route=runtime.textureRoute();
-            if(route.revision!=revision||route.object!=object||!route.configuration.active()
-               ||contextFor(identity.provider)!=identity.context)return;
-            DrawableKey current{};drawableFor(identity.provider,&current);
-            if(current!=drawable||!runtime.eligible(route.window)||serial!=h.resourceSerial.load())return;
+            audit.stop=GlTransferStop::RouteChanged;
+            if(route.revision!=revision||route.object!=object||!route.configuration.active()||!runtime.eligible(route.window))return;
+            audit.stop=GlTransferStop::CurrentChanged;
+            if(contextFor(identity.provider)!=identity.context)return;
+            DrawableKey current{};drawableFor(identity.provider,&current);if(current!=drawable)return;
+            audit.stop=GlTransferStop::ResourceChanged;if(serial!=h.resourceSerial.load())return;
             const auto inputs=h.provenance.observe(identity,usage,exact);
             runtime.textureTransferReport(inputs,revision);
-        }catch(...){} // Optional observations never throw through a native ABI.
+            audit.stop=inputs?GlTransferStop::RecordedInputs:GlTransferStop::RecordedNoInputs;
+        }catch(...){audit.stop=GlTransferStop::Exception;}
     }
-    ~GameTransfer(){--depth;}
+    ~GameTransfer(){
+        --depth;
+        try{if(audit.revision)Runtime::instance().textureTransferAuditReport(audit);}catch(...){}
+    }
 };
 // Successful native render-to-texture is a resource link without a GL
 // copy/blit. The native pbuffer lifetime + color aspect is explicit, NOT an
@@ -529,29 +559,43 @@ const std::array<std::array<void*,drawSlots>,drawKinds> drawCallbacks{{
 #undef BSI_DRAW_CALLBACK_ROW
 }};
 #undef BSI_GL_DRAW_CALLS
+// Declared before the audit guard, so its destructor restores the native
+// outgoing error AFTER that guard records its CPU-only diagnostics.
+struct NativeTransferError {
+    DWORD value=GetLastError();
+    void incoming()const{SetLastError(value);}
+    void returned(){value=GetLastError();}
+    ~NativeTransferError(){SetLastError(value);}
+};
 template<unsigned Index> void WINAPI blitFramebuffer(int sx0,int sy0,int sx1,int sy1,int dx0,int dy0,int dx1,int dy1,unsigned mask,unsigned filter){
+    NativeTransferError error;
     auto &hook=hooks().blits[Index];
     GameTransfer transfer(hook.providers.load(std::memory_order_acquire),GlColorTransfer::blit(sx0,sy0,sx1,sy1,dx0,dy0,dx1,dy1,mask,filter));
+    error.incoming();
     using Function=void(WINAPI*)(int,int,int,int,int,int,int,int,unsigned,unsigned);
     reinterpret_cast<Function>(hook.original.load(std::memory_order_acquire))(sx0,sy0,sx1,sy1,dx0,dy0,dx1,dy1,mask,filter);
-    transfer.complete();
+    error.returned();transfer.complete();
 }
 template<unsigned Index> void WINAPI copyTexSubImage2D(unsigned target,int level,int dx,int dy,int x,int y,int width,int height){
+    NativeTransferError error;
     auto &hook=hooks().copies[Index];
     GameTransfer transfer(hook.providers.load(std::memory_order_acquire),GlColorTransfer::copy(target,level,dx,dy,x,y,width,height));
+    error.incoming();
     using Function=void(WINAPI*)(unsigned,int,int,int,int,int,int,int);
     reinterpret_cast<Function>(hook.original.load(std::memory_order_acquire))(target,level,dx,dy,x,y,width,height);
-    transfer.complete();
+    error.returned();transfer.complete();
 }
 template<unsigned Index> void WINAPI copyImage(unsigned src,unsigned srcTarget,int srcLevel,int sx,int sy,int sz,
                                                unsigned dst,unsigned dstTarget,int dstLevel,int dx,int dy,int dz,int width,int height,int depth){
+    NativeTransferError error;
     auto &hook=hooks().imageCopies[Index];
     auto call=GlColorTransfer::image(src,srcTarget,srcLevel,sx,sy,sz,dst,dstTarget,dstLevel,dx,dy,dz,width,height,depth);
     call.imageApis=hook.contracts.load(std::memory_order_acquire);
     GameTransfer transfer(hook.providers.load(std::memory_order_acquire),call);
+    error.incoming();
     using Function=void(WINAPI*)(unsigned,unsigned,int,int,int,int,unsigned,unsigned,int,int,int,int,int,int,int);
     reinterpret_cast<Function>(hook.original.load(std::memory_order_acquire))(src,srcTarget,srcLevel,sx,sy,sz,dst,dstTarget,dstLevel,dx,dy,dz,width,height,depth);
-    transfer.complete();
+    error.returned();transfer.complete();
 }
 template<std::size_t... Index> auto imageCopyCallbacks(std::index_sequence<Index...>){return std::array<void*,sizeof...(Index)>{{reinterpret_cast<void*>(&copyImage<Index>)...}};}
 template<std::size_t... Index> auto blitCallbacks(std::index_sequence<Index...>){return std::array<void*,sizeof...(Index)>{{reinterpret_cast<void*>(&blitFramebuffer<Index>)...}};}

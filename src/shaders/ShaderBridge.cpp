@@ -51,6 +51,19 @@ QString fileFor(const QString &instance){
     return QDir(QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation))
         .filePath(QStringLiteral("BSICustomizer/Shaders/")+QString::fromLatin1(key)+QStringLiteral(".json"));
 }
+template<std::size_t N> QVariantMap auditCounters(const std::array<const char*,N> &labels,const std::array<std::uint64_t,N> &values){
+    QVariantMap result;
+    for(std::size_t i=0;i<N;++i)result.insert(QString::fromLatin1(labels[i]),QVariant::fromValue<qulonglong>(values[i]));
+    return result;
+}
+QString auditLine(const QVariant &value){
+    QString result;const auto counters=value.toMap();
+    for(auto it=counters.cbegin();it!=counters.cend();++it)if(it.value().toULongLong()){
+        if(!result.isEmpty())result+=QStringLiteral("; ");
+        result+=it.key()+QLatin1Char('=')+it.value().toString();
+    }
+    return result.isEmpty()?QStringLiteral("none"):result;
+}
 void notify(){for(auto *bridge:state().bridges){emit bridge->settingsChanged();emit bridge->metricsChanged();}}
 }
 ShaderBridge::ShaderBridge(QObject *parent):QObject(parent){
@@ -80,7 +93,7 @@ QVariantMap ShaderBridge::bridgeInfo()const{
     return {{"moduleQtVersion",QString::fromLatin1(QT_VERSION_STR)},
             {"runtimeQtVersion",QString::fromLatin1(qVersion())},{"publicQtApi",true},
             {"moduleBuildRevision",QStringLiteral(BSI_SHADERS_BUILD_REVISION)},
-            {"moduleCaptureVersion",QStringLiteral("gl-egl-lifecycle-alias-v3")}};
+            {"moduleCaptureVersion",QStringLiteral("gl-transfer-route-ledger-v4")}};
 }
 QVariantList ShaderBridge::controlList()const{
     QVariantList out;
@@ -118,6 +131,11 @@ QVariantMap ShaderBridge::metrics()const{
             {"textureTransferCalls",number(m.textureTransferCalls)},{"textureTransferInputs",number(m.textureTransferInputs)},
             {"textureHookDrawCalls",number(m.textureHookDrawCalls)},{"textureHookTransferCalls",number(m.textureHookTransferCalls)},
             {"textureHookImageCopyCalls",number(m.textureHookImageCopyCalls)},{"textureHookNativeImageCalls",number(m.textureHookNativeImageCalls)},
+            {"textureTransferApis",auditCounters(glTransferApiLabels,m.textureTransferAudit.calls)},
+            {"textureTransferStops",auditCounters(glTransferLabels,m.textureTransferAudit.stops)},
+            {"textureTransferCandidates",auditCounters(glCandidateLabels,m.textureTransferAudit.candidates)},
+            {"textureTransferDescriptors",auditCounters(glDescriptorLabels,m.textureTransferAudit.descriptors)},
+            {"textureTransferCodeProviders",auditCounters(std::array<const char*,3>{{"wgl-only","egl-only","mixed-or-unattributed"}},m.textureTransferAudit.codeProviders)},
             {"textureLastBypass",QString::fromStdString(m.textureLastBypass)},
             {"vulkanLoaders",number(m.vulkan.loaders)},{"vulkanInstances",number(m.vulkan.instances)},
             {"vulkanDevices",number(m.vulkan.devices)},{"vulkanSurfaces",number(m.vulkan.surfaces)},
@@ -142,7 +160,11 @@ QString ShaderBridge::diagnostics()const{
              .arg(m.value("textureProducerStatus").toString().isEmpty()?QStringLiteral("no detail recorded since the latest setting/source change"):m.value("textureProducerStatus").toString());
     const auto captureReport=QStringLiteral("Pre-route GL hook coverage since the latest setting/source change: draws=%1; transfers=%2 (named image copies=%3; native image bindings=%4). These are process-wide non-injected callback entries while Potato and a selected GL game source are active, NOT owned/inspected draws, qualified transfers, successful pixels or FPS. Foreign routes and nested/alias entries can be included; zero qualified transfers does not mean no native copy was seen.")
         .arg(m.value("textureHookDrawCalls").toString(),m.value("textureHookTransferCalls").toString(),
-             m.value("textureHookImageCopyCalls").toString(),m.value("textureHookNativeImageCalls").toString());
+             m.value("textureHookImageCopyCalls").toString(),m.value("textureHookNativeImageCalls").toString())
+        +QStringLiteral("\nCopy/blit routing ledger (native image bindings excluded): APIs: %1\nTerminal outcomes: %2\nProvider-candidate checks: %3\nDescriptor refusals: %4\nCode-target provider masks (NOT resource ownership): %5\nOne outcome per completed audited callback; candidate checks may overlap across shared-code providers. In-flight/reset-stale callbacks can be absent. Recorded inputs are submitted metadata, NOT driver success, changed pixels or a working Potato effect. No extra diagnostic GL query, raw handle/name, persistent log or upload.")
+             .arg(auditLine(m.value("textureTransferApis")),auditLine(m.value("textureTransferStops")),
+                  auditLine(m.value("textureTransferCandidates")),auditLine(m.value("textureTransferDescriptors")),
+                  auditLine(m.value("textureTransferCodeProviders")));
     const auto inspectionReport=QStringLiteral("Texture inspection since the latest setting/source change: calls=%1; sampler-inspection calls=%2; conservative depth bypass=%3; blended bypass=%4; no eligible mip sampler=%5; other bypass=%6\nLatest bypass: %7\nOffscreen/pbuffer/foreign scene contexts are not inferred from presentation or a share group.")
         .arg(m.value("textureInspected").toString(),m.value("textureEligibleDraws").toString(),
              m.value("textureDepthBypasses").toString(),m.value("textureBlendBypasses").toString(),

@@ -160,6 +160,35 @@ int main(){
     const auto route=runtime.textureRoute();
     require(route.configuration.enabled&&route.renderer==Renderer::OpenGLES&&route.object==901&&route.window==window,
             "dependency routing has one mutex-consistent settings/source identity, never a draw-selected presentation");
+    GlTransferAttempt attempt;attempt.revision=route.revision;attempt.providers=1;
+    attempt.stop=GlTransferStop::Descriptor;attempt.descriptor=GlTransferDescriptor::Framebuffer;
+    attempt.candidates[static_cast<std::size_t>(GlCandidateStop::Qualified)]=1;
+    runtime.textureTransferAuditReport(attempt);
+    auto audit=runtime.metrics().textureTransferAudit;
+    require(audit.calls[0]==1&&audit.stops[static_cast<std::size_t>(GlTransferStop::Descriptor)]==1
+            &&audit.descriptors[static_cast<std::size_t>(GlTransferDescriptor::Framebuffer)]==1
+            &&audit.candidates[static_cast<std::size_t>(GlCandidateStop::Qualified)]==1&&audit.codeProviders[0]==1
+            &&!runtime.metrics().textureInspected&&!runtime.metrics().textureTransferCalls&&!runtime.metrics().textureProducerDraws,
+            "transfer rejection diagnostics never count as qualified ownership, inspected draws or successful copies");
+    attempt.api=static_cast<GlColorTransfer::Kind>(999);runtime.textureTransferAuditReport(attempt);
+    require(runtime.metrics().textureTransferAudit.calls==audit.calls,"unrecognized transfer audit enums are bounded before indexing");
+    attempt.api=GlColorTransfer::CopyTexSubImage2D;attempt.providers=2;attempt.stop=GlTransferStop::NoCandidate;attempt.candidates={};
+    attempt.candidates[static_cast<std::size_t>(GlCandidateStop::Renderer)]=1;
+    attempt.candidates[static_cast<std::size_t>(GlCandidateStop::Dependency)]=1;
+    runtime.textureTransferAuditReport(attempt);
+    audit=runtime.metrics().textureTransferAudit;
+    require(audit.calls[1]==1&&audit.codeProviders[1]==1&&audit.candidates[static_cast<std::size_t>(GlCandidateStop::Renderer)]==1
+            &&audit.candidates[static_cast<std::size_t>(GlCandidateStop::Dependency)]==1,
+            "retain each shared-code provider candidate's refusal separately, not a misleading arbitrary last candidate");
+    attempt.api=GlColorTransfer::CopyImage;attempt.providers=3;attempt.stop=GlTransferStop::Busy;attempt.candidates={};
+    std::thread diagnosticA([&]{for(unsigned i=0;i<100;++i)runtime.textureTransferAuditReport(attempt);});
+    std::thread diagnosticB([&]{for(unsigned i=0;i<100;++i)runtime.textureTransferAuditReport(attempt);});
+    diagnosticA.join();diagnosticB.join();audit=runtime.metrics().textureTransferAudit;
+    require(audit.calls[2]==200&&audit.codeProviders[2]==200&&audit.stops[static_cast<std::size_t>(GlTransferStop::Busy)]==200,
+            "concurrent diagnostic aggregation remains mutex-consistent without claiming a captured transfer");
+    for(const auto *label:glTransferLabels)require(label&&*label,"all terminal diagnostic categories have stable labels");
+    for(const auto *label:glCandidateLabels)require(label&&*label,"all candidate diagnostic categories have stable labels");
+    for(const auto *label:glDescriptorLabels)require(label&&*label,"all descriptor diagnostic categories have stable labels");
     for(const auto kind:{TextureHookKind::Draw,TextureHookKind::ColorTransfer,TextureHookKind::NamedImageCopy,TextureHookKind::NativeImageBinding})
         require(runtime.textureHookEntry(kind),"active hook-entry settings read remains independent of route qualification");
     m=runtime.metrics();
@@ -181,6 +210,17 @@ int main(){
             "retain the real producer's precise refusal separately; a later compositor must not overwrite it with a misleading no-mip diagnosis");
     runtime.setTexture({true,true,TextureDrawPolicy::OwnedMipCompatibility,50});
     const auto halfRoute=runtime.textureRoute();m=runtime.metrics();
+    runtime.textureTransferAuditReport(attempt);
+    require(runtime.metrics().textureTransferAudit.calls==decltype(audit.calls){}
+            &&runtime.metrics().textureTransferAudit.stops==decltype(audit.stops){},
+            "strength/source resets clear the full routing ledger and reject late old-epoch diagnostic reports");
+    std::uint64_t hookRevision=0;
+    require(runtime.textureHookEntry(TextureHookKind::Draw,&hookRevision)&&hookRevision==halfRoute.revision,
+            "hook entry captures the same mutex-consistent revision as raw counters");
+    runtime.setTexture({false,true,TextureDrawPolicy::OwnedMipCompatibility,50});
+    require(!runtime.textureHookEntry(TextureHookKind::Draw,&hookRevision)&&!hookRevision,
+            "Off zeroes even a previously nonzero diagnostic epoch token");
+    runtime.setTexture({true,true,TextureDrawPolicy::OwnedMipCompatibility,50});
     require(halfRoute.revision!=route.revision&&halfRoute.configuration.strength==50&&!m.textureInspected&&!m.textureBindings&&m.textureProducerStatus.empty()
             &&!m.textureHookDrawCalls&&!m.textureHookTransferCalls&&!m.textureHookImageCopyCalls&&!m.textureHookNativeImageCalls,
             "strength-only Save invalidates old producer/provenance/counter evidence but keeps the selected source");

@@ -2,7 +2,7 @@
 #include "GlPipeline.h"
 #include "TextureQuality.h"
 #include "GlTextureProvenance.h"
-#include "GlColorTransfer.h"
+#include "GlTransferAudit.h"
 #include <memory>
 
 namespace BsiShaders {
@@ -47,7 +47,9 @@ public:
     // changed, and no GetError. Default framebuffer entries contain a zero-name
     // Pbuffer placeholder which MUST be natively qualified before observation.
     // No proof is published until AFTER the unmodified original returns.
-    bool transfer(const GlColorTransfer &call,GlTextureUsage *out);
+    // Optional failure classification reuses the existing checks; no extra GL
+    // query, resource adoption, state change or success inference is added.
+    bool transfer(const GlColorTransfer &call,GlTextureUsage *out,GlTransferDescriptor *failure=nullptr);
     // Native render-to-texture defines the CURRENT ordinary 2D binding. Capture
     // its name/unit before the native call (the image can still be undefined),
     // then require the SAME binding and a defined unprotected normalized color

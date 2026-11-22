@@ -379,14 +379,18 @@ bool GlTextureOverride::textureBinding(GlTextureBinding *out,bool requireColorIm
     }
     *out={U(active-I(texture0)),U(texture)};return true;
 }
-bool GlTextureOverride::transfer(const GlColorTransfer &call,GlTextureUsage *out){
+bool GlTextureOverride::transfer(const GlColorTransfer &call,GlTextureUsage *out,GlTransferDescriptor *failure){
+    const auto stage=[&](GlTransferDescriptor value){if(failure)*failure=value;};
+    stage(GlTransferDescriptor::NotReady);
     if(!out)return false;
     *out={};auto &g=*impl;if(!g.ready)return false;
     if(call.kind==GlColorTransfer::CopyImage){
         // Narrow, binding-free normalized 2D/RBO copies only. Never probe an
         // unknown name by binding it (which could create it or add an error).
-        if(!g.namedImageQueries||g.protectedTextures||!(call.imageApis&g.copyImageApis)
-           ||call.sourceLevel||call.destinationLevel||call.sourceZ||call.destinationZ||call.depth!=1)return false;
+        stage(GlTransferDescriptor::Api);
+        if(!g.namedImageQueries||g.protectedTextures||!(call.imageApis&g.copyImageApis))return false;
+        stage(GlTransferDescriptor::Arguments);
+        if(call.sourceLevel||call.destinationLevel||call.sourceZ||call.destinationZ||call.depth!=1)return false;
         struct Image {I width=0,height=0,format=0,samples=0;GlColorResource resource;};
         const auto format=[](I f){return f==0x8051||f==0x8058||f==0x8c41||f==0x8c43||f==0x8056||f==0x8057||f==0x8d62;};
         const auto image=[&](U name,U target,Image &v){
@@ -427,22 +431,28 @@ bool GlTextureOverride::transfer(const GlColorTransfer &call,GlTextureUsage *out
             return v.width>0&&v.height>0&&v.width<=16384&&v.height<=16384&&format(v.format)&&v.samples>=0&&v.samples<=64;
         };
         const auto sx=call.source[0],sy=call.source[1],w=call.source[2],h=call.source[3],dx=call.destination[0],dy=call.destination[1];
+        stage(GlTransferDescriptor::Arguments);
         if(sx<0||sy<0||dx<0||dy<0||w<1||h<1||w>16384||h>16384)return false;
+        stage(GlTransferDescriptor::NamedImage);
         Image source,destination;
         if(!image(call.sourceName,call.sourceTarget,source)||!image(call.destinationName,call.destinationTarget,destination)
            ||source.resource==destination.resource||source.format!=destination.format||source.samples!=destination.samples
            ||w>source.width||h>source.height||w>destination.width||h>destination.height
            ||sx>source.width-w||sy>source.height-h||dx>destination.width-w||dy>destination.height-h)return false;
-        out->reads[out->readCount++]=source.resource;out->writes[out->writeCount++]=destination.resource;return true;
+        out->reads[out->readCount++]=source.resource;out->writes[out->writeCount++]=destination.resource;stage(GlTransferDescriptor::None);return true;
     }
+    stage(GlTransferDescriptor::MissingQuery);
     if(!g.CheckFramebufferStatus)return false;
     const auto colorBuffer=[&](bool draw,GlColorResource *resource,bool *native){
         const U target=draw?0x8ca9:0x8ca8; // DRAW/READ_FRAMEBUFFER
+        stage(GlTransferDescriptor::Framebuffer);
         if(g.CheckFramebufferStatus(target)!=0x8cd5)return false;
+        stage(GlTransferDescriptor::ColorBuffer);
         I framebuffer=0,slot=0;g.GetIntegerv(draw?0x8ca6:0x8caa,&framebuffer);
         g.GetIntegerv(draw?0x8825:0x0c02,&slot);if(!slot)return false;
         *native=framebuffer==0;
         const auto normalized=[&](U attachment){
+            stage(GlTransferDescriptor::ColorFormat);
             I component=0,red=0,green=0,blue=0;
             g.GetFramebufferAttachmentParameteriv(target,attachment,0x8211,&component);
             g.GetFramebufferAttachmentParameteriv(target,attachment,0x8212,&red);
@@ -457,9 +467,12 @@ bool GlTextureOverride::transfer(const GlColorTransfer &call,GlTextureUsage *out
             if((g.es&&slot!=0x0405)||(!g.es&&(color<0x0400||color>0x0403))||!normalized(color))return false;
             *resource=GlColorResource::pbuffer(0,color);return true;
         }
-        if(slot<0x8ce0||slot>=0x8ce0+g.attachments||g.protectedTextures)return false;
+        if(slot<0x8ce0||slot>=0x8ce0+g.attachments)return false;
+        stage(GlTransferDescriptor::Protection);
+        if(g.protectedTextures)return false;
         // Core GLES has no binding-free per-attachment protection query. Do
         // not infer an unprotected texture/RBO merely from a public object name.
+        stage(GlTransferDescriptor::Attachment);
         I type=0,name=0;
         g.GetFramebufferAttachmentParameteriv(target,U(slot),0x8cd0,&type);
         if(type!=0x1702&&type!=0x8d41)return false;
@@ -468,6 +481,7 @@ bool GlTextureOverride::transfer(const GlColorTransfer &call,GlTextureUsage *out
         *resource=type==0x1702?GlColorResource(U(name)):GlColorResource::renderbuffer(U(name));return true;
     };
     GlTextureUsage captured;GlColorResource source,destination;bool nativeRead=false,nativeDraw=false;
+    stage(GlTransferDescriptor::Arguments);
     if(call.kind==GlColorTransfer::BlitFramebuffer){
         if(call.mask!=0x4000||(call.filter!=0x2600&&call.filter!=0x2601))return false;
         for(auto value:call.source)if(value<0||value>16384)return false;
@@ -480,8 +494,11 @@ bool GlTextureOverride::transfer(const GlColorTransfer &call,GlTextureUsage *out
         const auto x=call.source[0],y=call.source[1],width=call.source[2],height=call.source[3];
         const auto dx=call.destination[0],dy=call.destination[1];
         if(x<0||y<0||width<=0||height<=0||x>16384-width||y>16384-height||dx<0||dy<0)return false;
+        stage(GlTransferDescriptor::Destination);
         I texture=0,base=-1,w=0,h=0,format=0;g.GetIntegerv(0x8069,&texture);if(texture<=0)return false;
+        stage(GlTransferDescriptor::Protection);
         if(g.protectedTextures){I secret=1;g.GetTexParameteriv(texture2d,0x8bfa,&secret);if(secret)return false;}
+        stage(GlTransferDescriptor::Destination);
         g.GetTexParameteriv(texture2d,0x813c,&base);if(base!=0)return false;
         g.GetTexLevelParameteriv(texture2d,0,0x1000,&w);g.GetTexLevelParameteriv(texture2d,0,0x1001,&h);
         g.GetTexLevelParameteriv(texture2d,0,0x1003,&format);
@@ -491,11 +508,12 @@ bool GlTextureOverride::transfer(const GlColorTransfer &call,GlTextureUsage *out
     }else return false;
     // Two different native default drawables cannot be identified by GL alone;
     // leave both placeholders for the caller to resolve before equality/proof.
+    stage(GlTransferDescriptor::Feedback);
     if(!nativeRead&&!nativeDraw&&source==destination)return false;
     captured.defaultFramebuffer=nativeDraw;
     if(nativeDraw)captured.nativeColorBuffer=destination.colorBuffer;
     captured.reads[captured.readCount++]=source;captured.writes[captured.writeCount++]=destination;
-    *out=captured;return true;
+    *out=captured;stage(GlTransferDescriptor::None);return true;
 }
 unsigned GlTextureOverride::begin(TextureQuality mode,bool reviewed,U primitive,std::string *detail,TextureDrawReason *reason,TextureDepthFailure *depthFailure,TextureDrawPolicy policy,int strength){
     auto &g=*impl;end();

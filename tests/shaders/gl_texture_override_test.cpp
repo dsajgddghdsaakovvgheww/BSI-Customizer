@@ -323,21 +323,22 @@ int main(){
         g.reset();g.framebuffer=1;g.textures[3]=3;GlTextureOverride quality;std::string error;GlTextureUsage usage;
         require(quality.initialize(resolve,nullptr,&error),"initialize read-only color-transfer inspection");
         const auto blit=GlColorTransfer::blit(1,2,61,62,3,4,59,60,0x4000,0x2600);
-        require(quality.transfer(blit,&usage)&&!usage.defaultFramebuffer&&usage.readCount==1&&usage.writeCount==1
+        GlTransferDescriptor refusal=GlTransferDescriptor::NotReady;
+        require(quality.transfer(blit,&usage,&refusal)&&refusal==GlTransferDescriptor::None&&!usage.defaultFramebuffer&&usage.readCount==1&&usage.writeCount==1
                 &&usage.reads[0]==88&&usage.writes[0]==99,"observe the actual READ_BUFFER -> DRAW_BUFFER0 color resources without a shader/depth predicate");
         g.colorWrite=false;g.blend=true;g.program=0;
-        failAfter=0;const bool allocationFree=quality.transfer(blit,&usage);failAfter=-1;
+        failAfter=0;const bool allocationFree=quality.transfer(blit,&usage,&refusal);failAfter=-1;
         require(allocationFree,"copy/resolve evidence needs no allocation and ignores draw-only blend/color-mask/program state");
         g.readColorType=0x8d41;g.readColorAttachment=99;
         require(quality.transfer(blit,&usage)&&usage.reads[0]==GlColorResource::renderbuffer(99)&&usage.writes[0]==99,
                 "equal numeric texture/renderbuffer names are DIFFERENT typed color resources");
         g.colorType=0x8d41;require(!quality.transfer(blit,&usage),"same actual typed read/write resource cannot self-authorize through a blit");
         g.colorType=0x1702;g.readColorType=0x1702;g.readColorAttachment=88;
-        g.readComplete=false;require(!quality.transfer(blit,&usage),"incomplete read framebuffer is not transfer evidence");g.readComplete=true;
+        g.readComplete=false;require(!quality.transfer(blit,&usage,&refusal)&&refusal==GlTransferDescriptor::Framebuffer,"incomplete read framebuffer has a precise refusal, not transfer evidence");g.readComplete=true;
         g.drawComplete=false;require(!quality.transfer(blit,&usage),"incomplete draw framebuffer is not transfer evidence");g.drawComplete=true;
-        g.readBufferNone=true;require(!quality.transfer(blit,&usage),"READ_BUFFER NONE is not a color source");g.readBufferNone=false;
+        g.readBufferNone=true;require(!quality.transfer(blit,&usage,&refusal)&&refusal==GlTransferDescriptor::ColorBuffer,"READ_BUFFER NONE is diagnosed without becoming a color source");g.readBufferNone=false;
         g.drawBufferNone=true;require(!quality.transfer(blit,&usage),"DRAW_BUFFER0 NONE is not a color destination");g.drawBufferNone=false;
-        g.colorComponent=0x1406;require(!quality.transfer(blit,&usage),"HDR/float/integer attachment components are not qualified by color-copy capture");g.colorComponent=0x8c17;
+        g.colorComponent=0x1406;require(!quality.transfer(blit,&usage,&refusal)&&refusal==GlTransferDescriptor::ColorFormat,"HDR/float/integer attachment refusal is distinct from routing and ownership");g.colorComponent=0x8c17;
         auto invalid=blit;invalid.mask|=0x0100;require(!quality.transfer(invalid,&usage),"mixed depth/stencil transfers stay native and untracked");
         invalid=blit;invalid.filter=0;require(!quality.transfer(invalid,&usage),"invalid blit filter is not evidence");
         invalid=blit;invalid.source[2]=invalid.source[0];require(!quality.transfer(invalid,&usage),"zero-area blit cannot propagate ownership");
@@ -349,12 +350,12 @@ int main(){
         const auto copy=GlColorTransfer::copy(0x0de1,0,0,0,0,0,64,64);
         require(quality.transfer(copy,&usage)&&!usage.defaultFramebuffer&&usage.reads[0].kind==GlColorResource::Pbuffer
                 &&!usage.reads[0]&&usage.writes[0]==3,"a default READ framebuffer copy leaves a zero-name native-pbuffer placeholder for the caller");
-        g.baseLevel=1;require(!quality.transfer(copy,&usage),"nonzero destination base level is not the captured level-zero transfer path");g.baseLevel=0;
+        g.baseLevel=1;require(!quality.transfer(copy,&usage,&refusal)&&refusal==GlTransferDescriptor::Destination,"unsupported copy destination is a descriptor refusal, not a missing hook");g.baseLevel=0;
         for(auto bad:{GlColorTransfer::copy(0x8515,0,0,0,0,0,64,64),GlColorTransfer::copy(0x0de1,1,0,0,0,0,64,64),
                       GlColorTransfer::copy(0x0de1,0,1,0,0,0,64,64),GlColorTransfer::copy(0x0de1,0,0,0,-1,0,64,64),
                       GlColorTransfer::copy(0x0de1,0,0,0,0,0,0,64),GlColorTransfer::copy(0x0de1,0,0,0,0,0,std::numeric_limits<int>::max(),64)})
             require(!quality.transfer(bad,&usage)&&!usage.readCount&&!usage.writeCount,"invalid/unsupported copy arguments leave no partial proof and do not overflow");
-        g.readFramebuffer=2;g.readColorAttachment=3;require(!quality.transfer(copy,&usage),"copy texture feedback is not a dependency");
+        g.readFramebuffer=2;g.readColorAttachment=3;require(!quality.transfer(copy,&usage,&refusal)&&refusal==GlTransferDescriptor::Feedback,"copy feedback has its own refusal, never a dependency");
         unchanged();require(!g.creations&&!g.deletions,"read-only transfers never allocate/bind/delete any GL object");quality.release();
     }
     {
