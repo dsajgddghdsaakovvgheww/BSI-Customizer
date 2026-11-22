@@ -78,6 +78,9 @@ API unsigned WINAPI eglQueryContext(void*,void *value,int name,int *out){
 API void *WINAPI eglGetProcAddress(const char *name){
     InterlockedIncrement(&glQueries);SetLastError(0x13579b);
     if(!name)return nullptr;
+#ifdef BSI_EGL_FIXTURE_EXTRA_PROCEDURE
+    if(const auto entry=BSI_EGL_FIXTURE_EXTRA_PROCEDURE(name))return entry;
+#endif
     if(currentContext&&currentContext->variant&&std::strcmp(name,"glDrawElements")==0){
         if(currentContext->variant==1)return reinterpret_cast<void*>(&EglDrawFixture::drawElements<BsiShaders::glDrawAliases>);
         if(currentContext->variant==2)return reinterpret_cast<void*>(&EglDrawFixture::drawElements<BsiShaders::glDrawAliases+1>);

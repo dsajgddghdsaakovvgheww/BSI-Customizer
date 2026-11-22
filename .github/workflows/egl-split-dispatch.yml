@@ -1,0 +1,43 @@
+name: Authored split EGL dispatch contracts (not player certification)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-windows:
+    name: Actual Windows MinHook on authored split EGL DLLs
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Build production hooks and authored DLLs without Qt or proprietary files
+        env:
+          BSI_TEST_COMMAND_TIMEOUT: '600'
+        run: |
+          python tests/shaders/run_ci_tests.py --command cmake -S tests/shaders -B build-egl-contracts -G "Visual Studio 17 2022" -A x64 -T v143 -DBSI_TEST_VULKAN=OFF
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          python tests/shaders/run_ci_tests.py --command cmake --build build-egl-contracts --config Release --parallel 2
+          exit $LASTEXITCODE
+      - name: Run all seven independent split-dispatch contracts and existing Windows contracts
+        env:
+          BSI_TEST_COMMAND_TIMEOUT: '180'
+        run: |
+          $failed = $false
+          foreach ($mode in @('exports', 'queried', 'cached', 'present', 'retire-surface', 'retire-context', 'resolver')) {
+            python tests/shaders/run_ci_tests.py --test-dir build-egl-contracts -C Release -R "^shader-egl-split-$mode-contract$" --output-on-failure --timeout 60
+            $status = $LASTEXITCODE
+            Write-Output "::notice title=Split EGL contract result::$mode exit=$status source=${{ github.sha }}"
+            if ($status) { $failed = $true }
+          }
+          python tests/shaders/run_ci_tests.py --test-dir build-egl-contracts -C Release -E '^shader-egl-split-' --output-on-failure --timeout 60
+          if ($LASTEXITCODE) { $failed = $true }
+          if ($failed) { exit 1 }
+      - name: Record scope
+        if: always()
+        run: "'Authored Win32/MinHook dispatch doubles only. No PF files executed, no EGL driver/game pixels, material-texture or hardware/FPS acceptance.' | Out-File $env:GITHUB_STEP_SUMMARY -Append"

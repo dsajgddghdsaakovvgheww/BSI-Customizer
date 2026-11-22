@@ -196,6 +196,27 @@ if(WIN32)
         add_test(NAME shader-egl-${mode}-procedures-contract COMMAND shader-egl-procedures-test
             "$<TARGET_FILE:shader-egl-fixture-A>" "$<TARGET_FILE:shader-egl-fixture-B>" ${mode})
     endforeach()
+    # Exact PF-observed topology: separately named public import-jump shim and
+    # implementation DLL. Only authored fixture code is linked or executed.
+    foreach(provider A B)
+        add_library(shader-egl-split-backend-${provider} SHARED egl_split_backend_fixture.cpp)
+        target_include_directories(shader-egl-split-backend-${provider} PRIVATE "${shader_dir}")
+        target_compile_definitions(shader-egl-split-backend-${provider} PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
+        target_link_libraries(shader-egl-split-backend-${provider} PRIVATE user32)
+        set_target_properties(shader-egl-split-backend-${provider} PROPERTIES PREFIX "" OUTPUT_NAME "BsiEglImplementation${provider}")
+        add_library(shader-egl-split-shim-${provider} SHARED egl_split_shim_fixture.cpp)
+        target_compile_definitions(shader-egl-split-shim-${provider} PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
+        target_link_libraries(shader-egl-split-shim-${provider} PRIVATE shader-egl-split-backend-${provider})
+        set_target_properties(shader-egl-split-shim-${provider} PROPERTIES PREFIX "" OUTPUT_NAME "BsiEglImportShim${provider}")
+    endforeach()
+    add_executable(shader-egl-split-dispatch-test egl_split_dispatch_test.cpp)
+    target_link_libraries(shader-egl-split-dispatch-test PRIVATE shader-presentation-test-code)
+    add_dependencies(shader-egl-split-dispatch-test shader-egl-split-shim-A shader-egl-split-shim-B)
+    foreach(mode exports queried cached present retire-surface retire-context resolver)
+        add_test(NAME shader-egl-split-${mode}-contract COMMAND shader-egl-split-dispatch-test
+            "$<TARGET_FILE:shader-egl-split-shim-A>" "$<TARGET_FILE:shader-egl-split-backend-A>"
+            "$<TARGET_FILE:shader-egl-split-shim-B>" "$<TARGET_FILE:shader-egl-split-backend-B>" ${mode})
+    endforeach()
     add_executable(shader-egl-hooks-test egl_hooks_test.cpp)
     target_link_libraries(shader-egl-hooks-test PRIVATE shader-presentation-test-code)
     add_dependencies(shader-egl-hooks-test shader-egl-fixture-A shader-egl-fixture-B)
