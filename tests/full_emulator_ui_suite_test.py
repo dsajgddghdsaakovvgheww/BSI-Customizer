@@ -119,6 +119,47 @@ class SuiteTests(unittest.TestCase):
             self.assertEqual(styled[name].count(b'uiBackend.'),original[name].count(b'uiBackend.'))
         self.assertEqual(styled['PlrShortcutsSetting.qml'],original['PlrShortcutsSetting.qml'])
 
+    def test_studio14_migration_preserves_oem_fps_and_handlers_without_four_group_gate(self):
+        page=b'''import QtQuick 2.15
+import QtQuick.Layouts 1.15
+Item {
+ id:page
+ readonly property real pVoidFps:iFrameRateSlider.value
+ UiColumnLayout {
+  id:iContentLayout;width:520;spacing:12
+  UiColumnLayout {
+// VOID NATIVE SECTION CARDS 14
+property bool pVoidSectionCard:true
+padding:14
+color:VoidLiveTheme.Theme.surface
+radius:Math.min(VoidLiveTheme.Theme.corner,14)
+border.width:1
+border.color:VoidLiveTheme.Theme.border
+Layout.fillWidth:true
+   UiSlider {
+property bool pVoidInlineSlider:true
+rightPadding:54
+Layout.row:0
+Layout.column:1
+    id:iFrameRateSlider
+    from:1;to:540;value:462
+    onMoved:backend.setFps(value)
+    Rectangle {objectName:"voidReferenceFpsValue";width:44;height:30}
+   }
+  }
+ }
+}'''
+        output=S.native_section_sources(U,{'UiPerformanceSetting.qml':page},'file:///Skin/')['UiPerformanceSetting.qml']
+        self.assertEqual(output.count(b'VoidLiveTheme.NativeSettingCard'),1)
+        self.assertIn(b'to:540;value:462',output)
+        self.assertIn(b'onMoved:backend.setFps(value)',output)
+        self.assertNotIn(b'rightPadding:54',output)
+        self.assertNotIn(b'pVoidInlineSlider',output)
+        self.assertNotIn(b'voidReferenceFpsValue',output)
+        self.assertNotIn(b'Layout.column:',output)
+        self.assertNotIn(b'VOID NATIVE SECTION CARDS 14',output)
+        self.assertEqual(S.native_section_sources(U,{'UiPerformanceSetting.qml':output},'file:///Skin/')['UiPerformanceSetting.qml'],output)
+
     def test_upgrade_tracked_v5_with_current_optimizer_and_exact_undo(self):
         source=(ROOT/'reference/full-emulator-ui/legacy_installer.py').read_bytes()
         import types

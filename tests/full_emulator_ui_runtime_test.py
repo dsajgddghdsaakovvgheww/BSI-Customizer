@@ -184,6 +184,18 @@ Window {
     assert slider.property('pColor').property('sliderFill').name()=='#82dfb1'
     appearance_capture=ROOT/'.cache/full-ui/appearance-fixture.png';appearance_capture.parent.mkdir(parents=True,exist_ok=True)
     assert window.grabWindow().save(str(appearance_capture))
+    # Test the redesigned, vertically scrolled color editor with real typing,
+    # not only direct Theme singleton calls. Apply stays outside the scroller.
+    scroller=visual(root,'voidAppearanceScroll')
+    accent=visual(root,'customColor_accent')
+    flick=scroller.property('contentItem')
+    offset=accent.mapToScene(QPointF(0,0)).y()-scroller.mapToScene(QPointF(0,0)).y()-12
+    flick.setProperty('contentY',flick.property('contentY')+offset);settle()
+    click(accent);QTest.keyClick(window,Qt.Key_A,Qt.ControlModifier);QTest.keyClicks(window,'#aaccff');settle()
+    click(visual(root,'applyCustomTheme'))
+    assert window.property('themeName')=='My theme','vertical custom-color editor did not apply'
+    assert slider.property('pColor').property('sliderFill').name()=='#aaccff'
+    assert window.grabWindow().save(str(ROOT/'.cache/full-ui/appearance-customization-fixture.png'))
     click(visual(root,'bsiSettingsTab_0'))
     assert not shell.property('appearanceOpen') and page.isVisible()
     assert window.property('pCurrentTabIndex')==index,'unsaved-change guard bypassed returning from Appearance'
