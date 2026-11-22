@@ -11,7 +11,7 @@ Item {
     property var bsiHost
     property var bsiTheme
     readonly property bool bsiCompact:width<760
-    readonly property int bsiRailWidth:bsiCompact?52:168
+    readonly property int bsiRailWidth:bsiCompact?52:180
     readonly property var nativeTabs:(bsiHost && bsiHost.pSettingsItems)?bsiHost.pSettingsItems.pSettingElements:[]
     readonly property var bsiTabs:tabEntries()
     property bool appearanceOpen:false
@@ -41,7 +41,7 @@ Item {
     }
     function intro(){
         return appearanceOpen?["Appearance","Colors, shape & motion"]:
-            [currentRow?currentRow.pButtonText:"Settings", "Native controls · Your preferences"]
+            [currentRow?currentRow.pButtonText:"Settings", currentKind==="performance"?"Fine-tune resources for a smoother experience.":"Your preferences, carefully organized."]
     }
     function fitHost(){
         var host=bsiHost
@@ -64,12 +64,7 @@ Item {
         function onPCurrentTabIndexChanged(){shell.appearanceOpen=false}
     }
     ThemeRelay {hostWindow:shell.bsiHost}
-    component OutlineIcon:ThemeIcon {
-        property string kind:"preferences"
-        source:Icons.pngUrl(kind)
-        tint:Theme.text
-        sourceSize:Qt.size(48,48)
-    }
+    component OutlineIcon:StudioGlyph {tint:Theme.text}
     Rectangle {anchors.fill:parent;color:Theme.background;radius:Theme.corner;border.width:1;border.color:Theme.border}
     Item {
         id:header
@@ -78,11 +73,11 @@ Item {
         MouseArea {anchors.fill:parent;anchors.rightMargin:72;onPressed:if(shell.bsiHost)shell.bsiHost.startSystemMove()}
         Rectangle {
             x:16;anchors.verticalCenter:parent.verticalCenter;width:25;height:25;radius:8;color:Theme.accent
-            OutlineIcon {anchors.centerIn:parent;width:17;height:17;kind:"performance";tint:Theme.background}
+            OutlineIcon {anchors.centerIn:parent;width:17;height:17;kind:"brand";tint:Theme.background}
         }
         Text {x:51;anchors.verticalCenter:parent.verticalCenter;text:"𝓥𝓞𝓘𝓓";color:Theme.text;font.family:Theme.fontFamily;font.pixelSize:21;font.bold:true}
         Text {x:142;anchors.verticalCenter:parent.verticalCenter;text:"/  SETTINGS";visible:!shell.bsiCompact;color:Theme.muted;font.family:Theme.fontFamily;font.pixelSize:9;font.letterSpacing:2}
-        Text {objectName:"voidFullUiVersion";anchors.right:closeButton.left;anchors.rightMargin:26;anchors.verticalCenter:parent.verticalCenter;text:"OLED STUDIO 12";color:Theme.muted;font.family:Theme.fontFamily;font.pixelSize:10;font.letterSpacing:1.3}
+        Text {objectName:"voidFullUiVersion";anchors.right:closeButton.left;anchors.rightMargin:26;anchors.verticalCenter:parent.verticalCenter;text:"OLED STUDIO 13";color:Theme.muted;font.family:Theme.fontFamily;font.pixelSize:10;font.letterSpacing:1.3}
         ToolButton {
             id:closeButton;objectName:"bsiSettingsClose"
             anchors.right:parent.right;anchors.rightMargin:12;anchors.verticalCenter:parent.verticalCenter
@@ -98,10 +93,16 @@ Item {
         id:rail
         x:12;width:shell.bsiRailWidth
         anchors.top:header.bottom;anchors.bottom:parent.bottom;anchors.topMargin:16;anchors.bottomMargin:12
-        Text {x:12;text:shell.bsiCompact?"UI":"PREFERENCES";color:Theme.muted;font.family:Theme.fontFamily;font.pixelSize:9;font.letterSpacing:2}
+        Row {
+            visible:!shell.bsiCompact;x:12;y:2;spacing:10
+            StudioGlyph {width:29;height:29;kind:"brand";tint:Theme.accent}
+            Text {text:"VOID";color:Theme.text;font.family:Theme.fontFamily;font.pixelSize:21;font.bold:true;anchors.verticalCenter:parent.verticalCenter}
+        }
+        Text {visible:!shell.bsiCompact;x:12;y:36;text:"Modern · Fast · Minimal";color:Theme.muted;font.family:Theme.fontFamily;font.pixelSize:9}
+        Text {x:12;y:shell.bsiCompact?0:62;text:shell.bsiCompact?"UI":"PREFERENCES";color:Theme.muted;font.family:Theme.fontFamily;font.pixelSize:9;font.letterSpacing:1.5}
         ListView {
             id:navigation;objectName:"bsiSettingsNavigation"
-            anchors.fill:parent;anchors.topMargin:24;anchors.bottomMargin:shell.bsiCompact?20:64
+            anchors.fill:parent;anchors.topMargin:shell.bsiCompact?24:84;anchors.bottomMargin:shell.bsiCompact?20:64
             model:shell.bsiTabs;currentIndex:shell.selectedIndex;clip:true;spacing:3
             boundsBehavior:Flickable.StopAtBounds
             onCurrentIndexChanged:if(currentIndex>=0)positionViewAtIndex(currentIndex,ListView.Contain)
@@ -111,19 +112,19 @@ Item {
                 objectName:model.modelData.appearance?"bsiSettingsAppearance":"bsiSettingsTab_"+model.modelData.nativeIndex
                 property var row:model.modelData
                 readonly property bool selected:index===shell.selectedIndex
-                width:navigation.width;height:34;hoverEnabled:true;padding:0
+                width:navigation.width;height:30;hoverEnabled:true;padding:0
                 scale:down?0.98:1
                 Behavior on scale {enabled:Theme.motionEnabled;NumberAnimation {duration:Theme.duration;easing.type:Easing.OutCubic}}
                 Accessible.name:row.entry.pButtonText
                 contentItem:Item {
-                    OutlineIcon {id:tabIcon;objectName:"voidSettingsNavIcon";x:12;anchors.verticalCenter:parent.verticalCenter;width:16;height:16;kind:tab.row.appearance?"palette":shell.iconForEntry(tab.row.entry);tint:tab.selected||tab.hovered?Theme.accent:Theme.muted}
+                    OutlineIcon {id:tabIcon;objectName:"voidSettingsNavIcon";x:12;anchors.verticalCenter:parent.verticalCenter;width:18;height:18;kind:tab.row.appearance?"palette":shell.iconForEntry(tab.row.entry);tint:tab.selected||tab.hovered?Theme.accent:Theme.muted}
                     Text {anchors.left:tabIcon.right;anchors.leftMargin:10;anchors.right:parent.right;anchors.rightMargin:10;anchors.verticalCenter:parent.verticalCenter;visible:!shell.bsiCompact;text:tab.row.entry.pButtonText;elide:Text.ElideRight;color:tab.selected?Theme.text:Theme.muted;font.family:Theme.fontFamily;font.pixelSize:12;font.weight:tab.selected?Font.DemiBold:Font.Normal}
                 }
                 background:Rectangle {
-                    radius:8;color:tab.selected?Theme.accent_transparent:tab.hovered?Theme.surface:"transparent"
-                    border.width:tab.activeFocus?1:0;border.color:Theme.accent
+                    radius:8;color:tab.selected?Qt.rgba(Theme.accent.r,Theme.accent.g,Theme.accent.b,0.18):tab.hovered?Theme.surface:"transparent"
+                    border.width:tab.selected||tab.activeFocus?1:0;border.color:Qt.rgba(Theme.accent.r,Theme.accent.g,Theme.accent.b,0.4)
                     Behavior on color {enabled:Theme.motionEnabled;ColorAnimation {duration:Theme.duration}}
-                    Rectangle {x:0;anchors.verticalCenter:parent.verticalCenter;width:3;height:14;radius:1;color:Theme.accent;visible:tab.selected}
+
                 }
                 onClicked:if(row.appearance)shell.appearanceOpen=true;else shell.openNative(row.nativeIndex)
                 ToolTip.visible:hovered && shell.bsiCompact;ToolTip.text:row.entry.pButtonText
@@ -147,24 +148,35 @@ Item {
         anchors.top:header.bottom;anchors.topMargin:16;anchors.bottom:parent.bottom;anchors.bottomMargin:16
         Item {
             id:hero
-            anchors.left:parent.left;anchors.right:parent.right;anchors.top:parent.top;height:shell.showInspector?86:60
-            Rectangle {width:3;height:23;radius:1;color:Theme.accent;y:2}
-            Text {x:13;y:0;width:parent.width-160;text:shell.intro()[0];color:Theme.text;font.family:Theme.fontFamily;font.pixelSize:22;font.weight:Font.DemiBold;elide:Text.ElideRight}
-            Text {anchors.right:parent.right;y:8;text:shell.appearanceOpen?"PERSONALIZE":"WORKSPACE";color:Theme.muted;font.family:Theme.fontFamily;font.pixelSize:8;font.letterSpacing:1.6}
-            Text {x:13;y:30;width:parent.width-13;text:shell.intro()[1];color:Theme.muted;font.family:Theme.fontFamily;font.pixelSize:10;elide:Text.ElideRight}
-            // A small horizontal status line replaces the oversized third column.
-            Row {
+            anchors.left:parent.left;anchors.right:parent.right;anchors.top:parent.top;height:shell.showInspector?108:66
+            StudioGlyph {x:0;y:1;width:32;height:32;kind:shell.currentKind;tint:Theme.accent}
+            Text {x:45;y:0;width:parent.width-195;text:shell.intro()[0];color:Theme.text;font.family:Theme.fontFamily;font.pixelSize:23;font.weight:Font.DemiBold;elide:Text.ElideRight}
+            Text {x:45;y:32;width:parent.width-45;text:shell.intro()[1];color:Theme.muted;font.family:Theme.fontFamily;font.pixelSize:11;elide:Text.ElideRight}
+            Rectangle {
+                anchors.right:parent.right;y:2;width:128;height:28;radius:14;color:Theme.surface;border.width:1;border.color:Theme.border
+                StudioGlyph {x:11;anchors.verticalCenter:parent.verticalCenter;width:14;height:14;kind:"layers";tint:Theme.muted}
+                Text {anchors.verticalCenter:parent.verticalCenter;x:33;text:"OLED STUDIO 13";color:Theme.muted;font.family:Theme.fontFamily;font.pixelSize:9}
+            }
+            Rectangle {
                 id:inspector;objectName:"voidNativeResourceSummary";visible:shell.showInspector
-                x:13;y:55;spacing:20
-                Repeater {
-                    model:shell.showInspector?[
-                        shell.nativePage.pCurrentCpu+" cores",
-                        shell.nativePage.pVoidRam+" MB RAM",
-                        Math.round(shell.nativePage.pVoidFps)+" FPS selected"
-                    ]:[]
-                    delegate:Row {spacing:6
-                        Rectangle {width:4;height:4;radius:2;color:Theme.accent;anchors.verticalCenter:parent.verticalCenter}
-                        Text {text:modelData;color:Theme.muted;font.family:Theme.fontFamily;font.pixelSize:10}
+                anchors.left:parent.left;anchors.right:parent.right;y:56;height:40
+                color:Theme.surface;radius:Math.min(12,Theme.corner);border.width:1;border.color:Theme.border
+                Row {
+                    anchors.fill:parent
+                    Repeater {
+                        model:shell.showInspector?[
+                            {icon:"cpu",value:shell.nativePage.pCurrentCpu+" cores"},
+                            {icon:"memory",value:shell.nativePage.pVoidRam+" MB RAM"},
+                            {icon:"framerate",value:Math.round(shell.nativePage.pVoidFps)+" FPS selected"}
+                        ]:[]
+                        delegate:Item {
+                            width:inspector.width/3;height:inspector.height
+                            Row {anchors.centerIn:parent;spacing:9
+                                StudioGlyph {width:18;height:18;kind:modelData.icon;tint:Theme.accent}
+                                Text {text:modelData.value;color:Theme.text;font.family:Theme.fontFamily;font.pixelSize:11;anchors.verticalCenter:parent.verticalCenter}
+                            }
+                            Rectangle {visible:index<2;anchors.right:parent.right;anchors.verticalCenter:parent.verticalCenter;width:1;height:18;color:Theme.border}
+                        }
                     }
                 }
             }

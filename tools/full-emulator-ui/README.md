@@ -1,4 +1,4 @@
-# VOID OLED Studio 12 — six live native themes
+# VOID OLED Studio 13 — six live native themes
 
 **𝓥𝓞𝓘𝓓 · Developed By NOVA XIS · https://www.youtube.com/@nova_xis20**
 
@@ -6,7 +6,7 @@ This changes the emulator, not the customizer. It is not another optimizer-only
 ZIP or a set of disconnected mock QML screens. Actual mapped native sources and
 their compiled-cache owners are patched in the established backed-up transaction.
 
-## Studio 12 — first-frame chrome and unified command rail
+## Studio 13 — first-frame chrome and unified command rail
 
 - Replaces the pack-owned legacy inline sidebar bridge that still referenced a
   fixed `C:/Program Files/.../BSISidebarVisual.qml`. The actual rail and its inline
@@ -53,7 +53,7 @@ changed, protected, verified/unchanged resources and unsupported visual bindings
 missing resources are not silently advertised as redesigned. The source-only test
 snapshot does not prove compatibility or exact appearance on a live OEM player.
 
-## OLED Studio 12 — live native Appearance
+## OLED Studio 13 — live native Appearance
 
 Open native **Settings → Appearance** in the **left sidebar**. Choose **OLED Black** (default),
 **Midnight Blue**, **Amethyst**, **Forest**, **Ember**, or **Rose Noir**. These are
@@ -83,25 +83,30 @@ one Carbon skin. Each also has its own corner and transition defaults.
 - `UI-COVERAGE.json` includes `live_theme_bindings` and `theme_presets`. Unsupported
   native expressions/artwork are reported rather than globally overwritten.
 
-### Compact Studio 12 workspace
+### Studio 13 — reference-inspired horizontal workspace
 
-- Default Settings size is **1000 × 680** logical pixels, clamped to the available
-  desktop. Reopening no longer grows it to 1440 × 960. A 52px titlebar, narrow
-  168px labelled navigation, and short page heading leave more room for controls.
-- Performance uses a responsive **paired CPU/RAM resource row**, with mode and
-  frame-rate cards spanning the workspace below. Narrow layouts stack safely.
-  Native warnings remain visible; only redundant decorative separators disappear.
-- Padding is 12px instead of 20px. The large marketing heading and separate
-  summary column are gone; real selected values appear in a small horizontal line.
-- Appearance stays near the top of the left navigation. Its six theme cards use
-  a compact three-column layout when space permits, with scrollable custom fields.
-- Original native models, validators, callbacks and Save remain authoritative.
-  Opening Appearance keeps pending edits alive; native tab changes still use the
-  original unsaved-change guard. Motion and all six palettes are retained.
+- Settings remains compact: **1000 × 680** logical pixels or less on a small desktop.
+- CPU, RAM and Performance mode use full-width, equal-edge cards. A coordinated
+  icon and label sit on the left; **the original native inputs align on the right**.
+  On narrow screens the inputs reflow below their labels instead of overlapping.
+- The FPS section retains its native slider, recommended-FPS guidance and three
+  native toggles, including their real limits and backend callbacks. Reference
+  mockup numbers (such as 462 FPS) are not used as fake settings values.
+- A small three-part summary strip reads actual selected values. The left rail
+  has a new isolated Studio icon family, selected pill and VOID branding.
+- OLED black is still the default. Cards use the selected theme's surface,
+  fields use its background, and active controls use its accent. Stock gradients,
+  pale slider knobs and stale Canvas-based chevrons no longer add unrelated colors.
+- Shared **57-name Icons.js** compatibility is untouched. Studio masks are offline
+  generated PNGs with the same synchronous exact-alpha tinting pipeline.
+- Appearance stays near the top of the left navigation. All six dark themes,
+  custom colors, motion preferences, native Save and unsaved-change guards remain.
+- Android's own Settings app (inside the guest screen) is **not native player QML**.
+  This pack does not replace Android system apps, boot/login, or guest data.
 
 ### Native window/dialog coverage retained
 
-The Settings badge is **OLED STUDIO 12**. Native surface handling includes:
+The Settings badge is **OLED STUDIO 13**. Native surface handling includes:
 
 - Native Window/Popup `contentItem` and separate Dialog header/footer are visited.
   Previously a Window-root editor could get source colors but no control adapter.
@@ -168,7 +173,7 @@ No optimizer or helper is installed.
    permission elevation, if required, uses the existing explicit installer flow.
    Nothing disables security controls. Backup/journal and read-back checks cover
    every changed binary, external asset and the UI state.
-6. Restart the player. Settings must show **OLED STUDIO 12**. Test every native
+6. Restart the player. Settings must show **OLED STUDIO 13**. Test every native
    page's controls/Save/discard, sidebar/topbar, volume/game-controls/exit popups,
    controls editor. Boot/auth must behave exactly as before.
 7. If a different/cached page appears or any safety check refuses, STOP. Run

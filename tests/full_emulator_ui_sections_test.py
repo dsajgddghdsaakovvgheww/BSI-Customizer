@@ -101,7 +101,7 @@ Item {
  }
 }'''.replace('SKIN',url)
     patched=S.native_section_sources(U,{'UiPerformanceSetting.qml':page.encode()},url)['UiPerformanceSetting.qml']
-    assert patched.count(b'pVoidSectionCard: true')==4
+    assert patched.count(b'VoidLiveTheme.NativeSettingCard')==4
     (temp/'Page.qml').write_bytes(patched)
     source='''import QtQuick 2.15
 import QtQuick.Window 2.15
@@ -136,20 +136,21 @@ Window {
     root=window.contentItem();page=visual(root,'fixtureSectionPage')
     assert page is not None
     cards=[visual(root,name) for name in ('fixtureCpuCard','fixtureRamCard','fixtureModeCard','fixtureFpsCard')]
-    assert all(card is not None and card.width()>330 and card.height()>65 for card in cards),[(c.width(),c.height()) if c else None for c in cards]
+    assert all(card is not None and card.width()>650 and card.height()>65 for card in cards),[(c.width(),c.height()) if c else None for c in cards]
     points=[card.mapToScene(QPointF(0,0)) for card in cards]
-    assert abs(points[0].y()-points[1].y())<1,'CPU/RAM are still the old vertical alignment'
-    assert points[1].x()>=points[0].x()+cards[0].width()+11,'paired resources overlap'
-    assert abs(cards[0].width()-cards[1].width())<2,'resource columns are unbalanced'
-    assert points[2].y()>=points[0].y()+max(cards[0].height(),cards[1].height())+11
-    assert points[3].y()>=points[2].y()+cards[2].height()+11
-    assert cards[2].width()>cards[0].width()*1.9,'mode card must span both columns'
-    assert visual(root,'voidNativeResourceSummary').isVisible(),'compact selections line missing'
+    for i in range(3):
+        assert abs(points[i].x()-points[i+1].x())<1,'cards do not share one left edge'
+        assert abs(cards[i].width()-cards[i+1].width())<1,'card right edges do not align'
+        assert points[i+1].y()>=points[i].y()+cards[i].height()+11,'horizontal cards overlap'
+    combo=visual(root,'fixtureCpu');position=combo.mapToScene(QPointF(0,0))
+    assert position.x()>points[0].x()+cards[0].width()/2,'native CPU control is not right-aligned'
+    assert abs(position.x()+combo.width()-(points[0].x()+cards[0].width()-14))<2,'native CPU control lost its right inset'
+    assert visual(root,'voidNativeResourceSummary').isVisible(),'compact selections strip missing'
     for preset in json.loads((ROOT/'assets/full-emulator-ui/themes.json').read_text()):
         window.setProperty('requested',preset['id']);QMetaObject.invokeMethod(window,'choose');settle()
         for card in cards:
             assert card.property('color').name()==preset['palette']['surface'],preset['id']
-            assert card.property('radius')==preset['radius']
+            assert card.property('radius')==min(preset['radius'],14)
         button=visual(root,'fixtureNativeSave')
         assert button.property('pColor').property('normal').property('textColor').name()==preset['palette']['background']
     window.setProperty('requested','oled');QMetaObject.invokeMethod(window,'choose');settle()
@@ -162,7 +163,8 @@ Window {
     assert not visual(root,'voidNativeResourceSummary').isVisible(),'summary crowded narrow controls'
     assert all(card.width()>500 for card in cards)
     points=[card.mapToScene(QPointF(0,0)) for card in cards]
-    assert points[1].y()>=points[0].y()+cards[0].height()+11,"paired cards did not stack on a narrow screen"
+    assert points[1].y()>=points[0].y()+cards[0].height()+11
+    assert not cards[0].property('pInline'),"native controls did not reflow on a narrow screen"
     assert not warnings,'\n'.join(warnings)
     window.setVisible(False);window.deleteLater();settle()
-print('PASS: generated native cards render without overlap using src-code layout wrappers; six palettes/corners, primary Save callback/contrast, compact real-selection line + responsive resource grid. Native input doubles, NOT live OEM certification.')
+print('PASS: generated native cards render without overlap using src-code layout wrappers; six palettes/corners, primary Save callback/contrast, reference-style horizontal cards with right-aligned native inputs and responsive fallback. Native input doubles, NOT live OEM certification.')

@@ -51,4 +51,4 @@ for(const key of Object.keys(context.masks)){
 assert.equal(context.colored('file:///Unknown.png',{r:1,g:1,b:1}),'file:///Unknown.png');
 for(let i=0;i<150;i++)context.colored('file:///Test/SharedIcons/advanced.png',{r:i/255,g:1,b:1});
 assert(context.order.length<=128);assert(Object.keys(context.cache).length<=128);
-console.log('PASS: 94 indexed PNGs, CRCs, exact tint/alpha, binary Base64, nested Settings paths and bounded tint cache.');
+console.log('PASS:',Object.keys(context.masks).length,'indexed PNGs, CRCs, exact tint/alpha, binary Base64, nested paths and bounded tint cache.');

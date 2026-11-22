@@ -69,10 +69,10 @@ class SuiteTests(unittest.TestCase):
             self.assertIn(b'asynchronous: false',after['UiSettingsWindow.qml'])
             self.assertNotIn(b'Component.onCompleted: setSource(',after['UiSettingsWindow.qml'])
             self.assertIn(b'VoidLiveTheme.Theme.',after['UiPerformanceSetting.qml'])
-            self.assertIn(b'pVoidSectionCard: true',after['UiPerformanceSetting.qml'])
-            self.assertIn(b'pVoidPrimaryAction: true',after['UiPerformanceSetting.qml'])
+            self.assertIn(b'VoidLiveTheme.NativeSettingCard',after['UiPerformanceSetting.qml'])
+            self.assertIn(b'pVoidPrimaryAction:true',after['UiPerformanceSetting.qml'])
             self.assertNotIn(b'VoidLiveTheme.Theme.',after['UiDialog.qml'])
-            self.assertIn(b'OLED STUDIO 12',(root/'Assets/VOIDReferenceUI/SettingsShell.qml').read_bytes())
+            self.assertIn(b'OLED STUDIO 13',(root/'Assets/VOIDReferenceUI/SettingsShell.qml').read_bytes())
             self.assertFalse((root/'Assets/VOIDReferenceUI/OptimizerPage.qml').exists())
             for name in ('UiSettingsWindow.qml', 'PlrSidebar.qml'):
                 for token in (b'voidOptimizer', b'pVoidOptimizer', b'VoidUiNav', b'F9'):
@@ -88,13 +88,14 @@ class SuiteTests(unittest.TestCase):
         styled=S.native_section_sources(U,original,'file:///Skin/')
         self.assertEqual(S.native_section_sources(U,styled,'file:///Skin/'),styled)
         performance=styled['UiPerformanceSetting.qml']
-        self.assertEqual(performance.count(b'pVoidSectionCard: true'),4)
+        self.assertEqual(performance.count(b'VoidLiveTheme.NativeSettingCard'),4)
         self.assertIn(b'pVoidFps:iFrameRateSlider.value',performance)
-        self.assertIn(b'VoidLiveTheme.NativeSectionGrid',performance)
-        self.assertIn(b'padding:12',performance)
-        self.assertIn(b'Layout.columnSpan:iContentLayout.columns',performance)
+        self.assertNotIn(b'NativeSectionGrid',performance)
+        self.assertIn(b'Layout.alignment:Qt.AlignRight|Qt.AlignVCenter',performance)
+        self.assertIn(b'pIcon:"cpu"',performance)
+        self.assertIn(b'pIcon:"memory"',performance)
         self.assertNotIn(b'Layout.preferredWidth: 200',performance)
-        self.assertIn(b'pVoidPrimaryAction: true',performance)
+        self.assertIn(b'pVoidPrimaryAction:true',performance)
         # Every original callback and QML token remains in order; only reviewed
         # width expressions plus additive card fields/read-only summary aliases.
         for name in original:
@@ -187,7 +188,7 @@ class SuiteTests(unittest.TestCase):
             self.assertTrue(any(change.relative.endswith('old-optimizer.qml') and change.after is None for change in planned.changes))
             backup=E.commit(planned)
             self.assertFalse(old.exists())
-            self.assertIn(b'OLED STUDIO 12',shell.read_bytes())
+            self.assertIn(b'OLED STUDIO 13',shell.read_bytes())
             self.assertEqual(U.plan_install(root)[0].changes,[])
             E.restore(backup,root)
             for name,digest in before.items():self.assertEqual(S.sha((root/name).read_bytes()),digest,name)

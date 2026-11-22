@@ -135,14 +135,14 @@ Item {
         // Instance palettes cover standard Qt controls too. Do not replace
         // text/validation expressions: explicit native error colors still win.
         if(item.palette && !/UiImageButton/.test(name) && /Button|ComboBox|TextField|TextArea|SpinBox|Slider|CheckBox|RadioButton|Switch/.test(name)) {
-            item.palette.buttonText=Qt.binding(function(){return Theme.text})
+            item.palette.buttonText=Qt.binding(function(){return item.pVoidPrimaryAction===true?Theme.background:Theme.text})
             item.palette.windowText=Qt.binding(function(){return Theme.text})
             item.palette.text=Qt.binding(function(){return Theme.text})
             item.palette.placeholderText=Qt.binding(function(){return Theme.muted})
             item.palette.highlight=Qt.binding(function(){return Theme.accent})
             item.palette.highlightedText=Qt.binding(function(){return Theme.background})
-            item.palette.base=Qt.binding(function(){return Theme.surface})
-            item.palette.button=Qt.binding(function(){return Theme.surface})
+            item.palette.base=Qt.binding(function(){return Theme.background})
+            item.palette.button=Qt.binding(function(){return Theme.background})
         }
         if (stylePanels && /Dialog/.test(name) && item.pDescription !== undefined && item.pColor) {
             item.pColor=dialogColor.createObject(item,{base:item.pColor})
@@ -347,10 +347,7 @@ Item {
             x: targetVisual.x; y: targetVisual.y; width: targetVisual.width; height: targetVisual.height
             z: targetVisual.z + 0.01; visible: targetVisual.visible
             radius: visualKind === "popup" || visualKind === "dialog" ? Theme.corner : Math.max(0,Theme.corner-3)
-            gradient: Gradient {
-                GradientStop { position: 0; color: primary ? (control.down?Theme.accent_pressed:control.hovered?Theme.accent_hover:Theme.accent) : visualKind === "dialog" ? Theme.background : visualKind === "button" ? (control.down ? Theme.raised : control.hovered ? Theme.raised : Theme.surface) : Theme.surface }
-                GradientStop { position: 1; color: primary ? (control.down?Theme.accent_pressed:control.hovered?Theme.accent_hover:Theme.accent) : visualKind === "dialog" ? Theme.background : visualKind === "button" ? Theme.raised : Theme.surface }
-            }
+            color:primary ? (control.down?Theme.accent_pressed:control.hovered?Theme.accent_hover:Theme.accent) : (control.hovered || control.activeFocus ? Theme.raised : Theme.background)
             border.width: 1; border.color: control.activeFocus ? Theme.accent : control.hovered ? Theme.muted : Theme.border
             opacity: control.enabled === false ? 0.5 : 1
 
@@ -408,7 +405,7 @@ Item {
             objectName: "voidReferenceVisualTrack"
             x: targetVisual.x; y: targetVisual.y; width: targetVisual.width; height: targetVisual.height
             z: targetVisual.z + 0.01; visible: targetVisual.visible
-            Rectangle { width: parent.width; height: 2; anchors.verticalCenter: parent.verticalCenter; radius: 1; color: Theme.muted }
+            Rectangle { width: parent.width; height: 2; anchors.verticalCenter: parent.verticalCenter; radius: 1; color: Theme.border }
             Rectangle { width: parent.width * control.visualPosition; height: 2; anchors.verticalCenter: parent.verticalCenter; radius: 1; color: Theme.accent }
         }
     }
@@ -424,7 +421,7 @@ Item {
             x: targetVisual.x; y: targetVisual.y; width: targetVisual.width; height: targetVisual.height
             z: targetVisual.z + 0.01; visible: targetVisual.visible
             Rectangle { width: Math.min(12,parent.width); height: width; radius: width/2; anchors.centerIn: parent
-                color: control.pressed ? Theme.text : Theme.text
+                color: Theme.accent
                 scale: control.pressed ? 1.08 : 1
                 Behavior on scale { enabled: skin.motionEnabled; NumberAnimation { duration: Theme.duration } }
             }
@@ -441,14 +438,8 @@ Item {
             objectName: "voidReferenceVisualChevron"
             x: targetVisual.x; y: targetVisual.y; width: targetVisual.width; height: targetVisual.height
             z: targetVisual.z + 0.01; visible: targetVisual.visible
-            Canvas {
-                anchors.centerIn: parent; width:14; height:20
-                onPaint: {
-                    var c=getContext("2d");c.reset();c.strokeStyle=Theme.border;c.lineWidth=1.5
-                    c.beginPath();c.moveTo(3,7);c.lineTo(7,3);c.lineTo(11,7)
-                    c.moveTo(3,13);c.lineTo(7,17);c.lineTo(11,13);c.stroke()
-                }
-            }
+            StudioGlyph {anchors.centerIn:parent;width:13;height:13;kind:"chevrondown";tint:control.enabled===false?Theme.border:Theme.muted}
+
         }
     }
 }
