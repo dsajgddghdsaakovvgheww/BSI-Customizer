@@ -34,6 +34,7 @@ Rectangle {
     readonly property bool needsTextureReview: !!draft.potatoGraphic && !draft.textureOverridesReviewed
     readonly property bool textureDraftChanged: !!draft.potatoGraphic !== !!Engine.saved.potatoGraphic
         || !!draft.textureOverridesReviewed !== !!Engine.saved.textureOverridesReviewed
+        || textureStrength(draft) !== textureStrength(Engine.saved)
     readonly property bool resolutionDraftChanged: keepCurrentDisplay
         || Number(draft.potatoMode || 0) !== Number(Engine.saved.potatoMode || 0)
     // Polling metrics must not rebuild an open native combo every second. Only
@@ -161,11 +162,15 @@ Rectangle {
         if (window && window.bsiShaderDirty2 !== undefined) window.bsiShaderDirty2 = false
         else if (window && window.bsiShaderDirty !== undefined) window.bsiShaderDirty = false
     }
+    function textureStrength(configuration) {
+        return configuration.potatoStrength === undefined ? 100 : Number(configuration.potatoStrength)
+    }
     function differs() {
         if (keepCurrentDisplay || Number(draft.potatoMode || 0) !== Number(Engine.saved.potatoMode || 0)) return true
         if (!!draft.enabled !== !!Engine.saved.enabled) return true
         if (!!draft.potatoGraphic !== !!Engine.saved.potatoGraphic
-            || !!draft.textureOverridesReviewed !== !!Engine.saved.textureOverridesReviewed) return true
+            || !!draft.textureOverridesReviewed !== !!Engine.saved.textureOverridesReviewed
+            || textureStrength(draft) !== textureStrength(Engine.saved)) return true
         for (var i = 0; i < Engine.controls.length; ++i) {
             var key = Engine.controls[i].key
             if (Number(draft[key] || 0) !== Number(Engine.saved[key] || 0)) return true
@@ -203,7 +208,8 @@ Rectangle {
     function presetValues(index) {
         // Visual presets/Reset must not silently change the native render size.
         var next = {enabled: index > 0, potatoMode: Number(draft.potatoMode || 0),
-                    potatoGraphic: !!draft.potatoGraphic, textureOverridesReviewed: !!draft.textureOverridesReviewed}
+                    potatoGraphic: !!draft.potatoGraphic, textureOverridesReviewed: !!draft.textureOverridesReviewed,
+                    potatoStrength: textureStrength(draft)}
         for (var i = 0; i < Engine.controls.length; ++i) next[Engine.controls[i].key] = 0
         if (index === 1) {
             next.sharpen = 30; next.fxaa = 30
@@ -274,15 +280,18 @@ Rectangle {
     }
     function potatoStatus() {
         if (textureDraftChanged) {
-            var current = Engine.saved.potatoGraphic ? qsTr("On") : qsTr("Off")
+            var current = (Engine.saved.potatoGraphic ? qsTr("On") : qsTr("Off"))
+                + qsTr(" · %1% strength").arg(textureStrength(Engine.saved))
             if (needsTextureReview) return qsTr("Not saved. Review driver LOD / AA overrides and confirm above, then Save changes. Current saved setting: %1.").arg(current)
-            return (draft.potatoGraphic ? qsTr("Not saved — Save changes to enable Potato graphic.")
+            return (draft.potatoGraphic ? qsTr("Not saved — Save changes to apply Potato graphic and its strength.")
                 : qsTr("Not saved — Save changes to disable Potato graphic."))
                 + " " + qsTr("Current saved setting: %1.").arg(current)
         }
-        return qsTr("Saved setting: %1. ").arg(Engine.saved.potatoGraphic ? qsTr("On") : qsTr("Off"))
+        if (Engine.saved.potatoGraphic && textureStrength(Engine.saved) === 0)
+            return qsTr("Saved setting: On · 0% strength. Native sampling; no texture reduction requested.")
+        return qsTr("Saved setting: %1 · %2% strength. ").arg(Engine.saved.potatoGraphic ? qsTr("On") : qsTr("Off")).arg(textureStrength(Engine.saved))
             + (Engine.saved.potatoGraphic && !Number(Engine.metrics.textureDraws || 0)
-                ? qsTr("No texture override confirmed; game texture detail has not been shown to change. ") : "")
+                ? qsTr("No texture override confirmed; zero prepared bindings means no applied reduction, not a weak effect. Game texture changes are not measured. ") : "")
             + (Engine.metrics.textureStatus || qsTr("No qualified texture draw has been confirmed."))
     }
     function closeRestartPrompt() {
@@ -515,6 +524,37 @@ Rectangle {
                         onToggled: {
                             page.setValue("potatoGraphic", checked)
                             if (checked && page.needsTextureReview) page.reveal(potatoReview)
+                        }
+                    }
+                    Native.UiColumnLayout {
+                        Layout.fillWidth: true; spacing: 4
+                        Native.UiRowLayout {
+                            Layout.fillWidth: true; spacing: 12
+                            Text {
+                                Layout.fillWidth: true; wrapMode: Text.Wrap
+                                text: qsTr("Potato strength"); color: page.bsiTheme.colors.primary10; font: page.bsiTheme.fonts.bodyLarge
+                            }
+                            Text {
+                                objectName: "shaderPotatoStrengthValue"
+                                text: qsTr("%1%").arg(page.textureStrength(page.draft))
+                                color: page.bsiTheme.colors.primary20; font: page.bsiTheme.fonts.bodySmall
+                            }
+                        }
+                        Native.UiSlider {
+                            objectName: "shaderPotatoStrength"
+                            pSize: page.bsiTheme.sliders.sizes.medium
+                            Layout.fillWidth: true
+                            from: 0; to: 100; stepSize: 1
+                            value: page.textureStrength(page.draft)
+                            enabled: !!page.draft.potatoGraphic
+                            Accessible.name: qsTr("Potato strength")
+                            Accessible.description: qsTr("Texture mip reduction, not resolution or blur. Zero percent keeps native sampling; 100 percent requests up to three coarser mip levels on eligible textures. Save changes to apply; rejected textures are unaffected at every strength.")
+                            onMoved: page.setValue("potatoStrength", Math.round(value))
+                        }
+                        Text {
+                            Layout.fillWidth: true; wrapMode: Text.Wrap
+                            text: qsTr("0%: native · 50%: light · 100%: strongest. Only eligible textures change. Save changes to apply; this does not lower render resolution.")
+                            color: page.bsiTheme.colors.primary30; font: page.bsiTheme.fonts.bodySmall
                         }
                     }
                     Native.UiCheckBox {
@@ -761,8 +801,10 @@ Rectangle {
                 text: page.needsTextureReview ? qsTr("Confirm the Potato driver review before saving")
                     : page.resolutionDraftChanged && !page.keepCurrentDisplay && page.resolutionPreview.ok && page.resolutionPreview.displayChanged
                         ? qsTr("Save changes to review the restart prompt")
-                        : !page.pEnableSave && Engine.saved.potatoGraphic && !Number(Engine.metrics.textureDraws || 0)
-                            ? qsTr("Potato saved; no texture override confirmed") : qsTr("Effects apply after saving")
+                        : !page.pEnableSave && Engine.saved.potatoGraphic && page.textureStrength(Engine.saved) === 0
+                            ? qsTr("Potato strength 0%; native sampling")
+                            : !page.pEnableSave && Engine.saved.potatoGraphic && !Number(Engine.metrics.textureDraws || 0)
+                                ? qsTr("Potato saved; no texture override confirmed") : qsTr("Effects apply after saving")
                 color: page.bsiTheme.colors.primary20; font: page.bsiTheme.fonts.bodySmall
             }
             Native.UiButton {

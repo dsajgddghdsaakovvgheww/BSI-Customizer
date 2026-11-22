@@ -11,6 +11,7 @@
 #include <cstdlib>
 #include <set>
 #include <thread>
+#include <utility>
 
 using namespace BsiShaders;
 namespace {
@@ -394,6 +395,19 @@ int main(int argc,char **argv){
     consume();b.transferState(0,0);unpublishedTransferCalls=0;transferProbeMode=2;b.onTransfer(transferProbe);b.transfer(true);b.onTransfer(nullptr);
     b.resource(4);b.draw(GlDrawKind::Arrays,0,0);
     require(!runtime.metrics().textureTransferCalls&&!runtime.metrics().textureProducerDraws,"a native texture deletion INSIDE the original rejects a stale transfer/resource serial without blocking that original");
+    // Percentage must traverse Runtime -> route snapshot -> REAL draw detour
+    // -> bound private sampler. The original independently expects these floors.
+    b.current(secondTarget,second);b.resource(0);b.scene(0);
+    for(const auto setting:{std::pair<int,float>{25,.75f},{50,1.5f},{100,3.f},{0,0.f}}){
+        runtime.setTexture({true,true,TextureDrawPolicy::OwnedMipCompatibility,setting.first});
+        b.function<void(*)(float)>("bsiFixtureExpectedFloor")(setting.second);
+        b.draw(GlDrawKind::ElementsBaseVertex,0,setting.first?2:0);
+        require(runtime.texture().strength==setting.first&&runtime.metrics().textureDraws==unsigned(setting.first?1:0)
+                &&runtime.metrics().textureBindings==unsigned(setting.first?2:0),"saved percentage reaches real hook bindings; zero is native, counters reset for each strength");
+    }
+    b.function<void(*)(float)>("bsiFixtureExpectedFloor")(3.f);
+    runtime.setTexture({true,true,TextureDrawPolicy::OwnedMipCompatibility});
+    b.current(offscreen,transferContext);
     b.removeContext(transferContext);b.removeSurface(readPbuffer);
     b.current(offscreen,shared);b.resource(2);
     b.removeSurface(secondTarget);b.draw(GlDrawKind::Arrays,0,0);

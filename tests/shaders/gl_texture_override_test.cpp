@@ -60,7 +60,6 @@ struct Fake {
     std::array<Sampler,256> samplers{};
     std::array<U,4> bindings{{1,2,0,0}},textures{{1,2,0,0}};
     std::array<bool,256> live{};
-    U next=16;
     I creations=0,deletions=0;
     void reset(){*this=Fake{};activeChanged=privateBound=false;}
     void refresh(){activeChanged=active!=3;privateBound=bindings[0]>=16||bindings[1]>=16;}
@@ -172,7 +171,7 @@ void GL_CALL attachment(U target,U attachment,U name,I *out){
     *out=name==0x8cd0?(g.depthBits?(g.framebuffer?0x8d41:0x8218):0):g.depthBits;
 }
 void GL_CALL gen(I count,U *out){
-    for(I i=0;i<count;++i){require(g.next<g.samplers.size(),"private sampler fixture capacity");out[i]=g.next++;g.live[out[i]]=true;++g.creations;}
+    for(I i=0;i<count;++i){U name=16;while(name<g.samplers.size()&&g.live[name])++name;require(name<g.samplers.size(),"private sampler fixture capacity");out[i]=name;g.samplers[name]={};g.live[name]=true;++g.creations;}
 }
 void GL_CALL remove(I count,const U *names){for(I i=0;i<count;++i){require(g.live.at(names[i]),"delete each private sampler exactly once");g.live[names[i]]=false;++g.deletions;}}
 void GL_CALL parameterInt(U sampler,U name,I value){
@@ -426,6 +425,25 @@ int main(){
         require(!quality.begin(TextureQuality::Strong,true,4,&error)&&error.find("format=2")!=std::string::npos,
                 "a depth format is not misreported as evidence of absent mipmaps");
         unchanged();quality.release();
+    }
+    for(bool desktop:{false,true}){
+        g.reset();g.desktop=desktop;g.depth=false;
+        GlTextureOverride quality;std::string error;TextureDrawReason reason;
+        const auto original=g.samplers[1];require(quality.initialize(resolve,nullptr,&error),"initialize strength sweep");
+        for(unsigned cycle=0;cycle<3;++cycle)for(int percent=0;percent<=100;++percent){
+            const auto count=quality.begin(TextureQuality::Strong,true,4,&error,&reason,nullptr,TextureDrawPolicy::OwnedMipCompatibility,percent);
+            require(count==(percent?2u:0u),"slider percentage reaches actual production begin, not a cosmetic property");
+            if(percent){
+                const auto &replacement=g.samplers[g.bindings[0]];const float wanted=3.f*float(percent)/100.f;
+                require(replacement.low==wanted&&replacement.bias==(desktop?wanted:0.f),"actual bound sampler has requested percentage and API-legal bias");
+                require(g.creations-g.deletions<=2,"obsolete strength variants must not exhaust the 128-entry private cache after repeated saves");
+            }else require(reason==TextureDrawReason::NotInspected,"zero strength does no sampler inspection");
+            quality.end();unchanged();require(g.samplers[1]==original,"every slider step preserves source sampler state and exact bindings");
+        }
+        const auto queries=g.shaderQueries;
+        for(int invalid:{-1,101})require(!quality.begin(TextureQuality::Strong,true,4,&error,&reason,nullptr,TextureDrawPolicy::OwnedMipCompatibility,invalid)
+                &&reason==TextureDrawReason::Policy&&g.shaderQueries==queries,"invalid strength fails before GL shader/texture inspection");
+        quality.release();require(g.creations==g.deletions,"strength changes release every private sampler without leaks");
     }
     for(float limit:{1.f,16.f}){
         g.reset();g.desktop=true;g.maximumBias=limit;g.samplers[1].border={{.125f,.25f,.5f,1.f}};

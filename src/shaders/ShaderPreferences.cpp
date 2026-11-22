@@ -40,13 +40,14 @@ bool integer(const QVariant &value,int minimum,int maximum,int *out){
 }
 QVariantMap configValues(const ShaderSavedConfiguration &c){
     QVariantMap result{{QStringLiteral("enabled"),c.visual.enabled},{QStringLiteral("potatoMode"),int(c.potato)},
-        {QStringLiteral("potatoGraphic"),c.texture.enabled},{QStringLiteral("textureOverridesReviewed"),c.texture.externalOverridesReviewed}};
+        {QStringLiteral("potatoGraphic"),c.texture.enabled},{QStringLiteral("textureOverridesReviewed"),c.texture.externalOverridesReviewed},
+        {QStringLiteral("potatoStrength"),c.texture.strength}};
     for(std::size_t i=0;i<controls.size();++i)result.insert(QString::fromLatin1(controls[i].key),c.visual.values[i]);
     return result;
 }
-bool decodeValues(const QVariantMap &map,ShaderSavedConfiguration *c,QString *error,int version=3){
+bool decodeValues(const QVariantMap &map,ShaderSavedConfiguration *c,QString *error,int version=4){
     const bool legacy=version==1;
-    if(map.size()!=int(controls.size())+(legacy?1:version==2?2:4)||map.value(QStringLiteral("enabled")).userType()!=QMetaType::Bool)
+    if(map.size()!=int(controls.size())+(legacy?1:version==2?2:version==3?4:5)||map.value(QStringLiteral("enabled")).userType()!=QMetaType::Bool)
         return refuse(error,QStringLiteral("Shader settings have an invalid schema."));
     c->visual.enabled=map.value(QStringLiteral("enabled")).toBool();
     for(std::size_t i=0;i<controls.size();++i)
@@ -64,6 +65,8 @@ bool decodeValues(const QVariantMap &map,ShaderSavedConfiguration *c,QString *er
         if(c->texture.enabled&&!c->texture.externalOverridesReviewed)
             return refuse(error,QStringLiteral("Review existing driver LOD/AA overrides before enabling experimental Potato graphic. No NVIDIA/AMD/Intel profile is reset or certified by this switch."));
     }
+    if(version>=4&&!integer(map.value(QStringLiteral("potatoStrength")),0,100,&c->texture.strength))
+        return refuse(error,QStringLiteral("Potato strength must be a finite integer percentage from 0 to 100."));
     c->potato=PotatoMode(mode);return true;
 }
 QJsonObject resolutionJson(const DisplayResolution &r){return {{QStringLiteral("width"),r.width},{QStringLiteral("height"),r.height},{QStringLiteral("custom"),r.custom}};}
@@ -80,7 +83,7 @@ bool decodeResolution(const QJsonValue &value,DisplayResolution *out){
 QJsonObject configJson(const ShaderSavedConfiguration &c){
     QJsonObject display;
     if(c.potato!=PotatoMode::Native)display={{QStringLiteral("original"),resolutionJson(c.original)},{QStringLiteral("target"),resolutionJson(c.target)}};
-    return {{QStringLiteral("schema"),QStringLiteral("bsi.shaders.v3")},
+    return {{QStringLiteral("schema"),QStringLiteral("bsi.shaders.v4")},
         {QStringLiteral("values"),QJsonObject::fromVariantMap(configValues(c))},{QStringLiteral("display"),display}};
 }
 QString displayReviewKey(PotatoMode mode,const DisplayResolution &before,const DisplayResolution &target,const ShaderSavedConfiguration &saved){
@@ -96,9 +99,9 @@ QString displayReviewKey(PotatoMode mode,const DisplayResolution &before,const D
 bool decodeConfig(const QJsonObject &root,ShaderSavedConfiguration *c,ShaderDisplayPending *pending,QString *error){
     const auto schema=root.value(QStringLiteral("schema")).toString();
     const bool legacy=schema==QLatin1String("bsi.shaders.v1");
-    const int version=legacy?1:schema==QLatin1String("bsi.shaders.v2")?2:3;
+    const int version=legacy?1:schema==QLatin1String("bsi.shaders.v2")?2:schema==QLatin1String("bsi.shaders.v3")?3:4;
     const bool journal=root.contains(QStringLiteral("pendingDisplay"));
-    if((!legacy&&schema!=QLatin1String("bsi.shaders.v2")&&schema!=QLatin1String("bsi.shaders.v3"))||root.size()!=(legacy?2:journal?4:3)
+    if((!legacy&&schema!=QLatin1String("bsi.shaders.v2")&&schema!=QLatin1String("bsi.shaders.v3")&&schema!=QLatin1String("bsi.shaders.v4"))||root.size()!=(legacy?2:journal?4:3)
        ||(legacy&&journal)||(!pending&&journal)||!root.value(QStringLiteral("values")).isObject())
         return refuse(error,QStringLiteral("Saved shader preferences have an unknown or invalid format; no native display setting was changed."));
     if(!decodeValues(root.value(QStringLiteral("values")).toObject().toVariantMap(),c,error,version))return false;
@@ -123,7 +126,8 @@ bool decodeConfig(const QJsonObject &root,ShaderSavedConfiguration *c,ShaderDisp
            ||!decodeResolution(transaction.value(QStringLiteral("target")),&pending->target)
            ||!transaction.value(QStringLiteral("next")).isObject()
            ||(transaction.value(QStringLiteral("next")).toObject().value(QStringLiteral("schema")).toString()!=QLatin1String("bsi.shaders.v2")
-              &&transaction.value(QStringLiteral("next")).toObject().value(QStringLiteral("schema")).toString()!=QLatin1String("bsi.shaders.v3"))
+              &&transaction.value(QStringLiteral("next")).toObject().value(QStringLiteral("schema")).toString()!=QLatin1String("bsi.shaders.v3")
+              &&transaction.value(QStringLiteral("next")).toObject().value(QStringLiteral("schema")).toString()!=QLatin1String("bsi.shaders.v4"))
            ||!decodeConfig(transaction.value(QStringLiteral("next")).toObject(),&pending->next,nullptr,error))
             return refuse(error,QStringLiteral("Invalid pending Display recovery evidence; no native value was overwritten."));
         const bool restoring=pending->next.potato==PotatoMode::Native;

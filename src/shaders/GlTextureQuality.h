@@ -19,7 +19,7 @@ struct GlQualityCapabilities {
 };
 inline TextureSamplerPlan<GlQualitySampler> planGlTextureQuality(
     TextureQuality mode,const TextureQualityProof &proof,const GlQualitySampler &source,
-    const GlQualityCapabilities &capabilities={}){
+    const GlQualityCapabilities &capabilities={},int strength=100){
     TextureSamplerPlan<GlQualitySampler> result{source,TextureQualityDecision::UnsupportedDescriptor};
     if(mode==TextureQuality::Native){result.decision=TextureQualityDecision::Disabled;return result;}
     if(proof.renderer!=Renderer::OpenGL&&proof.renderer!=Renderer::OpenGLES){result.decision=TextureQualityDecision::UnidentifiedRenderer;return result;}
@@ -41,7 +41,7 @@ inline TextureSamplerPlan<GlQualitySampler> planGlTextureQuality(
     sampling.maximumLod=source.maximumLod;sampling.lodBias=source.lodBias;
     sampling.mipmapped=source.minimumFilter>=0x2700&&source.minimumFilter<=0x2703;
     sampling.comparison=source.comparisonMode!=0;sampling.anisotropic=source.maximumAnisotropy>1;
-    const auto plan=planTextureQuality(mode,proof,sampling);
+    const auto plan=planTextureQuality(mode,proof,sampling,strength);
     result.decision=plan.decision;
     if(plan.changed()){
         result.descriptor.minimumLod=plan.sampling.minimumLod;

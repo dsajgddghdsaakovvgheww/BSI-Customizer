@@ -32,7 +32,7 @@ void Runtime::setWindow(std::uintptr_t window){
     host=window;presentationObject=0;presentationWindow=0;
     state.observed=false;state.active=false;state.deviceReady=false;state.renderer=Renderer::Unknown;
     resetTextureEvidence();
-    if(currentTexture.enabled)state.textureStatus="The native player surface changed; waiting for eligible mip sampling on its selected game drawable.";
+    if(currentTexture.active())state.textureStatus="The native player surface changed; waiting for eligible mip sampling on its selected game drawable.";
     state.status=window?"Waiting for the identified player's game presentation surface.":"The native player surface is not available; no effects are active.";
 }
 void Runtime::stop(){stopPresentationHooks();}
@@ -49,7 +49,7 @@ void Runtime::selectRenderer(RendererFamily requested){
     state.requested=requested;presentationObject=0;presentationWindow=0;
     state.renderer=Renderer::Unknown;state.observed=false;state.active=false;state.deviceReady=false;
     resetTextureEvidence();
-    if(currentTexture.enabled)state.textureStatus="Waiting for a newly qualified game presentation; no texture override is confirmed.";
+    if(currentTexture.active())state.textureStatus="Waiting for a newly qualified game presentation; no texture override is confirmed.";
     state.status="Waiting for an identified game surface matching the player's renderer setting. No effects have been confirmed.";
 }
 void Runtime::configureRenderer(RendererFamily configured){
@@ -57,7 +57,7 @@ void Runtime::configureRenderer(RendererFamily configured){
     state.configured=configured;state.requested=RendererFamily::Automatic;presentationObject=0;presentationWindow=0;
     state.renderer=Renderer::Unknown;state.observed=false;state.active=false;state.deviceReady=false;
     resetTextureEvidence();
-    if(currentTexture.enabled)state.textureStatus="Automatically waiting for eligible mip sampling on the selected game drawable; a graphics setting is not proof of texture reduction.";
+    if(currentTexture.active())state.textureStatus="Automatically waiting for eligible mip sampling on the selected game drawable; a graphics setting is not proof of texture reduction.";
     state.status="Automatically detecting the owned game's actual host presentation API. The emulator graphics setting is only a hint.";
 }
 bool Runtime::accepts(Renderer observed){
@@ -86,7 +86,7 @@ bool Runtime::claimPresentation(Renderer renderer,std::uintptr_t object,std::uin
     if(state.observed&&!matches(family(state.renderer),renderer))return false;
     presentationObject=object;presentationWindow=window;state.renderer=renderer;
     state.observed=true;state.deviceReady=false;state.active=false;resetTextureEvidence();
-    if(currentTexture.enabled)state.textureStatus=family(renderer)!=RendererFamily::OpenGL
+    if(currentTexture.active())state.textureStatus=family(renderer)!=RendererFamily::OpenGL
         ?"Potato graphic is not implemented for the observed DirectX/Vulkan texture-binding path. Original textures are retained; presentation shaders remain independent."
         :"Owned GL/GLES presentation identified. Waiting for eligible mip-color samplers; a compositor frame alone does not prove texture reduction.";
     return true;
@@ -101,16 +101,18 @@ void Runtime::releasePresentation(Renderer renderer,std::uintptr_t object){
     if(!object||presentationObject!=object||state.renderer!=renderer)return;
     presentationObject=0;presentationWindow=0;state.observed=false;state.active=false;state.deviceReady=false;state.renderer=Renderer::Unknown;
     resetTextureEvidence();
-    if(currentTexture.enabled)state.textureStatus="The previous game presentation source was destroyed; no texture override is confirmed on a replacement yet.";
+    if(currentTexture.active())state.textureStatus="The previous game presentation source was destroyed; no texture override is confirmed on a replacement yet.";
     state.status="The previous game presentation source was destroyed; automatically detecting its replacement. No new effects have been confirmed.";
 }
 Parameters Runtime::settings(){std::lock_guard<std::mutex> lock(mutex);return current;}
 void Runtime::setTexture(const TextureConfiguration &settings){
+    if(!settings.valid())return;
     std::lock_guard<std::mutex> lock(mutex);
     if(currentTexture.enabled==settings.enabled&&currentTexture.externalOverridesReviewed==settings.externalOverridesReviewed
-       &&currentTexture.drawPolicy==settings.drawPolicy)return;
+       &&currentTexture.drawPolicy==settings.drawPolicy&&currentTexture.strength==settings.strength)return;
     currentTexture=settings;state.texturePolicy=settings.drawPolicy;resetTextureEvidence();
     state.textureStatus=!settings.enabled?"Potato graphic is off; native texture sampling retained.":
+        !settings.strength?"Potato strength is 0%; native texture sampling retained. No texture reduction is requested.":
         state.observed&&family(state.renderer)!=RendererFamily::OpenGL?
         "Potato graphic is not implemented for the observed DirectX/Vulkan texture-binding path. Original textures are retained; presentation shaders remain independent.":
         settings.drawPolicy==TextureDrawPolicy::OwnedMipCompatibility?
@@ -124,17 +126,17 @@ TextureRoute Runtime::textureRoute(){
 }
 void Runtime::textureConsumerReport(unsigned inputs,std::uint64_t revision){
     std::lock_guard<std::mutex> lock(mutex);
-    if(revision!=textureRevision||!currentTexture.enabled||!state.observed||family(state.renderer)!=RendererFamily::OpenGL)return;
+    if(revision!=textureRevision||!currentTexture.active()||!state.observed||family(state.renderer)!=RendererFamily::OpenGL)return;
     ++state.textureConsumerDraws;state.textureConsumerInputs+=inputs;
 }
 void Runtime::textureTransferReport(unsigned inputs,std::uint64_t revision){
     std::lock_guard<std::mutex> lock(mutex);
-    if(revision!=textureRevision||!currentTexture.enabled||!state.observed||family(state.renderer)!=RendererFamily::OpenGL)return;
+    if(revision!=textureRevision||!currentTexture.active()||!state.observed||family(state.renderer)!=RendererFamily::OpenGL)return;
     ++state.textureTransferCalls;state.textureTransferInputs+=inputs;
 }
 void Runtime::textureReport(unsigned bindings,const std::string &detail,bool supported,TextureDrawReason reason,TextureDepthFailure depthFailure,bool nested,bool producer,std::uint64_t revision){
     std::lock_guard<std::mutex> lock(mutex);
-    if((revision&&revision!=textureRevision)||!currentTexture.enabled||!state.observed||family(state.renderer)!=RendererFamily::OpenGL)return;
+    if((revision&&revision!=textureRevision)||!currentTexture.active()||!state.observed||family(state.renderer)!=RendererFamily::OpenGL)return;
     state.textureSupported=supported;
     if(reason!=TextureDrawReason::NotInspected){
         ++state.textureInspected;

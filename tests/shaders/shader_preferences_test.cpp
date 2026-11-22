@@ -194,7 +194,7 @@ int main(int argc,char **argv){
     }
     {
         QTemporaryDir dir;ShaderPreferences p;p.load(dir.filePath(QStringLiteral("p.json")));
-        require(p.values().size()==14&&p.parameters().neutral(),QStringLiteral("Neutral v3 defaults with independent native-resolution/texture modes"));
+        require(p.values().size()==15&&p.parameters().neutral(),QStringLiteral("Neutral v4 defaults with independent native-resolution/texture modes"));
         auto values=p.values();values[QStringLiteral("enabled")]=true;values[QStringLiteral("saturation")]=31;applied(p,values);
         const auto visual=p.parameters();const auto before=bytes(dir.filePath(QStringLiteral("p.json")));
         require(!success(p.apply(mode(p,2)))&&p.parameters()==visual,QStringLiteral("Absent native backend blocks Potato, not independent visual effects"));
@@ -206,11 +206,11 @@ int main(int argc,char **argv){
     }
     {
         Fixture f;
-        auto legacy=f.preferences.values();legacy.remove(QStringLiteral("potatoMode"));legacy.remove(QStringLiteral("potatoGraphic"));legacy.remove(QStringLiteral("textureOverridesReviewed"));legacy[QStringLiteral("enabled")]=true;legacy[QStringLiteral("contrast")]=21;
+        auto legacy=f.preferences.values();legacy.remove(QStringLiteral("potatoMode"));legacy.remove(QStringLiteral("potatoGraphic"));legacy.remove(QStringLiteral("textureOverridesReviewed"));legacy.remove(QStringLiteral("potatoStrength"));legacy[QStringLiteral("enabled")]=true;legacy[QStringLiteral("contrast")]=21;
         const auto old=encoded({{QStringLiteral("schema"),QStringLiteral("bsi.shaders.v1")},{QStringLiteral("values"),QJsonObject::fromVariantMap(legacy)}});
         write(f.path,old);f.preferences.load(f.path);require(f.preferences.bindDisplay(&f.backend),f.preferences.error());
         require(f.preferences.values().value(QStringLiteral("contrast")).toInt()==21&&bytes(f.path)==old,QStringLiteral("Released v1 visual values load WITHOUT writing native state or migrating on open"));
-        applied(f.preferences,f.preferences.values());require(json(f.path).value(QStringLiteral("schema")).toString()==QLatin1String("bsi.shaders.v3")&&f.backend.writes==0,QStringLiteral("v1 migrates only on Save, with Native mode and no Display writes"));
+        applied(f.preferences,f.preferences.values());require(json(f.path).value(QStringLiteral("schema")).toString()==QLatin1String("bsi.shaders.v4")&&f.backend.writes==0,QStringLiteral("v1 migrates only on Save, with Native mode and no Display writes"));
     }
     {
         Fixture f;
@@ -226,12 +226,12 @@ int main(int argc,char **argv){
     {
         Fixture f;applied(f.preferences,mode(f.preferences,2));
         auto legacy=json(f.path);legacy.insert(QStringLiteral("schema"),QStringLiteral("bsi.shaders.v2"));
-        auto values=legacy.value(QStringLiteral("values")).toObject();values.remove(QStringLiteral("potatoGraphic"));values.remove(QStringLiteral("textureOverridesReviewed"));
+        auto values=legacy.value(QStringLiteral("values")).toObject();values.remove(QStringLiteral("potatoGraphic"));values.remove(QStringLiteral("textureOverridesReviewed"));values.remove(QStringLiteral("potatoStrength"));
         legacy.insert(QStringLiteral("values"),values);const auto previous=encoded(legacy);write(f.path,previous);
         ShaderPreferences p;p.load(f.path);require(p.bindDisplay(&f.backend),p.error());
         require(bytes(f.path)==previous&&!p.texture().enabled&&p.values().value(QStringLiteral("potatoMode")).toInt()==2,
                 QStringLiteral("Released v2 native resolution recovery survives read-only migration; texture reduction defaults OFF"));
-        applied(p,mode(p,0));require(f.backend.configured==original,QStringLiteral("v2 original dimensions/custom flag still restore exactly after v3 migration"));
+        applied(p,mode(p,0));require(f.backend.configured==original,QStringLiteral("v2 original dimensions/custom flag still restore exactly after v4 migration"));
     }
     {
         Fixture f;auto values=f.preferences.values();values[QStringLiteral("potatoGraphic")]=true;
@@ -243,7 +243,7 @@ int main(int argc,char **argv){
         ShaderPreferences p;p.load(f.path);require(p.texture().enabled&&p.texture().externalOverridesReviewed
                 &&p.texture().drawPolicy==TextureDrawPolicy::OwnedMipCompatibility,
                 QStringLiteral("Saved/reopened Potato On actually selects depth-independent owned-mip compatibility, not the legacy depth gate"));
-        require(p.values().size()==14,QStringLiteral("Compatibility adds no persisted mode/flag, native Display edit or extra UI control"));
+        require(p.values().size()==15,QStringLiteral("Compatibility policy remains implicit; the only new persisted value is independent texture strength"));
         values[QStringLiteral("potatoGraphic")]=false;applied(f.preferences,values);
         require(!f.preferences.texture().enabled&&f.preferences.texture().drawPolicy==TextureDrawPolicy::DepthQualifiedScene
                 &&f.backend.writes==0,QStringLiteral("Turning texture Potato off disarms compatibility without a native Display write"));
@@ -251,6 +251,33 @@ int main(int argc,char **argv){
             values[QStringLiteral("potatoGraphic")]=invalid;
             require(!success(f.preferences.apply(values))&&!f.preferences.texture().enabled,QStringLiteral("Texture toggle has a strict boolean schema"));
         }
+    }
+    {
+        Fixture f;auto values=f.preferences.values();values[QStringLiteral("potatoGraphic")]=true;values[QStringLiteral("textureOverridesReviewed")]=true;
+        for(int percent:{0,1,25,50,99,100}){
+            values[QStringLiteral("potatoStrength")]=percent;applied(f.preferences,values);
+            ShaderPreferences reopened;reopened.load(f.path);
+            require(reopened.error().isEmpty()&&reopened.values()==values&&reopened.texture().strength==percent
+                    &&reopened.texture().active()==bool(percent)&&f.backend.writes==0&&f.backend.commits==0&&f.backend.restarts==0,
+                    QStringLiteral("Each texture strength persists/reopens and actually reaches render settings; zero is native with no Display writes/restart"));
+        }
+        const auto before=bytes(f.path);
+        for(const QVariant &invalid:{QVariant(-1),QVariant(101),QVariant(1.5),QVariant(true),QVariant(QStringLiteral("50")),QVariant(),QVariant(std::numeric_limits<double>::quiet_NaN()),QVariant(std::numeric_limits<double>::infinity())}){
+            values=f.preferences.values();values[QStringLiteral("potatoStrength")]=invalid;
+            require(!success(f.preferences.apply(values))&&bytes(f.path)==before&&f.preferences.texture().strength==100&&f.backend.writes==0,
+                    QStringLiteral("Malformed/noninteger/out-of-range strength is refused atomically, never coerced or silently clamped"));
+        }
+        for(bool enabled:{false,true}){
+            auto legacy=json(f.path);legacy[QStringLiteral("schema")]=QStringLiteral("bsi.shaders.v3");
+            auto oldValues=legacy.value(QStringLiteral("values")).toObject();oldValues.remove(QStringLiteral("potatoStrength"));oldValues[QStringLiteral("potatoGraphic")]=enabled;
+            legacy[QStringLiteral("values")]=oldValues;const auto oldBytes=encoded(legacy);write(f.path,oldBytes);
+            ShaderPreferences migrated;migrated.load(f.path);
+            require(migrated.error().isEmpty()&&migrated.texture().enabled==enabled&&migrated.texture().strength==100&&bytes(f.path)==oldBytes,
+                    QStringLiteral("Released v3 On remains exactly legacy Strong 100; Off remains Off, without migrating/writing on open"));
+            applied(migrated,migrated.values());require(json(f.path).value(QStringLiteral("schema")).toString()==QLatin1String("bsi.shaders.v4")
+                    &&f.backend.writes==0,QStringLiteral("v3 gains strength only on explicit Save, with no native Display edit"));
+        }
+        f.untouched();
     }
     {
         Fixture f;require(!success(f.preferences.requestRestart())&&f.backend.restarts==0,QStringLiteral("No restart before a finalized Display save"));
@@ -307,7 +334,11 @@ int main(int argc,char **argv){
     }
     for(bool didCommit:{false,true}){
         Fixture f;f.backend.rejectCommit=!didCommit;f.backend.commitThenRefuse=didCommit;
-        require(!success(f.preferences.apply(mode(f.preferences,2)))&&json(f.path).contains(QStringLiteral("pendingDisplay")),QStringLiteral("Refused/uncertain native commit retains BOTH sides on disk"));
+        auto next=mode(f.preferences,2);next[QStringLiteral("potatoStrength")]=37;next[QStringLiteral("potatoGraphic")]=true;next[QStringLiteral("textureOverridesReviewed")]=true;
+        require(!success(f.preferences.apply(next))&&json(f.path).contains(QStringLiteral("pendingDisplay")),QStringLiteral("Refused/uncertain native commit retains BOTH sides on disk"));
+        require(json(f.path).value(QStringLiteral("pendingDisplay")).toObject().value(QStringLiteral("next")).toObject()
+                .value(QStringLiteral("values")).toObject().value(QStringLiteral("potatoStrength")).toInt()==37,
+                QStringLiteral("The durable next snapshot includes strength before native Display writes, without activating an unfinished save"));
         ShaderPreferences recovered;recovered.load(f.path);
         if(!didCommit){
             require(!recovered.bindDisplay(&f.backend)&&recovered.displayStatus().value(QStringLiteral("pending")).toBool(),QStringLiteral("Uncommitted native drafts cannot be mistaken for committed recovery"));
@@ -315,7 +346,9 @@ int main(int argc,char **argv){
         }
         const int commits=f.backend.commits;
         require(recovered.bindDisplay(&f.backend),recovered.error());
-        require(recovered.values().value(QStringLiteral("potatoMode")).toInt()==(didCommit?2:0)&&f.backend.commits==commits&&!json(f.path).contains(QStringLiteral("pendingDisplay")),QStringLiteral("Restart recovery reconciles exact before/target read-back WITHOUT re-committing"));
+        require(recovered.values().value(QStringLiteral("potatoMode")).toInt()==(didCommit?2:0)&&f.backend.commits==commits&&!json(f.path).contains(QStringLiteral("pendingDisplay"))
+                &&recovered.texture().strength==(didCommit?37:100)&&recovered.texture().enabled==didCommit,
+                QStringLiteral("Restart recovery reconciles exact before/target AND texture strength WITHOUT re-committing or losing the new field"));
     }
     {
         Fixture f;const auto moved=f.path+QStringLiteral(".held");
@@ -372,7 +405,7 @@ int main(int argc,char **argv){
         require(!binding.bind(other,&error),QStringLiteral("Never invoke native Display methods across threads"));
         worker.quit();require(worker.wait(5000)&&tracked.isNull(),QStringLiteral("The wrong-thread fixture must be destroyed on its owning thread"));
     }
-    std::cout<<"PASS: current-size 720/540 honest no-op preview/combined visual+texture Save/reopen/exact flag and odd-dimension preservation/no native write or restart; no upscaling via UI-bypass API; exact reviewed-source/target/custom flag and saved-configuration stamps, stale/no-op-to-write/replay rejection before writes; independent texture-toggle v3 preferences, v1/v2 read-only migration, pre-save restart capability vs finalized-target permission, explicit restart acceptance/refusal/unsaved/changed-target/destruction gates, public typed native resolution adapter, exact restore/conflict handling, no unrelated commits/discards, locking, malformed input, native write/commit/finalization failure and interruption recovery\n";
+    std::cout<<"PASS: current-size 720/540 honest no-op preview/combined visual+texture Save/reopen/exact flag and odd-dimension preservation/no native write or restart; no upscaling via UI-bypass API; exact reviewed-source/target/custom flag and saved-configuration stamps, stale/no-op-to-write/replay rejection before writes; independent texture-toggle/percentage v4 preferences, v1/v2/v3 read-only migration, pre-save restart capability vs finalized-target permission, explicit restart acceptance/refusal/unsaved/changed-target/destruction gates, public typed native resolution adapter, exact restore/conflict handling, no unrelated commits/discards, locking, malformed input, native write/commit/finalization failure and interruption recovery\n";
     std::cout<<"LIMIT: authored native-config contract only; no installed player, restart, game texture LOD, FPS or physical GPU certification\n";
 }
 #include "shader_preferences_test.moc"

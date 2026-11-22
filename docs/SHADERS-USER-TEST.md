@@ -126,31 +126,23 @@ requires explicit review of existing driver LOD/AA overrides, and currently has
 a GL 3.3/GLES 3.1 draw-time path only. No supplied DLL is installed. See
 [exact coverage and resource-provenance limits](TEXTURE-QUALITY-PORTABILITY.md).
 
-**Known reported failure, not another request to repeat this procedure:** the
-first follow-up had 1,235 processed frames / 2,468 inspected calls; the latest
-has **2,375 / 4,506**, all first-rejected because depth testing is disabled, with
-zero eligible/prepared calls/overridden bindings and zero nested inspected/
-prepared counts. The earlier advancing-3D/Settings-closed confirmation stands.
-The nested-wrapper repair did not fix this game case; another Save or lower-
-resolution choice is not a remedy. Work includes an [actual original-DLL and
-reversible owned-resource experiment](POTATO-DLL-PROBE.md) and the subsequent
-[initial bounded desktop private-bias integration](POTATO-DESKTOP-BIAS.md). That
-initial integration could not address the earlier depth refusal. The newer
-[depth-independent owned-mip production path](POTATO-DEPTH-COMPATIBILITY.md) now
-makes saved On skip depth qualification and has real software mip/material
-pixels plus exact Off restoration. Opaque mipmapped in-game HUD/RGB-data effects
-are disclosed; owned-route/protection, blend and resource checks remain. This
-is not installed-player acceptance or another blind deployment/retest request
-for the known report. The generic steps below are for a different/new reviewed
-test installation, not a repeated prerequisite for the user who supplied it.
+**Latest reported result remains not working:** 1,812 OpenGL grading frames;
+3,624 NoSampler inspections; two resource-linked producers inspected, zero
+prepared draws/private bindings and zero qualified recorded transfers. This is
+not a small Potato effect. Grading activity and saved/armed state are not game
+texture changes. See the [producer and immutable-mip repair evidence](POTATO-MIP-QUALIFICATION.md)
+and [strength/status semantics](POTATO-STRENGTH.md). The reproduced immutable
+eligibility bug is repaired independently; it is not established as this game's
+root cause. These generic acceptance steps are for a new reviewed installation,
+not a request to repeat Save/gameplay or lower resolution as a remedy.
 
 1. Record the actual observed host API, player/game versions, GPU/driver, native
    size, current driver profile and a repeatable scene. Configuration is only a
    hint; Automatic may legitimately observe another host API, never the Qt UI.
 2. Switch **Potato graphic** on without Save, navigate away and exercise native
    No/Discard. The draft must not arm sampler overrides or change Display.
-3. Check that the driver-review checkbox is immediately below the switch and
-   revealed when needed. An unchecked review must show **Not saved / current
+3. Check that the native **Potato strength** slider sits beneath the switch and
+   the driver-review checkbox is revealed beside it when needed. An unchecked review must show **Not saved / current
    saved Off**, not imply runtime activity. Save must guide/focus that review
    without writing preferences or Display; it must not auto-acknowledge it.
    After actually reviewing existing overrides, confirm the checkbox and Save
@@ -172,9 +164,15 @@ test installation, not a repeated prerequisite for the user who supplied it.
    or a new repeated-diagnostics prerequisite. If textures still do not change,
    retain **not working** rather than infer success from bindings, more Save
    clicks, resolution changes or forced foreign/UI/offscreen adoption.
-4. Save off and verify exact native sampling/image restoration. Presets/Reset
-   visuals must not alter texture flags or resolution. Check reopen/per-instance
-   persistence and resize/context recreation.
+4. Move **Potato strength** with pointer and keyboard. **0%** is native, **50%**
+   is former Light and **100%** preserves the previous Strong/On behavior.
+   Unsaved movement must not affect the live setting; native Discard restores
+   it. Save/reopen must retain the exact integer per instance, with no Display
+   write/restart. Compare actual texture detail only on a qualified path; short
+   mip chains/native minification may cap the difference. Zero prepared bindings
+   still means no applied reduction at every strength. Then Save off and verify
+   exact native sampling/image restoration. Presets/Reset visuals must preserve
+   texture flags/strength and resolution; test resize/context recreation.
 5. DirectX/Vulkan texture paths must explicitly bypass; resolution or a visual
    postprocess must not be substituted. No driver profile is reset. Measure
    frame times before claiming a performance benefit; report failures rather

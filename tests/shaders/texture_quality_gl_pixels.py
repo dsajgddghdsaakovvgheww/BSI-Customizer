@@ -167,6 +167,8 @@ def exercise(gl, policy, desktop, size, resolver):
     policy.bsi_test_quality_begin.restype = U
     policy.bsi_test_quality_begin_compatibility.argtypes = policy.bsi_test_quality_begin.argtypes
     policy.bsi_test_quality_begin_compatibility.restype = U
+    policy.bsi_test_quality_begin_strength.argtypes = [I, I, U, I, I, C.c_char_p, I]
+    policy.bsi_test_quality_begin_strength.restype = U
     message = C.create_string_buffer(2048)
     assert policy.bsi_test_quality_initialize(resolver, None, message, len(message)), message.value.decode()
     bind_sampler(0, samplers[0])
@@ -189,18 +191,17 @@ def exercise(gl, policy, desktop, size, resolver):
     active(0x84C3)
     native_binding = samplers[0]
 
-    def production(mode, reviewed=1, primitive=0x0004, compatibility=False, expected_floor=None):
+    def production(mode, reviewed=1, primitive=0x0004, compatibility=False, expected_floor=None, strength=100):
         before, after = I(), I()
         get_binding(before)
-        begin = policy.bsi_test_quality_begin_compatibility if compatibility else policy.bsi_test_quality_begin
-        count = begin(mode, reviewed, primitive, message, len(message))
+        count = policy.bsi_test_quality_begin_strength(mode, reviewed, primitive, compatibility, strength, message, len(message))
         current = I()
         get_int(0x84E0, C.byref(current))
         assert current.value == 0x84C3, "inspection must restore ACTIVE_TEXTURE before the actual draw"
         get_binding(after)
         assert (after.value != before.value) == bool(count), message.value.decode()
         if count:
-            floor = (1.5 if mode == 1 else 3) if expected_floor is None else expected_floor
+            floor = (1.5 if mode == 1 else 3) * strength / 100 if expected_floor is None else expected_floor
             actual_floor = F()
             get_sampler(after.value, 0x813A, C.byref(actual_floor))
             assert actual_floor.value == floor, "production private floor is bounded by the actual exposed view"
@@ -309,6 +310,39 @@ def exercise(gl, policy, desktop, size, resolver):
                         assert source_lods() == saved_source_lods, "source texture/sampler LOD state must remain unchanged on every cycle"
                         cycles += 1
     assert cycles == 128
+    sample_scale(scale_location, 1)
+    native_binding = samplers[0]
+    bind_sampler(0, native_binding)
+
+    # The saved percentage drives REAL draw-scoped sampling, not final-frame
+    # blur/resizing. Exercise both source modes and both native gradients.
+    def strength_frame():
+        image = (C.c_ubyte * (size * size * 4))()
+        read(0, 0, size, size, 0x1908, 0x1401, image)
+        return bytes(image)
+
+    strength_pixels = []
+    for native_binding in (samplers[0], 0):
+        bind_sampler(0, native_binding)
+        for scale, native_lod in ((1, 0), (16, 4)):
+            sample_scale(scale_location, scale)
+            assert production(0, compatibility=True) == (0, colors[native_lod])
+            native_image = strength_frame()
+            for percent in (0, 25, 50, 75, 100):
+                floor = 3 * percent / 100
+                bias = min(floor, maximum_bias.value) if desktop else 0
+                expected = interpolated(max(floor, native_lod + bias))
+                gl("glEnable", None, U)(0xDEADBEEF)
+                count, observed = production(2, compatibility=True, strength=percent)
+                actual_image = strength_frame()
+                assert count == int(percent > 0) and all(abs(a - b) <= 2 for a, b in zip(observed, expected)), ("actual strength pixels", percent, observed, expected)
+                assert get_error() == 0x0500 and get_error() == 0, "percentage changes/cache recycling must preserve pending application errors"
+                assert production(0, compatibility=True) == (0, colors[native_lod]) and strength_frame() == native_image, "ENTIRE native Off image must restore at every saved percentage"
+                assert (actual_image != native_image) == (observed != colors[native_lod])
+                assert source_lods() == saved_source_lods and get_error() == 0, "percentage never edits source texture/sampler values"
+                if native_binding and native_lod == 0:
+                    strength_pixels.append(list(observed))
+    assert len({tuple(rgba) for rgba in strength_pixels}) == 5, "five strengths must really produce five different sampled mip results, including exact native zero"
     sample_scale(scale_location, 1)
     native_binding = samplers[0]
     bind_sampler(0, native_binding)
@@ -695,12 +729,13 @@ def exercise(gl, policy, desktop, size, resolver):
                 "noDepthAttachmentRGBA": color_only[1], "mipPixels": mip_evidence, "material": material_evidence,
                 "resourceLinkedProducer": producer_evidence, "colorTransfers": transfer_evidence,
                 "immutableMips": {"sourceModes": 2, "cases": immutable_evidence, "pendingErrorAndSourceState": True},
+                "strength": {"percent": [0, 25, 50, 75, 100], "rgba": strength_pixels, "sourceModes": 2, "gradients": 2, "fullOffAndSourceExact": True},
                 "limit": "authored software resources; NOT player, physical GPU, allocated-memory or FPS evidence"}
     report = json.dumps(evidence, separators=(",", ":"))
     if os.environ.get("BSI_TEXTURE_PIXEL_ARTIFACT_DIR"):
         (folder / "evidence.json").write_text(json.dumps(evidence, indent=2) + "\n")
     print("PASS: production draw-scoped " + ("desktop OpenGL queried bias+floor" if desktop else "GLES 3 floor-only")
-          + " selects real test-owned mip colors at native lambda 0 AND 4 in both texture/sampler source modes; 128 exact Off/source-LOD cycles (64 depth-independent); valid partial immutable chains/nonzero base/max/view bounds with exact full-frame Off and pending errors; color-only/no-depth-attachment pixels, direct FBO plus renderbuffer-blit and default-pbuffer-copy material producers -> unchanged single-level compositor with exact full-frame Off/expiry, and full material-detail images; legacy depth/blend/no-mip/override/review bypass preserved")
+          + " selects real 0/25/50/75/100-percent strength pixels with exact full-frame Off and pending errors; test-owned mip colors at native lambda 0 AND 4 in both texture/sampler source modes; 128 exact Off/source-LOD cycles (64 depth-independent); valid partial immutable chains/nonzero base/max/view bounds with exact full-frame Off and pending errors; color-only/no-depth-attachment pixels, direct FBO plus renderbuffer-blit and default-pbuffer-copy material producers -> unchanged single-level compositor with exact full-frame Off/expiry, and full material-detail images; legacy depth/blend/no-mip/override/review bypass preserved")
     print("Texture pixel evidence:", report)
     if os.environ.get("GITHUB_ACTIONS") == "true":
         # Keep measured SUCCESS evidence readable through GitHub's check API,

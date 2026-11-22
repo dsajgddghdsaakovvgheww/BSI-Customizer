@@ -94,6 +94,8 @@ struct GlTextureOverride::Impl {
         }
     }
     std::map<std::array<F,17>,U> cache;
+    int cacheStrength=-1;TextureQuality cacheMode=TextureQuality::Native;
+    void clearCache(){for(const auto &entry:cache)DeleteSamplers(1,&entry.second);cache.clear();}
     struct Binding {U unit,original;};
     std::vector<Binding> changed;
     bool extension(const char *needle){
@@ -399,12 +401,13 @@ bool GlTextureOverride::transfer(const GlColorTransfer &call,GlTextureUsage *out
     captured.reads[captured.readCount++]=source;captured.writes[captured.writeCount++]=destination;
     *out=captured;return true;
 }
-unsigned GlTextureOverride::begin(TextureQuality mode,bool reviewed,U primitive,std::string *detail,TextureDrawReason *reason,TextureDepthFailure *depthFailure,TextureDrawPolicy policy){
+unsigned GlTextureOverride::begin(TextureQuality mode,bool reviewed,U primitive,std::string *detail,TextureDrawReason *reason,TextureDepthFailure *depthFailure,TextureDrawPolicy policy,int strength){
     auto &g=*impl;end();
     if(reason)*reason=TextureDrawReason::NotInspected;
     if(depthFailure)*depthFailure=TextureDepthFailure::None;
     const auto fail=[&](TextureDrawReason why,const char *message)->U{if(reason)*reason=why;if(detail)*detail=message;return 0;};
-    if(!g.ready||mode==TextureQuality::Native)return 0;
+    if(!g.ready||mode==TextureQuality::Native||!strength)return 0;
+    if(strength<0||strength>100)return fail(TextureDrawReason::Policy,"Potato bypass: strength must be 0 to 100 percent; native bindings retained.");
     if(!reviewed)return fail(TextureDrawReason::Unreviewed,"Potato is not applied: review existing driver LOD/AA overrides first; no profile is reset.");
     if(policy!=TextureDrawPolicy::DepthQualifiedScene&&policy!=TextureDrawPolicy::OwnedMipCompatibility)
         return fail(TextureDrawReason::Policy,"Potato bypass: unknown sampling policy; native bindings retained.");
@@ -429,6 +432,12 @@ unsigned GlTextureOverride::begin(TextureQuality mode,bool reviewed,U primitive,
     g.GetProgramiv(U(program),0x8b86,&count);g.GetProgramiv(U(program),0x8b87,&maxName);
     if(count<0||count>256||maxName<0||maxName>512)return fail(TextureDrawReason::NoSampler,"Potato bypass: shader uniform layout exceeds safe inspection bounds.");
     Impl::Inspection inspection(g);
+    if(g.cacheStrength!=strength||g.cacheMode!=mode){
+        // begin() already restored every borrowed binding in this CURRENT
+        // context. Recycle our own names so repeated slider saves cannot fill
+        // the bounded cache with obsolete strength variants. No source edits.
+        g.clearCache();g.cacheStrength=strength;g.cacheMode=mode;
+    }
     unsigned samplers=0,bound=0,feedback=0,noChain=0,descriptor=0,replacementFailure=0;
     std::array<unsigned,static_cast<std::size_t>(Impl::MipRefusal::Count)> mipRefusals{};
     Impl::MipInspection firstMipRefusal;
@@ -465,7 +474,7 @@ unsigned GlTextureOverride::begin(TextureQuality mode,bool reviewed,U primitive,
             proof.privateReplacementSupported=true;proof.externalOverridesReviewed=reviewed;proof.visibleMipLevels=U(levels);
             GlQualitySampler source;source.minimumFilter=sampler.min;source.comparisonMode=sampler.compare;
             source.minimumLod=sampler.lo;source.maximumLod=sampler.hi;source.lodBias=sampler.bias;source.maximumAnisotropy=sampler.anisotropy;
-            const auto plan=planGlTextureQuality(mode,proof,source,g.qualityCapabilities);if(!plan.changed()){++descriptor;continue;}
+            const auto plan=planGlTextureQuality(mode,proof,source,g.qualityCapabilities,strength);if(!plan.changed()){++descriptor;continue;}
             sampler.lo=plan.descriptor.minimumLod;sampler.bias=plan.descriptor.lodBias;
             const U replacement=g.privateSampler(sampler);if(!replacement){++replacementFailure;continue;}
             g.changed.push_back({U(unit),U(original)});g.BindSampler(U(unit),replacement);
@@ -500,6 +509,6 @@ void GlTextureOverride::end()noexcept{
     impl->restoreBindings();
 }
 void GlTextureOverride::release(){
-    auto &g=*impl;end();for(const auto &entry:g.cache)g.DeleteSamplers(1,&entry.second);g.cache.clear();g.ready=false;
+    auto &g=*impl;end();g.clearCache();g.cacheStrength=-1;g.ready=false;
 }
 } // namespace BsiShaders

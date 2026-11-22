@@ -44,7 +44,7 @@ public:
     // and rolls back every binding before propagating an inspection exception.
     unsigned begin(TextureQuality mode,bool externalOverridesReviewed,unsigned primitive,std::string *detail,
                    TextureDrawReason *reason=nullptr,TextureDepthFailure *depthFailure=nullptr,
-                   TextureDrawPolicy policy=TextureDrawPolicy::DepthQualifiedScene);
+                   TextureDrawPolicy policy=TextureDrawPolicy::DepthQualifiedScene,int strength=100);
     void end()noexcept;
     // Only with the owning context CURRENT. Destruction otherwise abandons
     // names to that context's driver teardown, never deletes in another context.

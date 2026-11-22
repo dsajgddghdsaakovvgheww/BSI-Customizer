@@ -53,6 +53,36 @@ template<typename T>bool sameDirectx(const T &a,const T &b){
     }
 }
 #endif
+void strength(){
+    TextureConfiguration config;require(config.strength==100&&!config.active(),"old/default Off stays native with legacy 100 percent retained");
+    config.enabled=true;require(config.quality()==TextureQuality::Strong,"legacy On keeps its previous maximum strength");
+    auto proof=qualified();const auto source=ordinary();GlQualitySampler glSource;glSource.minimumFilter=0x2703;
+    float previous=0;
+    for(int percent=0;percent<=100;++percent){
+        config.strength=percent;require(config.valid()&&config.active()==bool(percent),"every integer slider step has bounded zero/native semantics");
+        const auto plan=planTextureQuality(TextureQuality::Strong,proof,source,percent);
+        const float wanted=3.f*float(percent)/100.f;
+        require(plan.changed()==bool(percent)&&plan.sampling.minimumLod==wanted&&wanted>=previous,"0..100 controls real continuous monotone LOD, not only a label or discrete enum");
+        previous=wanted;
+        for(auto api:{Renderer::OpenGL,Renderer::OpenGLES}){
+            auto apiProof=qualified(api);GlQualityCapabilities cap{api==Renderer::OpenGL?16.f:0.f};
+            const auto glPlan=planGlTextureQuality(TextureQuality::Strong,apiProof,glSource,cap,percent);
+            if(percent)require(glPlan.changed()&&glPlan.descriptor.minimumLod==wanted&&glPlan.descriptor.lodBias==(api==Renderer::OpenGL?wanted:0.f),"percentage controls desktop private bias+floor and legal GLES floor only");
+            else require(!glPlan.changed()&&sameGl(glPlan.descriptor,glSource),"zero returns ALL native source descriptor fields unchanged");
+        }
+    }
+    require(planTextureQuality(TextureQuality::Strong,proof,source,50).sampling.minimumLod==1.5f,"50 percent is the former Light floor, 100 percent is former Strong");
+    proof.visibleMipLevels=2;
+    require(planTextureQuality(TextureQuality::Strong,proof,source,25).sampling.minimumLod==.75f
+            &&planTextureQuality(TextureQuality::Strong,proof,source,100).sampling.minimumLod==1,"percentage is still bounded by exposed storage/view levels");
+    for(int bad:{-1,101,std::numeric_limits<int>::min(),std::numeric_limits<int>::max()}){
+        config.strength=bad;require(!config.valid()&&!config.active(),"invalid percentages cannot activate an unchecked runtime config");
+        const auto plan=planTextureQuality(TextureQuality::Strong,proof,source,bad);
+        require(plan.decision==TextureQualityDecision::InvalidStrength&&sameSampling(plan.sampling,source),"invalid strength never clamps into an unintended effect or edits source fields");
+    }
+    proof=qualified();proof.protectedContent=true;
+    require(!planTextureQuality(TextureQuality::Strong,proof,source,100).changed(),"maximum strength cannot bypass eligibility or protection");
+}
 void policy(){
     auto source=ordinary();auto proof=qualified();
     for(const auto &api:rendererCapabilities){
@@ -100,7 +130,7 @@ void policy(){
     source.maximumLod=.75f;require(planTextureQuality(TextureQuality::Strong,proof,source).sampling.minimumLod==.75f,"respect sampler's existing max LOD");source=ordinary();
     proof.visibleMipLevels=2;require(planTextureQuality(TextureQuality::Strong,proof,source).sampling.minimumLod==1,"respect view-relative mip bounds");
     TextureQualityProof defaults;require(!planTextureQuality(TextureQuality::Strong,defaults,source).changed(),"default proof never opts a game into modification");
-    for(unsigned i=0;i<=static_cast<unsigned>(TextureQualityDecision::UnsupportedDescriptor);++i)
+    for(unsigned i=0;i<=static_cast<unsigned>(TextureQualityDecision::InvalidStrength);++i)
         require(std::strlen(textureQualityDiagnostic(static_cast<TextureQualityDecision>(i)))>12,"every decision has an honest diagnostic");
 }
 void gl(){
@@ -231,7 +261,7 @@ void directx(){
 #endif
 }
 int main(){
-    policy();gl();vulkan();
+    strength();policy();gl();vulkan();
 #ifdef _WIN32
     directx();
 #endif

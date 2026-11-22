@@ -132,6 +132,10 @@ or `vulkan-1.dll`. The existing arbitrary startup-DLL feature remains separate.
   private GL/GLES samplers with after-draw restoration and explicit driver-
   override review. Its format/draw/protection checks and resource-provenance
   limits are documented separately; DirectX/Vulkan texture paths remain absent.
+  The native [Potato strength slider](POTATO-STRENGTH.md) saves 0..100% independently:
+  0 is native, 50 is former Light, 100 preserves previous On/Strong. Save/Discard,
+  v1/v2/v3 migration and render-thread percentage are tested; strength never
+  qualifies a rejected resource or turns grading frames into texture evidence.
 - Explicit per-device success gates: an implemented adapter is not enough to
   report active processing. The actual pipeline must confirm device/image
   requirements and successful submission before any processed-frame counter

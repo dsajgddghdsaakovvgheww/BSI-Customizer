@@ -32,6 +32,7 @@ inline std::uint64_t expectedHash=0,lastHash=0,expectedTransferHash=0,lastTransf
 inline void (WINAPI *onTransfer)()=nullptr;
 inline U lastPrivateBindings=0,nestedPrivateBindings=0,nestedMode=0;
 inline bool nestedArgumentsIntact=true;
+inline F expectedMinimumLod=3;
 inline void nestedOriginal(U kind);
 inline void bad(){InterlockedIncrement(&invalid);}
 inline const unsigned char *WINAPI getString(U name){return reinterpret_cast<const unsigned char*>(name==0x1f02?(state().desktop?"4.5 BSI WGL dispatch double":"OpenGL ES 3.1 BSI dispatch double"):"");}
@@ -131,7 +132,7 @@ template<typename... Args>void record(U kind,U alias,Args... args){
     InterlockedIncrement(&draws);lastHash=hash(kind,alias,args...);lastPrivateBindings=0;
     const auto &g=state();if(g.active!=3)bad();
     for(U unit=0;unit<2;++unit)if(g.bindings[unit]>=16){
-        ++lastPrivateBindings;if(g.samplers.at(g.bindings[unit]).low!=3||(g.desktop&&g.samplers.at(g.bindings[unit]).bias!=3))bad();
+        ++lastPrivateBindings;if(g.samplers.at(g.bindings[unit]).low!=expectedMinimumLod||(g.desktop&&g.samplers.at(g.bindings[unit]).bias!=expectedMinimumLod))bad();
     }
     if(lastPrivateBindings)InterlockedIncrement(&privateDraws);
 }

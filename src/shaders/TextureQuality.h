@@ -24,7 +24,12 @@ enum class TextureDepthFailure { None, TestDisabled, WritesDisabled, Never, Alwa
 struct TextureConfiguration {
     bool enabled=false,externalOverridesReviewed=false;
     TextureDrawPolicy drawPolicy=TextureDrawPolicy::DepthQualifiedScene;
-    TextureQuality quality()const{return enabled?TextureQuality::Strong:TextureQuality::Native;}
+    // Saved percentage, independent of visual effects and render resolution.
+    // 100 preserves the original On setting (up to 3 mip levels); 0 is native.
+    int strength=100;
+    bool valid()const{return strength>=0&&strength<=100;}
+    bool active()const{return enabled&&valid()&&strength>0;}
+    TextureQuality quality()const{return active()?TextureQuality::Strong:TextureQuality::Native;}
 };
 enum class TextureUse { Unknown, SampledColor, UserInterface, Depth, Integer, RenderTarget, Presentation };
 struct TextureQualityProof {
@@ -51,7 +56,7 @@ enum class TextureQualityDecision {
     Applied, Disabled, InvalidMode, UnidentifiedRenderer, UnqualifiedResource,
     UnsupportedReplacement, ProtectedContent, ExternalOverridesUnverified,
     NoMipChain, UnsupportedSampling, InvalidSampling, ExistingLodOverride,
-    NoCoarserLevel, UnsupportedDescriptor
+    NoCoarserLevel, UnsupportedDescriptor, InvalidStrength
 };
 struct TextureQualityPlan {
     TextureSampling sampling;
@@ -59,11 +64,13 @@ struct TextureQualityPlan {
     bool changed()const{return decision==TextureQualityDecision::Applied;}
 };
 inline TextureQualityPlan planTextureQuality(TextureQuality mode,const TextureQualityProof &proof,
-                                             const TextureSampling &source){
+                                             const TextureSampling &source,int strength=100){
     TextureQualityPlan plan{source,TextureQualityDecision::Disabled};
     const auto refuse=[&](TextureQualityDecision why){plan.decision=why;return plan;};
     if(mode==TextureQuality::Native)return plan;
     if(mode!=TextureQuality::Light&&mode!=TextureQuality::Strong)return refuse(TextureQualityDecision::InvalidMode);
+    if(strength<0||strength>100)return refuse(TextureQualityDecision::InvalidStrength);
+    if(!strength)return plan;
     if(!canRoute(proof.renderer,proof.gameSurfaceIdentified,true,proof.requested))return refuse(TextureQualityDecision::UnidentifiedRenderer);
     if(proof.use!=TextureUse::SampledColor||!proof.resourceOwnershipProven)return refuse(TextureQualityDecision::UnqualifiedResource);
     if(proof.protectedContent)return refuse(TextureQualityDecision::ProtectedContent);
@@ -81,7 +88,8 @@ inline TextureQualityPlan planTextureQuality(TextureQuality mode,const TextureQu
     const float last=static_cast<float>(proof.visibleMipLevels-1);
     const float ceiling=(std::min)(last,source.maximumLod);
     if(ceiling<=0)return refuse(TextureQualityDecision::NoCoarserLevel);
-    plan.sampling.minimumLod=(std::min)(mode==TextureQuality::Light?1.5f:3.f,ceiling);
+    const float requested=(mode==TextureQuality::Light?1.5f:3.f)*float(strength)/100.f;
+    plan.sampling.minimumLod=(std::min)(requested,ceiling);
     plan.decision=TextureQualityDecision::Applied;
     return plan;
 }
@@ -90,6 +98,7 @@ inline const char *textureQualityDiagnostic(TextureQualityDecision decision){
     case TextureQualityDecision::Applied:return "Private sampler minimum-LOD plan prepared; game integration and performance are not confirmed.";
     case TextureQualityDecision::Disabled:return "Native sampling retained.";
     case TextureQualityDecision::InvalidMode:return "Unknown texture-quality mode; native sampling retained.";
+    case TextureQualityDecision::InvalidStrength:return "Texture strength must be an integer percentage from 0 to 100; native sampling retained.";
     case TextureQualityDecision::UnidentifiedRenderer:return "Game surface/API is unidentified or does not match the selected renderer.";
     case TextureQualityDecision::UnqualifiedResource:return "Only an ownership-proven sampled game-color resource qualifies.";
     case TextureQualityDecision::UnsupportedReplacement:return "A safe private sampler replacement is unavailable for this resource/API.";

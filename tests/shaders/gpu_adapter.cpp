@@ -68,6 +68,12 @@ unsigned bsi_test_quality_begin_compatibility(int mode,int reviewed,unsigned pri
                                     nullptr,nullptr,BsiShaders::TextureDrawPolicy::OwnedMipCompatibility);
     if(capacity>0){std::strncpy(message,detail.c_str(),capacity-1);message[capacity-1]=0;}return count;
 }
+unsigned bsi_test_quality_begin_strength(int mode,int reviewed,unsigned primitive,int compatibility,int strength,char *message,int capacity){
+    std::string detail;
+    const auto policy=compatibility?BsiShaders::TextureDrawPolicy::OwnedMipCompatibility:BsiShaders::TextureDrawPolicy::DepthQualifiedScene;
+    const auto count=quality->begin(static_cast<BsiShaders::TextureQuality>(mode),reviewed!=0,primitive,&detail,nullptr,nullptr,policy,strength);
+    if(capacity>0){std::strncpy(message,detail.c_str(),capacity-1);message[capacity-1]=0;}return count;
+}
 // Actual API observations + production dependency policy. The caller owns this
 // fixture context; these exports are NEVER part of the deployed module.
 void bsi_test_dependency_reset(unsigned revision){dependencies.synchronize(1,revision);transferCaptured=false;}

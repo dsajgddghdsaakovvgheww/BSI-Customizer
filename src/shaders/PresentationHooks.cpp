@@ -302,11 +302,11 @@ struct GameDraw {
     GameDraw(unsigned providers,unsigned primitive)noexcept:scope(hooks().renderMutex,presenting){
         try {
             auto &h=hooks();auto &runtime=Runtime::instance();
-            if(!scope.mayInspect()||h.stopping.load()||!runtime.texture().enabled)return;
+            if(!scope.mayInspect()||h.stopping.load()||!runtime.texture().active())return;
             if(!scope.tryLock())return;
             drainResources();const auto route=runtime.textureRoute();const auto quality=route.configuration;
             h.provenance.synchronize(route.object,route.revision);
-            if(!quality.enabled||!route.object||!runtime.eligible(route.window)
+            if(!quality.active()||!route.object||!runtime.eligible(route.window)
                ||h.drainedResourceSerial!=h.resourceSerial.load()){scope.releaseBypass();return;}
             for(unsigned provider=0;provider<=maximumEglProviders;++provider){
                 if(!(providers&(1u<<provider)))continue;
@@ -332,7 +332,7 @@ struct GameDraw {
                 }
                 if(runtime.textureRoute().revision!=route.revision){selected=nullptr;scope.releaseBypass();return;}
                 TextureDrawReason reason=TextureDrawReason::NotInspected;TextureDepthFailure depth=TextureDepthFailure::None;
-                const auto changed=selected->potato.begin(quality.quality(),quality.externalOverridesReviewed,primitive,&detail,&reason,&depth,quality.drawPolicy);
+                const auto changed=selected->potato.begin(quality.quality(),quality.externalOverridesReviewed,primitive,&detail,&reason,&depth,quality.drawPolicy,quality.strength);
                 if(!exact)detail="Presentation-linked color-resource producer: "+detail;
                 runtime.textureReport(changed,detail,true,reason,depth,scope.nested(),!exact,route.revision);
                 if(!changed){
@@ -375,10 +375,10 @@ struct GameTransfer {
         :scope(hooks().renderMutex,presenting),outer(++depth==1){
         try{
             auto &h=hooks();auto &runtime=Runtime::instance();
-            if(!outer||!scope.mayInspect()||h.stopping.load()||!runtime.texture().enabled||!scope.tryLock())return;
+            if(!outer||!scope.mayInspect()||h.stopping.load()||!runtime.texture().active()||!scope.tryLock())return;
             drainResources();const auto route=runtime.textureRoute();const auto &quality=route.configuration;
             h.provenance.synchronize(route.object,route.revision);
-            if(quality.enabled&&quality.externalOverridesReviewed&&quality.drawPolicy==TextureDrawPolicy::OwnedMipCompatibility
+            if(quality.active()&&quality.externalOverridesReviewed&&quality.drawPolicy==TextureDrawPolicy::OwnedMipCompatibility
                &&route.object&&runtime.eligible(route.window)&&h.drainedResourceSerial==h.resourceSerial.load()){
                 for(unsigned provider=0;provider<=maximumEglProviders;++provider){
                     if(!(providers&(1u<<provider)))continue;
@@ -405,7 +405,7 @@ struct GameTransfer {
             std::unique_lock<std::mutex> lock(h.renderMutex,std::try_to_lock);if(!lock.owns_lock())return;
             drainResources();if(serial!=h.resourceSerial.load())return;
             auto &runtime=Runtime::instance();const auto route=runtime.textureRoute();
-            if(route.revision!=revision||route.object!=object||!route.configuration.enabled
+            if(route.revision!=revision||route.object!=object||!route.configuration.active()
                ||contextFor(identity.provider)!=identity.context)return;
             DrawableKey current{};drawableFor(identity.provider,&current);
             if(current!=drawable||!runtime.eligible(route.window)||serial!=h.resourceSerial.load())return;
@@ -623,7 +623,7 @@ void process(unsigned provider,std::uintptr_t context,HWND window,DrawableKey dr
         const auto route=Runtime::instance().textureRoute();const auto quality=route.configuration;
         h.provenance.synchronize(route.object,route.revision);
         h.provenance.remember({provider,drawable.first,context});h.provenance.nextFrame();
-        if(quality.enabled){
+        if(quality.active()){
             if(!session.drawHooks){
                 const bool ready=session.potato.initialize(resolve,egl,&error,externalProtectionPossible);
                 session.drawHooks=ready&&installDrawHooks(provider,egl);

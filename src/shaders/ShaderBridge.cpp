@@ -94,7 +94,7 @@ QVariantMap ShaderBridge::metrics()const{
             {"renderer",QString::fromLatin1(capability(m.renderer).label)},
             {"backendImplemented",capability(m.renderer).pipelineImplemented},{"deviceRequirementsMet",m.deviceReady},
             {"processedFrames",number(m.processed)},{"status",QString::fromStdString(m.status)},
-            {"potatoGraphicEnabled",texture.enabled},{"textureSupported",m.textureSupported},
+            {"potatoGraphicEnabled",texture.enabled},{"potatoStrength",texture.strength},{"textureSupported",m.textureSupported},
             {"textureDepthIndependent",m.texturePolicy==TextureDrawPolicy::OwnedMipCompatibility},
             {"texturePolicy",m.texturePolicy==TextureDrawPolicy::OwnedMipCompatibility?QStringLiteral("Owned mip compatibility (depth independent)"):QStringLiteral("Depth-qualified scene")},
             {"textureEligibleDraws",number(m.textureSceneDraws)},
@@ -138,8 +138,8 @@ QString ShaderBridge::diagnostics()const{
              m.value("textureDepthBypasses").toString(),m.value("textureBlendBypasses").toString(),
              m.value("textureSamplerBypasses").toString(),m.value("textureOtherBypasses").toString(),
              m.value("textureLastBypass").toString())+QLatin1Char('\n')+depthReport+QLatin1Char('\n')+producerReport;
-    const auto policyReport=QStringLiteral("Texture sampling policy: %1. Compatibility inspects mipmapped color without a depth-test requirement; opaque mipmapped in-game HUD may also change, as may RGB-packed data maps.")
-        .arg(m.value("texturePolicy").toString());
+    const auto policyReport=QStringLiteral("Texture sampling policy: %1. Compatibility inspects mipmapped color without a depth-test requirement; opaque mipmapped in-game HUD may also change, as may RGB-packed data maps. Saved Potato strength: %2% (0 = native, 100 = up to 3 mip levels). Strength does not make rejected resources eligible; prepared bindings are not measured game texture changes.")
+        .arg(m.value("texturePolicy").toString(),m.value("potatoStrength").toString());
     return QStringLiteral("Requested API: %1\nObserved game API: %2\n%3\nProcessed game frames: %4\nGame surface observed: %5; processing active: %6\nVulkan capture: loaders=%7; instances=%8; devices=%9; Win32 surfaces=%10; swapchains=%11; presents=%12; missing queues=%13; excluded windows=%14\nLast hooked loader: %15\nQt bridge: %16; host: %17\n%18")
         .arg(m.value("requestedRenderer").toString(),m.value("renderer").toString(),m.value("status").toString())
         .arg(m.value("processedFrames").toString(),m.value("gameSurfaceObserved").toBool()?QStringLiteral("yes"):QStringLiteral("no"),m.value("active").toBool()?QStringLiteral("yes"):QStringLiteral("no"))

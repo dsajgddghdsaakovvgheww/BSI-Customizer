@@ -106,6 +106,7 @@ API void bsiFixtureTransfer(unsigned copy,unsigned alias){EglDrawFixture::invoke
 API LONG bsiFixtureTransferCalls(){return EglDrawFixture::transfers;}
 API LONG bsiFixtureTransferArgumentsIntact(){return EglDrawFixture::lastTransferHash==EglDrawFixture::expectedTransferHash;}
 API void bsiFixtureOnTransfer(void(WINAPI *callback)()){EglDrawFixture::onTransfer=callback;}
+API void bsiFixtureExpectedFloor(float value){EglDrawFixture::expectedMinimumLod=value;}
 API LONG bsiFixtureInvalidGl(){return EglDrawFixture::invalid;}
 API LONG bsiFixtureLastPrivateBindings(){return LONG(EglDrawFixture::lastPrivateBindings);}
 API LONG bsiFixtureArgumentsIntact(){return EglDrawFixture::nestedArgumentsIntact&&EglDrawFixture::lastHash==EglDrawFixture::expectedHash;}

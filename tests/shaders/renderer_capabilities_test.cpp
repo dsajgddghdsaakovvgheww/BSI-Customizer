@@ -173,6 +173,20 @@ int main(){
     require(runtime.metrics().textureProducerStatus=="producer: unsupported color internal format"
             &&runtime.metrics().textureProducerInspected==2&&runtime.metrics().textureLastBypass=="later compositor: single level",
             "retain the real producer's precise refusal separately; a later compositor must not overwrite it with a misleading no-mip diagnosis");
+    runtime.setTexture({true,true,TextureDrawPolicy::OwnedMipCompatibility,50});
+    const auto halfRoute=runtime.textureRoute();m=runtime.metrics();
+    require(halfRoute.revision!=route.revision&&halfRoute.configuration.strength==50&&!m.textureInspected&&!m.textureBindings&&m.textureProducerStatus.empty(),
+            "strength-only Save invalidates old producer/provenance/counter evidence but keeps the selected source");
+    runtime.textureReport(2,"old 100 percent draw",true,TextureDrawReason::Prepared,TextureDepthFailure::None,false,true,route.revision);
+    require(!runtime.metrics().textureInspected,"an old-strength asynchronous result cannot masquerade as current-strength success");
+    runtime.setTexture({true,true,TextureDrawPolicy::OwnedMipCompatibility,0});
+    const auto zeroRevision=runtime.textureRoute().revision;
+    runtime.textureConsumerReport(1,zeroRevision);runtime.textureTransferReport(1,zeroRevision);
+    runtime.textureReport(2,"zero is not a weak preparation",true,TextureDrawReason::Prepared,TextureDepthFailure::None,false,true,zeroRevision);
+    require(!runtime.texture().active()&&!runtime.metrics().textureInspected&&!runtime.metrics().textureConsumerDraws
+            &&!runtime.metrics().textureTransferCalls&&runtime.metrics().textureStatus.find("0%")!=std::string::npos,"zero strength is explicit native sampling, not an unconfirmed small effect");
+    runtime.setTexture({true,true,TextureDrawPolicy::OwnedMipCompatibility,101});
+    require(runtime.texture().strength==0&&runtime.textureRoute().revision==zeroRevision,"invalid runtime percentages cannot alter the current setting or evidence revision");
     runtime.setTexture({false,true,TextureDrawPolicy::OwnedMipCompatibility});
     runtime.setTexture({true,true,TextureDrawPolicy::OwnedMipCompatibility});
     require(runtime.textureRoute().revision!=route.revision,"Off->On changes dependency revision even when the exact same source/settings resume");
