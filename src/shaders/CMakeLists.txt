@@ -29,7 +29,7 @@ add_library(BSIShaders MODULE ShaderPlugin.cpp ShaderBridge.cpp ShaderBridge.h
     ShaderPreferences.cpp ShaderPreferences.h NativeDisplayBinding.cpp NativeDisplayBinding.h PotatoResolution.h Runtime.cpp
     Runtime.h RendererCapabilities.h Parameters.h ShaderSources.h GlPipeline.cpp GlPipeline.h
     GlTextureOverride.cpp GlTextureOverride.h GlTextureProvenance.h GlProducerRoute.h GlColorTransfer.h WglPbufferRegistry.h GlDrawCalls.h GlDrawScope.h TextureQuality.h GlTextureQuality.h
-    VulkanPipeline.cpp VulkanPipeline.h VulkanSpirv.h PresentationHooks.cpp shaders.qrc)
+    VulkanPipeline.cpp VulkanPipeline.h VulkanSpirv.h PresentationHooks.cpp EglDispatchScope.h shaders.qrc)
 target_include_directories(BSIShaders PRIVATE ../third_party/vulkan/include)
 target_link_libraries(BSIShaders PRIVATE Qt${QT_VERSION_MAJOR}::Core Qt${QT_VERSION_MAJOR}::Gui Qt${QT_VERSION_MAJOR}::Qml)
 # Diagnostics identify the built native module, not just the Customizer EXE.

@@ -372,7 +372,7 @@ Window {
 
         info = json.loads(evaluate("JSON.stringify(Engine.bridgeInfo)", window))
         assert info["runtimeQtVersion"] == qVersion() and info["publicQtApi"] is True, info
-        assert info["moduleCaptureVersion"] == "gl-dispatch-named-copy-v2", info
+        assert info["moduleCaptureVersion"] == "gl-egl-lifecycle-alias-v3", info
         assert re.fullmatch(r"[0-9a-f]{40}(?:-modified)?|unversioned", info["moduleBuildRevision"]), info
         copied = evaluate("Engine.diagnostics()", window)
         assert info["moduleBuildRevision"] in copied and "Pre-route GL hook coverage" in copied, copied

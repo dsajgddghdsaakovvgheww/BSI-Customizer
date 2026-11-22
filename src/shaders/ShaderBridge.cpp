@@ -80,7 +80,7 @@ QVariantMap ShaderBridge::bridgeInfo()const{
     return {{"moduleQtVersion",QString::fromLatin1(QT_VERSION_STR)},
             {"runtimeQtVersion",QString::fromLatin1(qVersion())},{"publicQtApi",true},
             {"moduleBuildRevision",QStringLiteral(BSI_SHADERS_BUILD_REVISION)},
-            {"moduleCaptureVersion",QStringLiteral("gl-dispatch-named-copy-v2")}};
+            {"moduleCaptureVersion",QStringLiteral("gl-egl-lifecycle-alias-v3")}};
 }
 QVariantList ShaderBridge::controlList()const{
     QVariantList out;

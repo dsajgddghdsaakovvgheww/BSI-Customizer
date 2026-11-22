@@ -43,7 +43,9 @@ jobs:
             if ($status) { $failed = $true }
           }
           python tests/shaders/run_ci_tests.py --test-dir build-egl-contracts -C Release -E '^shader-egl-split-' --output-on-failure --timeout 60
-          if ($LASTEXITCODE) { $failed = $true }
+          $status = $LASTEXITCODE
+          Write-Output "::notice title=Existing native contract result::Non-split CTest exit=$status source=${{ github.sha }}"
+          if ($status) { $failed = $true }
           if ($failed) { exit 1 }
       - name: Record scope
         if: always()

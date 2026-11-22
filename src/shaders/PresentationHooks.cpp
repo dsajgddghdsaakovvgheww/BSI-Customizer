@@ -6,6 +6,7 @@
 #include "GlDrawScope.h"
 #include "GlProducerRoute.h"
 #include "WglPbufferRegistry.h"
+#include "EglDispatchScope.h"
 #include "PresentationHooks.h"
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -60,7 +61,7 @@ using EglProc=void*(WINAPI*)(const char*);
 using EglMake=unsigned(WINAPI*)(void*,void*,void*,void*);
 using EglQueryApi=unsigned(WINAPI*)();
 using EglString=const char*(WINAPI*)(void*,int);
-constexpr unsigned maximumEglProviders=4,drawKinds=glDrawKinds,drawSlots=32;
+constexpr unsigned maximumEglProviders=4,drawKinds=glDrawKinds,drawSlots=32,eglAliasSlots=16;
 static_assert(drawSlots>=(maximumEglProviders+1)*glDrawAliases,"bound all independent provider/alias targets");
 using DrawableKey=std::pair<std::uintptr_t,std::uintptr_t>; // display + surface (or 0 + WGL DC)
 using ContextKey=std::tuple<unsigned,std::uintptr_t,std::uintptr_t>; // provider + display + context
@@ -72,6 +73,7 @@ struct EglProvider {
     EglCurrent current=nullptr,currentDisplay=nullptr;EglCurrentSurface currentSurface=nullptr;
     EglQuery query=nullptr,queryContext=nullptr;EglProc proc=nullptr,nativeProc=nullptr;
     std::atomic<std::uint64_t> dispatchRevision{1};EglQueryApi api=nullptr;EglString strings=nullptr;
+    std::atomic<bool> lifecycleReady{false},attaching{true},lifecycleFault{false}; // fail closed on any known uncovered lifecycle target
     std::map<DrawableKey,HWND> surfaces;
     std::map<DrawableKey,std::uintptr_t> pbuffers; // observed unprotected pbuffer creation -> unique lifetime
     std::uintptr_t nextPbuffer=1;
@@ -109,6 +111,7 @@ struct Hooks {
     std::uint64_t drainedResourceSerial=0; // renderMutex: evidence includes events only through this serial
     std::array<DrawHook,12> textureDeletes{},renderbufferDeletes{};
     std::array<DrawHook,32> blits{},copies{},imageCopies{},eglCurrents{};
+    std::array<std::array<DrawHook,eglAliasSlots>,eglDispatchNames.size()> eglAliases{};
     std::array<DrawHook,16> attributedCreates{},separateCurrents{},pbufferGets{},pbufferReleases{},pbufferDestroys{},pbufferBinds{};
     WglPbufferRegistry wglPbuffers;
     std::array<EglProvider,maximumEglProviders> egl;
@@ -125,9 +128,16 @@ thread_local bool presenting=false;
 struct Recursion {bool previous;Recursion():previous(presenting){presenting=true;}~Recursion(){presenting=previous;}};
 bool install(void *target,void *replacement,void **original);
 bool installPublished(void *target,void *replacement,void **original,std::atomic<void*> *published);
+void *nativeEglProcedure(EglProvider &p,const char *name){
+    // The public resolver trampoline can itself enter a separately detoured
+    // implementation. Internal CODE discovery is never an application lookup
+    // and must not recursively register procedures through that nested alias.
+    EglInternalLookup guard;const auto lookup=p.nativeProc?p.nativeProc:p.proc;
+    return lookup?lookup(name):nullptr;
+}
 void *resolve(const char *name,void *user){
     auto &h=hooks();void *address=nullptr;
-    if(user){auto &p=*static_cast<EglProvider*>(user);const auto lookup=p.nativeProc?p.nativeProc:p.proc;if(lookup)address=lookup(name);if(!address&&p.module)address=reinterpret_cast<void*>(GetProcAddress(p.module,name));}
+    if(user){auto &p=*static_cast<EglProvider*>(user);address=nativeEglProcedure(p,name);if(!address&&p.module)address=reinterpret_cast<void*>(GetProcAddress(p.module,name));}
     else {
         const auto lookup=h.nativeWglProc?h.nativeWglProc:h.wglProc;if(lookup)address=reinterpret_cast<void*>(lookup(name));
         const auto value=reinterpret_cast<std::intptr_t>(address);
@@ -262,6 +272,7 @@ struct GameCandidate {
     GlProducerRoute producerRoute=GlProducerRoute::Refuse;
     bool find(unsigned index,const TextureRoute &route){
         provider=index;auto &h=hooks();auto &runtime=Runtime::instance();
+        if(provider&&(!h.egl[provider-1].lifecycleReady.load(std::memory_order_acquire)||h.egl[provider-1].lifecycleFault.load(std::memory_order_acquire)))return false;
         context=contextFor(provider);if(!context)return false;
         const auto renderer=rendererFor(provider);if(renderer!=route.renderer)return false;
         GameContext *source=nullptr;
@@ -819,13 +830,28 @@ bool installEglCurrentProcedure(unsigned provider,void *target){
     static const auto callbacks=eglCurrentCallbacks(std::make_index_sequence<32>{});
     return resourceHook(hooks().eglCurrents,callbacks,target,1u<<provider);
 }
-template<unsigned Index> void *WINAPI queriedEgl(const char *name){
-    auto &p=hooks().egl[Index];const auto result=p.nativeProc(name);const auto error=GetLastError();
-    if(result&&name)try{
-        if(name[0]=='g'&&name[1]=='l')installGlProcedure(Index+1,name,result);
-        if(std::strcmp(name,"eglMakeCurrent")==0)installEglCurrentProcedure(Index+1,result);
-    }catch(...){} // Preserve native address/error even if the optional patch fails.
+bool installEglAlias(unsigned provider,const char *name,void *target);
+void disableEglTracking(unsigned provider)noexcept{
+    // A non-null known lifecycle target which could not be attached must not
+    // leave resource proof enabled. Never block a resolver on renderMutex.
+    auto &h=hooks();auto &p=h.egl[provider-1];p.lifecycleFault.store(true,std::memory_order_release);p.lifecycleReady.store(false,std::memory_order_release);
+    p.dispatchRevision.fetch_add(1);h.resourceReset.fetch_or(1u<<provider);h.resourceSerial.fetch_add(1);
+}
+void *queriedEglAt(unsigned providers,EglProc native,const char *name){
+    EglDispatchScope scope(EglDispatchOp::Lookup,providers,{{reinterpret_cast<std::uintptr_t>(name),0,0,0}});
+    const auto result=native(name);const auto error=GetLastError();
+    if(result&&name&&!EglInternalLookup::active()&&scope.observes())try{
+        const auto provider=scope.provider();
+        if(name[0]=='g'&&name[1]=='l')installGlProcedure(provider,name,result);
+        else if(std::strcmp(name,"eglMakeCurrent")==0)installEglCurrentProcedure(provider,result);
+        else for(const auto *known:eglDispatchNames)if(std::strcmp(name,known)==0){
+            if(!installEglAlias(provider,name,result))disableEglTracking(provider);break;
+        }
+    }catch(...){if(scope.observes())disableEglTracking(scope.provider());}
     SetLastError(error);return result;
+}
+template<unsigned Index> void *WINAPI queriedEgl(const char *name){
+    return queriedEglAt(1u<<(Index+1),hooks().egl[Index].nativeProc,name);
 }
 void process(unsigned provider,std::uintptr_t context,HWND window,DrawableKey drawable,int width,int height,bool externalProtectionPossible=false){
     auto &h=hooks();if(!context||presenting||h.stopping.load())return;
@@ -906,28 +932,44 @@ template<typename Attribute> void trackSurface(EglProvider &p,void *display,void
         }
     }catch(...){} // Native creation succeeded; untracked is safer than guessing.
 }
+EglProvider *observedEgl(const EglDispatchScope &scope)noexcept{
+    const auto provider=scope.provider();if(!provider||provider>maximumEglProviders)return nullptr;
+    auto &p=hooks().egl[provider-1];return p.lifecycleReady.load(std::memory_order_acquire)&&!p.lifecycleFault.load(std::memory_order_acquire)?&p:nullptr;
+}
+template<class Native,class Attribute> void *createSurfaceAt(EglDispatchOp operation,unsigned providers,Native native,void *display,void *config,void *window,const Attribute *attrs){
+    EglDispatchScope scope(operation,providers,{{reinterpret_cast<std::uintptr_t>(display),reinterpret_cast<std::uintptr_t>(config),reinterpret_cast<std::uintptr_t>(window),reinterpret_cast<std::uintptr_t>(attrs)}});
+    const auto surface=native(display,config,window,attrs);const auto error=GetLastError();
+    if(auto *p=observedEgl(scope))trackSurface(*p,display,surface,window,attrs);
+    SetLastError(error);return surface;
+}
 template<unsigned Index> void *WINAPI createSurface(void *display,void *config,void *window,const int *attrs){
-    auto &p=hooks().egl[Index];void *surface=p.create(display,config,window,attrs);trackSurface(p,display,surface,window,attrs);return surface;
+    return createSurfaceAt(EglDispatchOp::WindowSurface,1u<<(Index+1),hooks().egl[Index].create,display,config,window,attrs);
 }
 template<unsigned Index> void *WINAPI createPlatformSurface(void *display,void *config,void *window,const std::intptr_t *attrs){
-    auto &p=hooks().egl[Index];void *surface=p.createPlatform(display,config,window,attrs);trackSurface(p,display,surface,window,attrs);return surface;
+    return createSurfaceAt(EglDispatchOp::PlatformSurface,1u<<(Index+1),hooks().egl[Index].createPlatform,display,config,window,attrs);
 }
 template<unsigned Index> void *WINAPI createPlatformSurfaceExt(void *display,void *config,void *window,const int *attrs){
-    auto &p=hooks().egl[Index];void *surface=p.createPlatformExt(display,config,window,attrs);trackSurface(p,display,surface,window,attrs);return surface;
+    return createSurfaceAt(EglDispatchOp::PlatformSurfaceExt,1u<<(Index+1),hooks().egl[Index].createPlatformExt,display,config,window,attrs);
+}
+void *createdEglContextAt(unsigned providers,EglCreate native,void *display,void *config,void *share,const int *attributes){
+    EglDispatchScope scope(EglDispatchOp::Context,providers,{{reinterpret_cast<std::uintptr_t>(display),reinterpret_cast<std::uintptr_t>(config),reinterpret_cast<std::uintptr_t>(share),reinterpret_cast<std::uintptr_t>(attributes)}});
+    const auto context=native(display,config,share,attributes);const auto error=GetLastError();
+    if(observedEgl(scope))contextCreated(scope.provider(),reinterpret_cast<std::uintptr_t>(display),reinterpret_cast<std::uintptr_t>(context),reinterpret_cast<std::uintptr_t>(share));
+    SetLastError(error);return context;
 }
 template<unsigned Index> void *WINAPI createdEglContext(void *display,void *config,void *share,const int *attributes){
-    auto &p=hooks().egl[Index];const auto context=p.createContext(display,config,share,attributes);
-    contextCreated(Index+1,reinterpret_cast<std::uintptr_t>(display),reinterpret_cast<std::uintptr_t>(context),reinterpret_cast<std::uintptr_t>(share));return context;
+    return createdEglContextAt(1u<<(Index+1),hooks().egl[Index].createContext,display,config,share,attributes);
 }
-template<unsigned Index> void *WINAPI createdPbuffer(void *display,void *config,const int *attributes){
-    auto &h=hooks();auto &p=h.egl[Index];const auto surface=p.createPbuffer(display,config,attributes);
-    if(surface)try{
-        bool unprotected=true,terminated=attributes==nullptr;
+void *createdPbufferAt(unsigned providers,EglPbufferCreate native,void *display,void *config,const int *attributes){
+    EglDispatchScope scope(EglDispatchOp::Pbuffer,providers,{{reinterpret_cast<std::uintptr_t>(display),reinterpret_cast<std::uintptr_t>(config),reinterpret_cast<std::uintptr_t>(attributes),0}});
+    auto &h=hooks();const auto surface=native(display,config,attributes);const auto error=GetLastError();
+    if(auto *provider=surface?observedEgl(scope):nullptr)try{
+        auto &p=*provider;bool unprotected=true,terminated=attributes==nullptr;
         if(attributes)for(unsigned i=0;i<128;i+=2){
             if(attributes[i]==0x3038){terminated=true;break;}
             if(attributes[i]==0x32c0&&attributes[i+1])unprotected=false;
         }
-        ResourceEvent retired;retired.kind=ResourceEvent::PbufferRetired;retired.providers=1u<<(Index+1);
+        ResourceEvent retired;retired.kind=ResourceEvent::PbufferRetired;retired.providers=1u<<scope.provider();
         {
             std::lock_guard<std::mutex> lock(h.surfaceMutex);h.resourceSerial.fetch_add(1);
             const DrawableKey key{reinterpret_cast<std::uintptr_t>(display),reinterpret_cast<std::uintptr_t>(surface)};
@@ -936,48 +978,73 @@ template<unsigned Index> void *WINAPI createdPbuffer(void *display,void *config,
         }
         if(retired.pbuffer)resourceEvent(retired);
     }catch(...){}
-    return surface;
+    SetLastError(error);return surface;
 }
-template<unsigned Index> unsigned WINAPI bindEglTexture(void *display,void *surface,int buffer){
-    auto &h=hooks();auto &p=h.egl[Index];std::uintptr_t generation=0;std::uint64_t nativeSerial=0;
+template<unsigned Index> void *WINAPI createdPbuffer(void *display,void *config,const int *attributes){
+    return createdPbufferAt(1u<<(Index+1),hooks().egl[Index].createPbuffer,display,config,attributes);
+}
+unsigned bindEglTextureAt(unsigned providers,EglBindTexture native,void *display,void *surface,int buffer){
+    const auto incoming=GetLastError();
+    EglDispatchScope scope(EglDispatchOp::BindTexture,providers,{{reinterpret_cast<std::uintptr_t>(display),reinterpret_cast<std::uintptr_t>(surface),static_cast<std::uintptr_t>(buffer),0}});
+    auto *provider=observedEgl(scope);if(!provider)return native(display,surface,buffer);
+    auto &h=hooks();auto &p=*provider;std::uintptr_t generation=0;std::uint64_t nativeSerial=0;
     try{
-        const bool current=p.currentDisplay()==display&&rendererFor(Index+1)==Renderer::OpenGLES;
+        const bool current=p.currentDisplay()==display&&rendererFor(scope.provider())==Renderer::OpenGLES;
         std::lock_guard<std::mutex> lock(h.surfaceMutex);
         const auto found=p.pbuffers.find({reinterpret_cast<std::uintptr_t>(display),reinterpret_cast<std::uintptr_t>(surface)});
         if(current&&found!=p.pbuffers.end())generation=found->second;
         nativeSerial=h.resourceSerial.load();
     }catch(...){}
-    GameImageBinding capture(Index+1,GlColorResource::pbuffer(generation,buffer==0x3084?0x0405u:0),nativeSerial);
-    const auto result=p.bindTexture(display,surface,buffer);
+    GameImageBinding capture(scope.provider(),GlColorResource::pbuffer(generation,buffer==0x3084?0x0405u:0),nativeSerial);
+    SetLastError(incoming);const auto result=native(display,surface,buffer);const auto error=GetLastError();
     if(result&&capture.captured)try{
         int target=0,format=0,level=-1;
         if(p.query(display,surface,0x3081,&target)&&target==0x305f
            &&p.query(display,surface,0x3080,&format)&&(format==0x305d||format==0x305e)
            &&p.query(display,surface,0x3083,&level)&&level==0)capture.complete();
     }catch(...){}
-    return result;
+    SetLastError(error);return result;
 }
-template<unsigned Index> unsigned WINAPI removeSurface(void *display,void *surface){
-    auto &h=hooks();auto &p=h.egl[Index];const auto okay=p.destroySurface(display,surface);
-    if(okay){try{
+template<unsigned Index> unsigned WINAPI bindEglTexture(void *display,void *surface,int buffer){
+    return bindEglTextureAt(1u<<(Index+1),hooks().egl[Index].bindTexture,display,surface,buffer);
+}
+void retireEglSurface(unsigned provider,void *display,void *surface)noexcept{
+    auto &h=hooks();auto &p=h.egl[provider-1];try{
         const DrawableKey drawable{reinterpret_cast<std::uintptr_t>(display),reinterpret_cast<std::uintptr_t>(surface)};
-        ResourceEvent retired;retired.kind=ResourceEvent::PbufferRetired;retired.providers=1u<<(Index+1);
+        ResourceEvent retired;retired.kind=ResourceEvent::PbufferRetired;retired.providers=1u<<provider;
         {std::lock_guard<std::mutex> lock(h.surfaceMutex);h.resourceSerial.fetch_add(1);p.surfaces.erase(drawable);
             const auto old=p.pbuffers.find(drawable);if(old!=p.pbuffers.end()){retired.pbuffer=old->second;p.pbuffers.erase(old);}}
         if(retired.pbuffer)resourceEvent(retired);
         std::lock_guard<std::mutex> lock(h.renderMutex);for(const auto &entry:h.contexts)
-            if(std::get<0>(entry.first)==Index+1&&entry.second->drawable==drawable){
+            if(std::get<0>(entry.first)==provider&&entry.second->drawable==drawable){
                 Runtime::instance().releasePresentation(entry.second->renderer,reinterpret_cast<std::uintptr_t>(entry.second.get()));
                 entry.second->window=nullptr;entry.second->drawable={};
             }
-    }catch(...){}}
-    return okay;
+    }catch(...){}
+}
+unsigned removeSurfaceAt(unsigned providers,EglDestroy native,void *display,void *surface){
+    EglDispatchScope scope(EglDispatchOp::DestroySurface,providers,{{reinterpret_cast<std::uintptr_t>(display),reinterpret_cast<std::uintptr_t>(surface),0,0}});
+    const auto okay=native(display,surface);const auto error=GetLastError();
+    if(okay)for(unsigned provider=1;provider<=maximumEglProviders;++provider)
+        if(scope.retirementCandidates()&(1u<<provider))retireEglSurface(provider,display,surface);
+    SetLastError(error);return okay;
+}
+template<unsigned Index> unsigned WINAPI removeSurface(void *display,void *surface){
+    return removeSurfaceAt(1u<<(Index+1),hooks().egl[Index].destroySurface,display,surface);
+}
+unsigned removeContextAt(unsigned providers,EglDestroy native,void *display,void *context){
+    EglDispatchScope scope(EglDispatchOp::DestroyContext,providers,{{reinterpret_cast<std::uintptr_t>(display),reinterpret_cast<std::uintptr_t>(context),0,0}});
+    auto &h=hooks();const auto candidates=scope.retirementCandidates();
+    for(unsigned provider=1;provider<=maximumEglProviders;++provider)if(candidates&(1u<<provider))h.egl[provider-1].dispatchRevision.fetch_add(1);
+    const auto okay=native(display,context);const auto error=GetLastError();
+    for(unsigned provider=1;provider<=maximumEglProviders;++provider)if(candidates&(1u<<provider)){
+        h.egl[provider-1].dispatchRevision.fetch_add(1);
+        if(okay)try{removeContextState(provider,reinterpret_cast<std::uintptr_t>(display),reinterpret_cast<std::uintptr_t>(context));}catch(...){}
+    }
+    SetLastError(error);return okay;
 }
 template<unsigned Index> unsigned WINAPI removeContext(void *display,void *context){
-    auto &p=hooks().egl[Index];p.dispatchRevision.fetch_add(1);
-    const auto okay=p.destroyContext(display,context);const auto error=GetLastError();p.dispatchRevision.fetch_add(1);
-    if(okay)try{removeContextState(Index+1,reinterpret_cast<std::uintptr_t>(display),reinterpret_cast<std::uintptr_t>(context));}catch(...){}
-    SetLastError(error);return okay;
+    return removeContextAt(1u<<(Index+1),hooks().egl[Index].destroyContext,display,context);
 }
 bool extension(const char *list,const char *name){
     if(!list)return false;
@@ -987,10 +1054,12 @@ bool extension(const char *list,const char *name){
         found+=size;
     }return false;
 }
-template<unsigned Index> unsigned WINAPI swapEgl(void *display,void *surface){
-    auto &h=hooks();auto &p=h.egl[Index];
-    if(!presenting&&!h.stopping.load())try{
-        HWND window=nullptr;
+unsigned swapEglAt(unsigned providers,EglSwap native,void *display,void *surface){
+    const auto incoming=GetLastError();
+    EglDispatchScope scope(EglDispatchOp::Swap,providers,{{reinterpret_cast<std::uintptr_t>(display),reinterpret_cast<std::uintptr_t>(surface),0,0}});
+    auto &h=hooks();auto *provider=observedEgl(scope);
+    if(provider&&!presenting&&!h.stopping.load())try{
+        auto &p=*provider;HWND window=nullptr;
         const DrawableKey drawable{reinterpret_cast<std::uintptr_t>(display),reinterpret_cast<std::uintptr_t>(surface)};
         {std::lock_guard<std::mutex> lock(h.surfaceMutex);const auto it=p.surfaces.find(drawable);if(it!=p.surfaces.end())window=it->second;}
         const auto context=p.current();
@@ -1001,10 +1070,68 @@ template<unsigned Index> unsigned WINAPI swapEgl(void *display,void *surface){
             bool protectionPossible=false;int width=0,height=0;
             if(unprotectedEgl(p,drawable,reinterpret_cast<std::uintptr_t>(context),&protectionPossible)
                &&p.query(display,surface,0x3057,&width)&&p.query(display,surface,0x3056,&height))
-                process(Index+1,reinterpret_cast<std::uintptr_t>(context),window,drawable,width,height,protectionPossible);
+                process(scope.provider(),reinterpret_cast<std::uintptr_t>(context),window,drawable,width,height,protectionPossible);
         }
     }catch(...){} // Optional effects must never prevent the native present.
-    Recursion guard;return p.swap(display,surface);
+    Recursion guard;SetLastError(incoming);return native(display,surface);
+}
+template<unsigned Index> unsigned WINAPI swapEgl(void *display,void *surface){
+    return swapEglAt(1u<<(Index+1),hooks().egl[Index].swap,display,surface);
+}
+// Each returned lifecycle address keeps its own TYPED native trampoline.
+// Never overwrite a provider's public-stub original with a body original: an
+// ordinary imported call can execute BOTH detours on the same native stack.
+template<EglDispatchOp Operation,unsigned Slot> struct EglAliasCallback;
+#define BSI_EGL_ALIAS_CALLBACK(Kind,Result,Native,Params,Expression) \
+    template<unsigned Slot> struct EglAliasCallback<EglDispatchOp::Kind,Slot> { \
+        static Result WINAPI call Params { \
+            auto &entry=hooks().eglAliases[static_cast<unsigned>(EglDispatchOp::Kind)][Slot]; \
+            const auto providers=entry.providers.load(std::memory_order_acquire); \
+            const auto native=reinterpret_cast<Native>(entry.original.load(std::memory_order_acquire)); \
+            return Expression; \
+        } \
+    };
+BSI_EGL_ALIAS_CALLBACK(WindowSurface,void*,EglCreate,(void *d,void *c,void *w,const int *a),(createSurfaceAt(EglDispatchOp::WindowSurface,providers,native,d,c,w,a)))
+BSI_EGL_ALIAS_CALLBACK(PlatformSurface,void*,EglPlatformCreate,(void *d,void *c,void *w,const std::intptr_t *a),(createSurfaceAt(EglDispatchOp::PlatformSurface,providers,native,d,c,w,a)))
+BSI_EGL_ALIAS_CALLBACK(PlatformSurfaceExt,void*,EglCreate,(void *d,void *c,void *w,const int *a),(createSurfaceAt(EglDispatchOp::PlatformSurfaceExt,providers,native,d,c,w,a)))
+BSI_EGL_ALIAS_CALLBACK(Context,void*,EglCreate,(void *d,void *c,void *s,const int *a),(createdEglContextAt(providers,native,d,c,s,a)))
+BSI_EGL_ALIAS_CALLBACK(Pbuffer,void*,EglPbufferCreate,(void *d,void *c,const int *a),(createdPbufferAt(providers,native,d,c,a)))
+BSI_EGL_ALIAS_CALLBACK(DestroySurface,unsigned,EglDestroy,(void *d,void *s),(removeSurfaceAt(providers,native,d,s)))
+BSI_EGL_ALIAS_CALLBACK(DestroyContext,unsigned,EglDestroy,(void *d,void *c),(removeContextAt(providers,native,d,c)))
+BSI_EGL_ALIAS_CALLBACK(Swap,unsigned,EglSwap,(void *d,void *s),(swapEglAt(providers,native,d,s)))
+BSI_EGL_ALIAS_CALLBACK(BindTexture,unsigned,EglBindTexture,(void *d,void *s,int b),(bindEglTextureAt(providers,native,d,s,b)))
+BSI_EGL_ALIAS_CALLBACK(Lookup,void*,EglProc,(const char *n),(queriedEglAt(providers,native,n)))
+#undef BSI_EGL_ALIAS_CALLBACK
+template<EglDispatchOp Operation,std::size_t... Slot> auto eglAliasCallbacks(std::index_sequence<Slot...>){
+    return std::array<void*,sizeof...(Slot)>{{reinterpret_cast<void*>(&EglAliasCallback<Operation,Slot>::call)...}};
+}
+bool installEglAlias(unsigned provider,const char *name,void *target){
+    if(!target||!name||!provider||provider>maximumEglProviders)return false;
+    auto &h=hooks();auto &p=h.egl[provider-1];
+    // If lookup returns the ALREADY covered public stub, preserve that exact
+    // callback/native pair instead of attempting an incompatible second hook.
+    if(target==reinterpret_cast<void*>(GetProcAddress(p.module,name))){
+        if(originalPresentationFunction(target))return true;
+        // Startup installs each public callback itself and the public swap
+        // LAST. A simultaneous lookup must not replace that pending typed
+        // callback; pre-ready calls remain native/unowned until it is enabled.
+        if(p.attaching.load(std::memory_order_acquire))return true;
+    }
+    static const std::array<std::array<void*,eglAliasSlots>,eglDispatchNames.size()> callbacks{{
+        eglAliasCallbacks<EglDispatchOp::WindowSurface>(std::make_index_sequence<eglAliasSlots>{}),
+        eglAliasCallbacks<EglDispatchOp::PlatformSurface>(std::make_index_sequence<eglAliasSlots>{}),
+        eglAliasCallbacks<EglDispatchOp::PlatformSurfaceExt>(std::make_index_sequence<eglAliasSlots>{}),
+        eglAliasCallbacks<EglDispatchOp::Context>(std::make_index_sequence<eglAliasSlots>{}),
+        eglAliasCallbacks<EglDispatchOp::Pbuffer>(std::make_index_sequence<eglAliasSlots>{}),
+        eglAliasCallbacks<EglDispatchOp::DestroySurface>(std::make_index_sequence<eglAliasSlots>{}),
+        eglAliasCallbacks<EglDispatchOp::DestroyContext>(std::make_index_sequence<eglAliasSlots>{}),
+        eglAliasCallbacks<EglDispatchOp::Swap>(std::make_index_sequence<eglAliasSlots>{}),
+        eglAliasCallbacks<EglDispatchOp::BindTexture>(std::make_index_sequence<eglAliasSlots>{}),
+        eglAliasCallbacks<EglDispatchOp::Lookup>(std::make_index_sequence<eglAliasSlots>{})
+    }};
+    for(unsigned kind=0;kind<eglDispatchNames.size();++kind)if(std::strcmp(name,eglDispatchNames[kind])==0)
+        return resourceHook(h.eglAliases[kind],callbacks[kind],target,1u<<provider);
+    return false;
 }
 bool install(void *target,void *replacement,void **original){return installPublished(target,replacement,original,nullptr);}
 bool installPublished(void *target,void *replacement,void **original,std::atomic<void*> *published){
@@ -1036,16 +1163,36 @@ template<unsigned Index> void attachEgl(HMODULE module){
     const bool surfaces=install(reinterpret_cast<void*>(GetProcAddress(module,"eglDestroySurface")),reinterpret_cast<void*>(&removeSurface<Index>),reinterpret_cast<void**>(&p.destroySurface));
     const bool contexts=install(reinterpret_cast<void*>(GetProcAddress(module,"eglDestroyContext")),reinterpret_cast<void*>(&removeContext<Index>),reinterpret_cast<void**>(&p.destroyContext));
     if(created&&surfaces&&contexts){
-        install(reinterpret_cast<void*>(GetProcAddress(module,"eglGetProcAddress")),reinterpret_cast<void*>(&queriedEgl<Index>),reinterpret_cast<void**>(&p.nativeProc));
-        installEglCurrentProcedure(Index+1,reinterpret_cast<void*>(GetProcAddress(module,"eglMakeCurrent")));
-        install(reinterpret_cast<void*>(GetProcAddress(module,"eglCreateContext")),reinterpret_cast<void*>(&createdEglContext<Index>),reinterpret_cast<void**>(&p.createContext));
-        install(reinterpret_cast<void*>(GetProcAddress(module,"eglCreatePbufferSurface")),reinterpret_cast<void*>(&createdPbuffer<Index>),reinterpret_cast<void**>(&p.createPbuffer));
-        install(reinterpret_cast<void*>(GetProcAddress(module,"eglBindTexImage")),reinterpret_cast<void*>(&bindEglTexture<Index>),reinterpret_cast<void**>(&p.bindTexture));
-        const auto optional=[&](const char *name){void *entry=reinterpret_cast<void*>(GetProcAddress(module,name));const auto lookup=p.nativeProc?p.nativeProc:p.proc;return entry?entry:lookup?lookup(name):nullptr;};
-        install(optional("eglCreatePlatformWindowSurface"),reinterpret_cast<void*>(&createPlatformSurface<Index>),reinterpret_cast<void**>(&p.createPlatform));
-        install(optional("eglCreatePlatformWindowSurfaceEXT"),reinterpret_cast<void*>(&createPlatformSurfaceExt<Index>),reinterpret_cast<void**>(&p.createPlatformExt));
-        install(reinterpret_cast<void*>(GetProcAddress(module,"eglSwapBuffers")),reinterpret_cast<void*>(&swapEgl<Index>),reinterpret_cast<void**>(&p.swap));
+        bool complete=install(reinterpret_cast<void*>(GetProcAddress(module,"eglGetProcAddress")),reinterpret_cast<void*>(&queriedEgl<Index>),reinterpret_cast<void**>(&p.nativeProc));
+        const auto current=reinterpret_cast<void*>(GetProcAddress(module,"eglMakeCurrent"));
+        if(current&&!installEglCurrentProcedure(Index+1,current))complete=false;
+        const auto optional=[&](const char *name,void *callback,void **original){
+            const auto entry=reinterpret_cast<void*>(GetProcAddress(module,name));
+            if(entry&&!install(entry,callback,original))complete=false;
+        };
+        optional("eglCreateContext",reinterpret_cast<void*>(&createdEglContext<Index>),reinterpret_cast<void**>(&p.createContext));
+        optional("eglCreatePbufferSurface",reinterpret_cast<void*>(&createdPbuffer<Index>),reinterpret_cast<void**>(&p.createPbuffer));
+        optional("eglBindTexImage",reinterpret_cast<void*>(&bindEglTexture<Index>),reinterpret_cast<void**>(&p.bindTexture));
+        optional("eglCreatePlatformWindowSurface",reinterpret_cast<void*>(&createPlatformSurface<Index>),reinterpret_cast<void**>(&p.createPlatform));
+        optional("eglCreatePlatformWindowSurfaceEXT",reinterpret_cast<void*>(&createPlatformSurfaceExt<Index>),reinterpret_cast<void**>(&p.createPlatformExt));
+        // Cached lifecycle/resolver pointers can predate bootstrap just like
+        // cached GL tables. Query only this bounded PUBLIC name/signature list;
+        // do not inspect private offsets, execute GL or infer resource sharing.
+        // Acquisition/presentation callbacks stay dormant until every non-null
+        // known lifecycle alias has its retirement-safe native pair installed.
+        for(const auto *name:eglDispatchNames){
+            const auto target=nativeEglProcedure(p,name);
+            if(target&&!installEglAlias(Index+1,name,target))complete=false;
+        }
+        const auto target=nativeEglProcedure(p,"eglMakeCurrent");
+        if(target&&!installEglCurrentProcedure(Index+1,target))complete=false;
+        p.lifecycleReady.store(complete,std::memory_order_release);
+        // Publish the externally visible public-swap hook only after alias
+        // closure. Late-loaded providers cannot look attached while their
+        // newly created window surfaces are still intentionally untracked.
+        if(!install(reinterpret_cast<void*>(GetProcAddress(module,"eglSwapBuffers")),reinterpret_cast<void*>(&swapEgl<Index>),reinterpret_cast<void**>(&p.swap)))disableEglTracking(Index+1);
     }
+    p.attaching.store(false,std::memory_order_release);
 }
 void scan(){
     auto &h=hooks();
