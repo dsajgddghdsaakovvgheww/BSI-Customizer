@@ -55,7 +55,7 @@ struct Fixture {
 };
 }
 int main(int argc,char **argv){
-    require(argc==2,"pass the explicitly named WGL state-double DLL");Fixture f;f.module=LoadLibraryA(argv[1]);require(f.module!=nullptr,"load authored fixture, never opengl32");
+    require(argc==2||argc==3,"pass the explicitly named WGL state-double DLL and optional existing-current mode");Fixture f;f.module=LoadLibraryA(argv[1]);require(f.module!=nullptr,"load authored fixture, never opengl32");
     const auto instance=GetModuleHandleW(nullptr);
     const auto root=CreateWindowExW(0,L"STATIC",L"cached WGL owner",WS_OVERLAPPEDWINDOW,0,0,900,600,nullptr,nullptr,instance,nullptr);
     const auto game=CreateWindowExW(0,L"STATIC",L"cached WGL game",WS_CHILD,0,0,640,360,root,nullptr,instance,nullptr);
@@ -68,9 +68,21 @@ int main(int argc,char **argv){
     const auto get=reinterpret_cast<HDC(WINAPI*)(void*)>(f.query("wglGetPbufferDCARB"));
     const auto bind=reinterpret_cast<BOOL(WINAPI*)(void*,int)>(f.query("wglBindTexImageARB"));
     const auto destroy=reinterpret_cast<BOOL(WINAPI*)(void*)>(f.query("wglDestroyPbufferARB"));require(get&&bind&&destroy,"cached native-image lifecycle entries");
-    f.current(nullptr,nullptr);require(setWglProviderForTesting(f.module),"explicit test provider injection only");
+    const bool existing=argc==3;
+    f.current(existing?dc:nullptr,existing?presenter:nullptr);require(setWglProviderForTesting(f.module),"explicit test provider injection only");
     auto &runtime=Runtime::instance();runtime.setTexture({true,true,TextureDrawPolicy::OwnedMipCompatibility});runtime.start(reinterpret_cast<std::uintptr_t>(root));
 
+    if(existing){
+        require(f.function<BOOL(WINAPI*)(HDC)>("wglSwapBuffers")(dc)!=FALSE,"presenter already current before bootstrap swaps WITHOUT a new bind/lookup");
+        require(originalPresentationFunction(reinterpret_cast<void*>(arb))&&originalPresentationFunction(reinterpret_cast<void*>(ext)),
+                "an already-current presenter must discover cached ARB/EXT binding targets at its owned swap, without a post-bootstrap core make-current");
+        f.separate(arb,foreignDc,dc,scenes[0],false);f.resource(4);f.draw(cached[0],0);
+        require(!runtime.metrics().textureInspected,"new binding target discovery is never foreign-window ownership");
+        f.current(nullptr,nullptr);for(const auto c:scenes)f.function<BOOL(WINAPI*)(HGLRC)>("wglDeleteContext")(c);
+        f.function<BOOL(WINAPI*)(HGLRC)>("wglDeleteContext")(presenter);runtime.stop();
+        ReleaseDC(game,dc);ReleaseDC(foreign,foreignDc);DestroyWindow(foreign);DestroyWindow(game);DestroyWindow(root);
+        std::puts("PASS: pre-existing current WGL presentation discovers cached separate-binding aliases at swap; no foreign inspection");return 0;
+    }
     // There are NO further application wglGetProcAddress calls. Code discovery
     // must happen on a successful native binding, before its first cached draw.
     f.current(dc,scenes[0]);

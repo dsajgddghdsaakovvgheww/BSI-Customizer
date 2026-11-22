@@ -41,7 +41,9 @@ struct Sampler {
             &&function==other.function&&low==other.low&&high==other.high&&bias==other.bias&&border==other.border;
     }
 };
+struct NamedImage {bool live=false;I target=0x0de1,width=64,height=64,format=0x8058,samples=0,min=0x2601,mag=0x2601,base=0,max=1000,levels=7,immutable=0,storage=7,view=7;};
 struct Fake {
+    std::array<NamedImage,128> namedTextures{},namedRenderbuffers{};bool missingNamedQueries=false;I namedQueries=0;
     bool desktop=false,missingBiasQuery=false,storageExtension=false,viewExtension=false;
     I desktopVersion=45,maximumTextureSize=16384;
     bool immutable=false;
@@ -190,11 +192,30 @@ void GL_CALL parameterVector(U sampler,U name,const F *values){
     std::copy(values,values+4,g.samplers.at(sampler).border.begin());
 }
 void GL_CALL bind(U unit,U sampler){g.bindings.at(unit)=sampler;g.refresh();}
+B GL_CALL isTexture(U name){++g.namedQueries;return name<g.namedTextures.size()&&g.namedTextures[name].live;}
+B GL_CALL isRenderbuffer(U name){++g.namedQueries;return name<g.namedRenderbuffers.size()&&g.namedRenderbuffers[name].live;}
+void GL_CALL namedTexture(U name,U key,I *out){
+    ++g.namedQueries;require(g.desktop&&g.desktopVersion>=45,"DSA queries must be capability-gated");const auto &v=g.namedTextures.at(name);require(v.live,"no DSA query on an uncreated name");
+    switch(key){case 0x1006:*out=v.target;break;case 0x2801:*out=v.min;break;case 0x2800:*out=v.mag;break;
+    case 0x813c:*out=v.base;break;case 0x813d:*out=v.max;break;case 0x912f:*out=v.immutable;break;
+    case 0x82df:*out=v.storage;break;case 0x82fc:*out=v.view;break;default:require(false,"legal DSA texture parameter only");}
+}
+void GL_CALL namedLevel(U name,I mip,U key,I *out){
+    ++g.namedQueries;const auto &v=g.namedTextures.at(name);require(v.live&&mip>=0&&mip<16,"legal existing texture level query");
+    *out=mip>=v.levels?0:key==0x1000?(std::max)(1,v.width>>mip):key==0x1001?(std::max)(1,v.height>>mip):key==0x1003?v.format:0;
+    require(key==0x1000||key==0x1001||key==0x1003,"only legal 2D image size/internal format queries");
+}
+void GL_CALL namedRenderbuffer(U name,U key,I *out){
+    ++g.namedQueries;const auto &v=g.namedRenderbuffers.at(name);require(v.live,"no RBO query on uncreated name");
+    switch(key){case 0x8d42:*out=v.width;break;case 0x8d43:*out=v.height;break;case 0x8d44:*out=v.format;break;case 0x8cab:*out=v.samples;break;default:require(false,"legal named RBO parameter only");}
+}
 void GL_CALL unexpected(){require(false,"protected GL pipeline must stop before allocating/compiling/drawing");}
 void *resolve(const char *name,void*){
     if(g.missingBiasQuery&&std::strcmp(name,"glGetFloatv")==0)return nullptr;
     if(g.missingTransferQuery&&std::strcmp(name,"glCheckFramebufferStatus")==0)return nullptr;
+    if(g.missingNamedQueries&&(std::strcmp(name,"glGetTextureParameteriv")==0||std::strcmp(name,"glGetNamedRenderbufferParameteriv")==0))return nullptr;
 #define ENTRY(gl,fn) if(std::strcmp(name,"gl" #gl)==0)return reinterpret_cast<void*>(&fn)
+    ENTRY(IsTexture,isTexture);ENTRY(IsRenderbuffer,isRenderbuffer);ENTRY(GetTextureParameteriv,namedTexture);ENTRY(GetTextureLevelParameteriv,namedLevel);ENTRY(GetNamedRenderbufferParameteriv,namedRenderbuffer);
     ENTRY(GetString,getString);ENTRY(GetStringi,getStringi);ENTRY(GetIntegerv,getInteger);ENTRY(GetFloatv,getFloat);ENTRY(GetBooleanv,getBoolean);
     ENTRY(IsEnabled,enabled);ENTRY(ActiveTexture,active);ENTRY(GetProgramiv,program);ENTRY(GetActiveUniform,uniform);
     ENTRY(GetUniformLocation,location);ENTRY(GetUniformiv,uniformValue);ENTRY(GetTexLevelParameteriv,level);
@@ -219,6 +240,35 @@ void operator delete[](void *ptr,std::size_t)noexcept{std::free(ptr);}
 #endif
 int main(){
     using namespace BsiShaders;
+    {
+        g.reset();g.desktop=true;g.namedTextures[50].live=g.namedTextures[51].live=g.namedRenderbuffers[70].live=true;
+        GlTextureOverride quality;std::string error;GlTextureUsage usage;require(quality.initialize(resolve,nullptr,&error),"initialize named-copy observer");
+        auto copy=GlColorTransfer::image(70,0x8d41,0,0,0,0,50,0x0de1,0,0,0,0,64,64,1);
+        require(quality.transfer(copy,&usage)&&usage.readCount==1&&usage.writeCount==1&&usage.reads[0]==GlColorResource::renderbuffer(70)&&usage.writes[0]==50,
+                "a valid named RBO-to-texture CopyImageSubData must capture typed resources without depending on current FBO/bindings");
+        unchanged();require(!g.creations&&!g.depthWriteQueries&&!g.depthAttachmentQueries,"named-copy capture changes no binding/sampler/depth state");
+        copy.sourceTarget=0x0de1;copy.sourceName=51;require(quality.transfer(copy,&usage),"distinct defined same-format normalized 2D textures can copy");
+        for(unsigned mutation=0;mutation<12;++mutation){
+            auto bad=copy;
+            switch(mutation){case 0:bad.sourceName=0;break;case 1:bad.sourceTarget=0x8513;break;case 2:bad.sourceLevel=1;break;case 3:bad.destinationLevel=1;break;
+            case 4:bad.sourceZ=1;break;case 5:bad.depth=2;break;case 6:bad.source[0]=-1;break;case 7:bad.source[2]=65;break;case 8:bad.destination[0]=1;break;
+            case 9:bad.sourceName=50;break;case 10:bad.destinationName=127;break;case 11:bad.source[3]=0;break;}
+            require(!quality.transfer(bad,&usage)&&!usage.readCount&&!usage.writeCount,"invalid/unqualified named-copy packet cannot become a dependency");
+        }
+        auto &src=g.namedTextures[51];src.target=0x8513;require(!quality.transfer(copy,&usage),"native texture target must match the supplied target, not a same-sized cubemap");src.target=0x0de1;
+        src.format=0x8c43;require(!quality.transfer(copy,&usage),"view-compatible or sRGB reinterpretation is not guessed from byte size");src.format=0x8058;
+        src.min=0x2703;src.levels=1;require(!quality.transfer(copy,&usage),"a mip-filtered incomplete source is not a successful image copy");
+        src.immutable=1;src.storage=src.view=src.levels=4;require(quality.transfer(copy,&usage),"actual immutable storage bounds qualify a complete four-level source with stored MAX=1000");
+        src.levels=3;require(!quality.transfer(copy,&usage),"a missing required immutable image still rejects the copy");src.levels=4;
+        copy.sourceName=70;copy.sourceTarget=0x8d41;g.namedRenderbuffers[70].samples=4;require(!quality.transfer(copy,&usage),"CopyImage is NOT a multisample resolve into a single-sample texture");
+        quality.release();
+    }
+    for(unsigned guard=0;guard<3;++guard){
+        g.reset();g.desktop=guard!=0;g.desktopVersion=guard==1?33:45;g.missingNamedQueries=guard==2;
+        GlTextureOverride quality;std::string error;GlTextureUsage usage;require(quality.initialize(resolve,nullptr,&error),"older/incomplete-query contexts retain normal draw support");
+        require(!quality.transfer(GlColorTransfer::image(1,0x0de1,0,0,0,0,2,0x0de1,0,0,0,0,1,1,1),&usage)&&!g.namedQueries,
+                "GLES/older desktop/missing DSA contracts must reject named copies BEFORE any illegal object query");quality.release();
+    }
     {
         g.reset();g.depth=false;g.mips=false;GlTextureOverride quality;std::string error;GlTextureUsage usage;
         require(!quality.usage(&usage),"an uninitialized inspector cannot capture resource dependencies");

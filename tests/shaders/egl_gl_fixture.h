@@ -28,7 +28,7 @@ struct State {
 };
 State &state();
 bool protectedContext();
-inline volatile LONG draws=0,privateDraws=0,invalid=0,textureDeletes=0,renderbufferDeletes=0,transfers=0;
+inline volatile LONG draws=0,privateDraws=0,invalid=0,textureDeletes=0,renderbufferDeletes=0,transfers=0,stateQueries=0;
 inline std::uint64_t expectedHash=0,lastHash=0,expectedTransferHash=0,lastTransferHash=0;
 inline void (WINAPI *onTransfer)()=nullptr;
 inline U lastPrivateBindings=0,nestedPrivateBindings=0,nestedMode=0;
@@ -36,9 +36,9 @@ inline bool nestedArgumentsIntact=true;
 inline F expectedMinimumLod=3;
 inline void nestedOriginal(U kind);
 inline void bad(){InterlockedIncrement(&invalid);}
-inline const unsigned char *WINAPI getString(U name){return reinterpret_cast<const unsigned char*>(name==0x1f02?(state().desktop?"4.5 BSI WGL dispatch double":"OpenGL ES 3.1 BSI dispatch double"):"");}
-inline const unsigned char *WINAPI getStringi(U,U){return reinterpret_cast<const unsigned char*>("GL_EXT_protected_textures");}
-inline void WINAPI getInteger(U name,I *out){
+inline const unsigned char *WINAPI getString(U name){InterlockedIncrement(&stateQueries);return reinterpret_cast<const unsigned char*>(name==0x1f02?(state().desktop?"4.5 BSI WGL dispatch double":"OpenGL ES 3.1 BSI dispatch double"):"");}
+inline const unsigned char *WINAPI getStringi(U,U){InterlockedIncrement(&stateQueries);return reinterpret_cast<const unsigned char*>("GL_EXT_protected_textures");}
+inline void WINAPI getInteger(U name,I *out){InterlockedIncrement(&stateQueries);
     auto &g=state();
     switch(name){
     case 0x821d:*out=g.protectionExtension?1:0;break;case 0x821e:if(!g.protectionExtension)bad();*out=protectedContext()?0x10:0;break;
@@ -52,19 +52,19 @@ inline void WINAPI getInteger(U name,I *out){
     default:*out=0;bad();break;
     }
 }
-inline void WINAPI getFloat(U name,F *out){if(!state().desktop||name!=0x84fd)bad();*out=16;}
-inline void WINAPI getBoolean(U name,B *out){
+inline void WINAPI getFloat(U name,F *out){InterlockedIncrement(&stateQueries);if(!state().desktop||name!=0x84fd)bad();*out=16;}
+inline void WINAPI getBoolean(U name,B *out){InterlockedIncrement(&stateQueries);
     if(name==0x0c23){for(unsigned i=0;i<4;++i)out[i]=B(state().colorWrite);return;}
     if(name!=0x0b72)bad();*out=B(state().depthWrite);
 }
-inline B WINAPI enabled(U name){return B(name==0x0b71?state().depth:name==0x0be2?state().blend:false);}
+inline B WINAPI enabled(U name){InterlockedIncrement(&stateQueries);return B(name==0x0b71?state().depth:name==0x0be2?state().blend:false);}
 inline void WINAPI active(U unit){state().active=I(unit-0x84c0);}
-inline void WINAPI program(U,U name,I *out){*out=name==0x8b86?2:128;}
+inline void WINAPI program(U,U name,I *out){InterlockedIncrement(&stateQueries);*out=name==0x8b86?2:128;}
 inline const char *const uniforms[]{"test_owned_first_color","test_owned_second_color"};
-inline void WINAPI uniform(U,U index,I,I *length,I *size,U *type,char *name){*length=I(std::strlen(uniforms[index]));*size=1;*type=0x8b5e;std::strcpy(name,uniforms[index]);}
-inline I WINAPI location(U,const char *name){return std::strcmp(name,uniforms[0])==0?0:std::strcmp(name,uniforms[1])==0?1:-1;}
-inline void WINAPI uniformValue(U,I slot,I *out){*out=slot;}
-inline void WINAPI level(U,I mip,U name,I *out){*out=name==0x1003?0x8058:(!state().mips&&mip>0)?0:mip<=6?(64>>mip):0;}
+inline void WINAPI uniform(U,U index,I,I *length,I *size,U *type,char *name){InterlockedIncrement(&stateQueries);*length=I(std::strlen(uniforms[index]));*size=1;*type=0x8b5e;std::strcpy(name,uniforms[index]);}
+inline I WINAPI location(U,const char *name){InterlockedIncrement(&stateQueries);return std::strcmp(name,uniforms[0])==0?0:std::strcmp(name,uniforms[1])==0?1:-1;}
+inline void WINAPI uniformValue(U,I slot,I *out){InterlockedIncrement(&stateQueries);*out=slot;}
+inline void WINAPI level(U,I mip,U name,I *out){InterlockedIncrement(&stateQueries);*out=name==0x1003?0x8058:(!state().mips&&mip>0)?0:mip<=6?(64>>mip):0;}
 inline void samplerInteger(const Sampler &s,U name,I *out){
     switch(name){
     case 0x2801:*out=s.min;break;case 0x2800:*out=s.mag;break;case 0x2802:*out=s.s;break;
@@ -72,25 +72,25 @@ inline void samplerInteger(const Sampler &s,U name,I *out){
     case 0x884d:*out=s.function;break;default:*out=0;bad();break;
     }
 }
-inline void WINAPI textureInteger(U,U name,I *out){
+inline void WINAPI textureInteger(U,U name,I *out){InterlockedIncrement(&stateQueries);
     if(name==0x8bfa){if(!state().protectionExtension)bad();*out=state().protectedTexture;return;}
     if(name==0x813c){*out=0;return;}if(name==0x813d){*out=1000;return;}
     if(name==0x912f){*out=0;return;} // current authored resources are mutable
     samplerInteger(Sampler{},name,out);
 }
-inline void WINAPI samplerInt(U sampler,U name,I *out){samplerInteger(state().samplers.at(sampler),name,out);}
-inline void WINAPI samplerFloat(U sampler,U name,F *out){
+inline void WINAPI samplerInt(U sampler,U name,I *out){InterlockedIncrement(&stateQueries);samplerInteger(state().samplers.at(sampler),name,out);}
+inline void WINAPI samplerFloat(U sampler,U name,F *out){InterlockedIncrement(&stateQueries);
     const auto &s=state().samplers.at(sampler);
     if(name==0x1004){if(!state().desktop)bad();for(unsigned i=0;i<4;++i)out[i]=0;return;}
     if(name==0x8501){if(!state().desktop)bad();*out=s.bias;return;}
     *out=name==0x813a?s.low:name==0x813b?s.high:1;
 }
 inline void WINAPI textureFloat(U,U name,F *out){samplerFloat(0,name,out);}
-inline U WINAPI framebufferStatus(U target){
+inline U WINAPI framebufferStatus(U target){InterlockedIncrement(&stateQueries);
     if(target!=0x8ca8&&target!=0x8ca9)bad();
     return (target==0x8ca8?state().readComplete:state().drawComplete)?0x8cd5:0x8cd6;
 }
-inline void WINAPI attachment(U target,U slot,U name,I *out){
+inline void WINAPI attachment(U target,U slot,U name,I *out){InterlockedIncrement(&stateQueries);
     auto &g=state();const bool read=target==0x8ca8;
     if(target!=0x8ca9&&!read){bad();*out=0;return;}
     if((read?g.readFramebuffer:g.framebuffer)&&((slot>=0x8ce0&&slot<0x8ce4)||slot==0x8d20)){
