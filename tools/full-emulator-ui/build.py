@@ -72,7 +72,9 @@ exit /b 1
     if appearance_screenshot.is_file():members['FIXTURE-APPEARANCE-NOT-OEM.png']=appearance_screenshot.read_bytes()
     chrome_screenshot=ROOT/'.cache/full-ui/chrome-first-frame.png'
     if chrome_screenshot.is_file():members['FIXTURE-FIRST-FRAME-NOT-OEM.png']=chrome_screenshot.read_bytes()
-    report={'firstFrameChrome':True,'legacySidebarRebound':True,'presetCount':6,'runtimeThemeSwitching':True,'customAppearance':True,'surfaceRevision':11,'scopedNativeDialogAndPopupHooks':True,'idlePollingAdded':False,'suite':'VOID OLED Studio 11','sourceCommit':subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),
+    sections_screenshot=ROOT/'.cache/full-ui/sections-fixture.png'
+    if sections_screenshot.is_file():members['FIXTURE-SECTIONS-NOT-OEM.png']=sections_screenshot.read_bytes()
+    report={'sidebarAppearancePage':True,'crossEngineThemeRelay':True,'nativeSectionCards':True,'firstFrameChrome':True,'legacySidebarRebound':True,'presetCount':6,'runtimeThemeSwitching':True,'customAppearance':True,'surfaceRevision':11,'scopedNativeDialogAndPopupHooks':True,'idlePollingAdded':False,'suite':'VOID OLED Studio 11','sourceCommit':subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),
             'legacyEngineSha256':suite.sha(legacy),'suiteSourceSha256':suite.sha((HERE/'suite.py').read_bytes()),
             'assetsSha256':{name:suite.sha(data) for name,data in assets.items()},
             'optimizerIncluded':False,'helperIncluded':False,'replacementInstallSupported':True,
