@@ -867,21 +867,22 @@ int runSelfTest()
             return rec;
         };
         // The header of the FOLLOWING record must come with its zero padding,
-        // so build pairs as name-string + pad + header + value-string.
+        // so build pairs as name-record + pad + value-record.  Both the name
+        // and the value are standalone QStringData records: the name's own
+        // 24-byte header sits right before its text (the name-side check
+        // requires it), and `pad` is the zero gap between the two records.
         auto poolPair = [&poolRecord](const QString &name, const QString &pad,
                                       const QString &value, const QString &tailPad) {
-            QByteArray rec;
-            rec += utf16le(name);
-            rec += utf16le(pad);
-            rec += poolRecord(value, tailPad);
-            return rec;
+            return poolRecord(name, pad) + poolRecord(value, tailPad);
         };
 
         const QByteArray pool =
             poolPair(QStringLiteral("accentNormal"), QString(QChar(0)).repeated(3),
                      QStringLiteral("#1A90FF"), QString(QChar(0)).repeated(3))
             + poolPair(QStringLiteral("white"), QString(QChar(0)).repeated(1),
-                       QStringLiteral("#0B0C0E"), QString(QChar(0)).repeated(3));
+                       QStringLiteral("#0B0C0E"), QString(QChar(0)).repeated(3))
+            + poolPair(QStringLiteral("secondaryHover"), QString(QChar(0)).repeated(3),
+                       QStringLiteral("#FFFFFF"), QString(QChar(0)).repeated(3));
         check(ThemeEngine::findQmlColor(pool, QStringLiteral("accentNormal"))
                   == QStringLiteral("#1A90FF"),
               "hex-target: pool record value is found");
@@ -896,12 +897,11 @@ int runSelfTest()
         check(ThemeEngine::findQmlColor(poolNoise, QStringLiteral("notice")).isEmpty(),
               "hex-target: pool record followed by plain text is not a value");
 
-        // Binary noise between the name and the header is not pool padding:
-        // only the zero-filled tail of the name's allocation qualifies, so a
-        // header-shaped sequence in raw bytes can never be rewritten.
+        // Binary noise in the gap between the name and the value header is not
+        // pool padding: only the zero-filled tail of the name's allocation
+        // qualifies, so a header-shaped sequence in raw bytes is never bound.
         const QByteArray noisePad =
-            utf16le(QStringLiteral("success"))
-            + QByteArray::fromHex("4242424242424242")
+            poolRecord(QStringLiteral("success"), QString(QChar(0x42)).repeated(4))
             + poolRecord(QStringLiteral("#78D626"), QString(QChar(0)).repeated(3));
         check(ThemeEngine::findQmlColor(noisePad, QStringLiteral("success")).isEmpty(),
               "hex-target: non-zero gap before the value header is not a pool record");
@@ -931,6 +931,91 @@ int runSelfTest()
         check(ThemeEngine::findQmlColor(svg, QStringLiteral("circle")).isEmpty()
                   && ThemeEngine::findQmlColor(svg, QStringLiteral("path")).isEmpty(),
               "hex-target: unrelated SVG text never yields values");
+
+        // ---- Bug 1: a name USAGE inside a bigger record binds nothing ----
+        // (MSI 5.12 "primary80": the usage text lives inside one record; the
+        // record that follows it carries a DIFFERENT color, #000000.)
+        const QString z3 = QString(QChar(0)).repeated(3);
+        const QByteArray usageBindsNothing =
+            poolRecord(QStringLiteral("primary80 is a ui token"), z3)
+            + poolRecord(QStringLiteral("#000000"), z3)
+            + poolPair(QStringLiteral("primary80"), z3, QStringLiteral("#21242C"), z3)
+            + poolPair(QStringLiteral("primary70"), z3, QStringLiteral("#2B2E4C"), z3)
+            + poolPair(QStringLiteral("primary60"), z3, QStringLiteral("#373A58"), z3)
+            + poolPair(QStringLiteral("primary50"), z3, QStringLiteral("#434664"), z3);
+        check(ThemeEngine::findQmlColor(usageBindsNothing, QStringLiteral("primary80"))
+                  == QStringLiteral("#21242C"),
+              "hex-verify: name usage binds nothing; the declaration (#21242C) wins over the "
+              "neighbouring record (#000000)");
+        const QByteArray memberAccess =
+            utf16le(QStringLiteral("color: UiTheme.colors.primary80"));
+        check(ThemeEngine::findQmlColor(memberAccess, QStringLiteral("primary80")).isEmpty(),
+              "hex-verify: member-access usage (colors.primary80) is never a declaration");
+
+        // ---- Bug 2: nearest value wins; the longer form wins at one spot ----
+        const QByteArray twoNear =
+            utf16le(QStringLiteral("accentNormal: \"#AABBCC\", later: \"#11223344\""));
+        check(ThemeEngine::findQmlColor(twoNear, QStringLiteral("accentNormal"))
+                  == QStringLiteral("#AABBCC"),
+              "hex-verify: nearest 6-digit literal beats a farther 8-digit one");
+        const QByteArray nineOnly =
+            utf16le(QStringLiteral("accentNormal: \"#11223344\""));
+        check(ThemeEngine::findQmlColor(nineOnly, QStringLiteral("accentNormal"))
+                  == QStringLiteral("#11223344"),
+              "hex-verify: the 8-digit literal at the binding site beats its 6-digit prefix");
+
+        // ---- Bug 4: no Settings Window anchor -> never patch blindly ----
+        {
+            QTemporaryDir tmp;
+            const QString p = tmp.filePath(QStringLiteral("player.bin"));
+            {
+                QFile f(p);
+                f.open(QIODevice::WriteOnly);
+                f.write(QByteArray(64, 'X'));
+                f.write(utf16le(QStringLiteral("#000000")));
+                f.write(QByteArray(32, 'Y'));
+            }
+            HexColorItem sidebar;
+            sidebar.name = QStringLiteral("Sidebar (#000000)");
+            sidebar.currentHex = QStringLiteral("#000000");
+            sidebar.color = QStringLiteral("#123456");
+            sidebar.enabled = true;
+            const auto res =
+                ThemeEngine::applyHexTheme(p, QStringLiteral("MSI5"), { sidebar }, {});
+            check(!res.ok,
+                  "hex-verify: sidebar without a Settings Window anchor is refused, not patched");
+            QFile f(p);
+            f.open(QIODevice::ReadOnly);
+            const QByteArray after = f.readAll();
+            check(after.contains(utf16le(QStringLiteral("#000000")))
+                      && !after.contains(utf16le(QStringLiteral("#123456"))),
+                  "hex-verify: nothing was written without the anchor");
+        }
+
+        // ---- Bug 5: size-mismatched value -> skipped, never truncated ----
+        {
+            QTemporaryDir tmp;
+            const QString p = tmp.filePath(QStringLiteral("player.bin"));
+            {
+                QFile f(p);
+                f.open(QIODevice::WriteOnly);
+                f.write(utf16le(QStringLiteral("#00000000")));
+                f.write(QByteArray(32, 'X'));
+            }
+            HexColorItem wide;
+            wide.name = QStringLiteral("Wide Slot");
+            wide.currentHex = QStringLiteral("#00000000");
+            wide.color = QStringLiteral("#80FF33");
+            wide.enabled = true;
+            const auto res =
+                ThemeEngine::applyHexTheme(p, QStringLiteral("NXT"), { wide }, {});
+            check(!res.ok,
+                  "hex-verify: size-mismatched replacement is refused, not truncated");
+            QFile f(p);
+            f.open(QIODevice::ReadOnly);
+            check(f.readAll().startsWith(utf16le(QStringLiteral("#00000000"))),
+                  "hex-verify: the 9-char slot stayed intact");
+        }
 
         // QML binding text (plain and utf-16le) is a value.
         const QByteArray textBind = "property color dangerNormal: \"#ED1C24\";";

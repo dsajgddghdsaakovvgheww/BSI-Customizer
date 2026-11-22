@@ -63,23 +63,58 @@ RowLayout {
         placeholderTextColor: Theme.textDim
         font.pixelSize: 12
         font.family: "Consolas"
+        // Bug 7: an invalid hex draft is flagged in place instead of being
+        // silently discarded; losing focus restores the last valid value.
+        property bool invalidInput: false
+        property bool handledAccepted: false
         background: Rectangle {
             color: Theme.raised
-            border.color: hexInput.activeFocus ? Theme.accent : hexInput.hovered ? Theme.hoverBorder : Theme.border
+            border.color: hexInput.invalidInput ? "#e5484d"
+                         : hexInput.activeFocus ? Theme.accent
+                         : hexInput.hovered ? Theme.hoverBorder : Theme.border
             Behavior on border.color { ColorAnimation { duration: Theme.motionDuration } }
             radius: 8
         }
-        onAccepted: commit()
-        onEditingFinished: commit()
+        ToolTip.visible: hexInput.invalidInput
+        ToolTip.text: qsTr("Enter a color as #RRGGBB (or #AARRGGBB).")
+        ToolTip.delay: 0
+
+        onAccepted: {
+            // Enter fires accepted + editingFinished: commit exactly once
+            // (Bug 8).
+            handledAccepted = true;
+            commit();
+        }
+        onEditingFinished: {
+            if (handledAccepted) {
+                handledAccepted = false;
+                return;
+            }
+            if (invalidInput) {
+                invalidInput = false;
+                text = Qt.binding(function() { return control.value; });
+                return;
+            }
+            commit();
+        }
 
         function commit() {
             const t = text.trim();
-            if (t === "") {
-                control.edited("");
-            } else if (/^#?(?:[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$/.test(t)) {
-                const v = t.startsWith("#") ? t.toUpperCase() : ("#" + t).toUpperCase();
-                control.edited(v);
+            let v = "";
+            if (t !== "") {
+                if (!/^#?(?:[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$/.test(t)) {
+                    invalidInput = true;
+                    return;
+                }
+                v = t.startsWith("#") ? t.toUpperCase() : ("#" + t).toUpperCase();
             }
+            invalidInput = false;
+            if (v === control.value)
+                return; // already staged - never emit edited() twice for one change
+            control.edited(v);
+            // Re-establish the declarative binding (assigning text would
+            // destroy it - Bug 6): the field keeps tracking control.value.
+            text = Qt.binding(function() { return control.value; });
         }
     }
 
@@ -188,6 +223,12 @@ RowLayout {
                             const parts = picker.hexText.substring(1).match(/.{2}/g) || ["00", "00", "00"];
                             parts[index] = ("0" + Math.round(value).toString(16)).slice(-2);
                             picker.hexText = "#" + parts.join("").toUpperCase();
+                            // Dragging writes `value` and destroys its binding;
+                            // restore it so the sliders keep tracking hexText
+                            // (typing a hex or picking a swatch) - Bug 9.
+                            value = Qt.binding(function() {
+                                return parseInt(picker.hexText.substring(1 + index * 2, 3 + index * 2), 16) || 0;
+                            });
                         }
                     }
                 }
@@ -230,8 +271,11 @@ RowLayout {
                     text: qsTr("OK")
                     onClicked: {
                         if (/^#[0-9A-Fa-f]{6}$/.test(picker.hexText)) {
-                            hexInput.text = picker.hexText;
                             control.edited(picker.hexText);
+                            // Never assign hexInput.text here: that would
+                            // destroy its `text: control.value` binding (Bug 6)
+                            // and the field would stop tracking the value.
+                            hexInput.text = Qt.binding(function() { return control.value; });
                         }
                         picker.close();
                     }

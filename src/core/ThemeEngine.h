@@ -152,7 +152,8 @@ public:
     static QList<Replacement> collectThemeReplacements(const QByteArray &data,
                                                        const QString &profile,
                                                        const QList<HexColorItem> &colors,
-                                                       const QList<HexColorItem> &qmlColors);
+                                                       const QList<HexColorItem> &qmlColors,
+                                                       QStringList *skipped = nullptr);
     static QString findQmlColor(const QByteArray &data, const QString &name);
     static QList<QPair<QByteArray, QString>> oldPatterns(const QString &hexValue,
                                                          const QString &mode);

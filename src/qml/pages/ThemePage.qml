@@ -758,6 +758,125 @@ Item {
                     }
                 }
 
+                // ---- player palette targets: the fixed binary color slots
+                //      (sidebar, settings window, toggles, accents...) ----
+                Card {
+                    Layout.fillWidth: true
+                    visible: backend.hexTargets.length > 0
+
+                    ColumnLayout {
+                        anchors.fill: parent
+                        anchors.margins: 12
+                        spacing: 8
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: qsTr("Player palette targets - fixed color slots of this player "
+                                       + "(sidebar, settings window, toggles, accents). Tick one and "
+                                       + "give it a new value; Apply Theme recolors the selected slots.")
+                            color: Theme.textDim
+                            font.pixelSize: 12
+                            wrapMode: Text.WordWrap
+                        }
+
+                        Repeater {
+                            model: backend.hexTargets
+
+                            delegate: Rectangle {
+                                required property var modelData
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: 40
+                                radius: 8
+                                color: targetRowArea.containsMouse ? Theme.raised : Theme.card
+                                border.width: 1
+                                border.color: modelData.enabled ? Theme.accent : Theme.border
+
+                                Behavior on color { ColorAnimation { duration: Theme.motionDuration } }
+
+                                RowLayout {
+                                    anchors.fill: parent
+                                    anchors.leftMargin: 12
+                                    anchors.rightMargin: 12
+                                    spacing: 10
+
+                                    Rectangle {
+                                        Layout.preferredWidth: 18
+                                        Layout.preferredHeight: 18
+                                        radius: 5
+                                        color: modelData.enabled ? Theme.accent : "transparent"
+                                        border.width: 1
+                                        border.color: modelData.enabled ? Theme.accent : Theme.border
+                                        Text {
+                                            anchors.centerIn: parent
+                                            visible: modelData.enabled
+                                            text: "\u2713"
+                                            color: "#ffffff"
+                                            font.pixelSize: 11
+                                            font.weight: Font.Black
+                                        }
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: backend.setHexTargetEnabled(modelData.name,
+                                                                                   !modelData.enabled)
+                                        }
+                                    }
+
+                                    Text {
+                                        Layout.preferredWidth: 190
+                                        elide: Text.ElideRight
+                                        text: modelData.name
+                                        color: Theme.text
+                                        font.pixelSize: 12
+                                        font.family: "Consolas"
+                                    }
+                                    Rectangle {
+                                        Layout.preferredWidth: 16
+                                        Layout.preferredHeight: 16
+                                        radius: 4
+                                        color: /^#[0-9A-Fa-f]{6,8}$/.test(modelData.current)
+                                               ? (modelData.current.length === 9
+                                                  ? "#" + modelData.current.substring(3)
+                                                  : modelData.current)
+                                               : Theme.raised
+                                        border.width: 1
+                                        border.color: Theme.border
+                                    }
+                                    Text {
+                                        Layout.preferredWidth: 52
+                                        text: modelData.current
+                                        color: Theme.textDim
+                                        font.pixelSize: 11
+                                        font.family: "Consolas"
+                                        elide: Text.ElideRight
+                                    }
+                                    Text {
+                                        Layout.fillWidth: true
+                                        elide: Text.ElideRight
+                                        text: modelData.purpose
+                                        color: Theme.textDim
+                                        font.pixelSize: 11
+                                    }
+                                    ColorField {
+                                        Layout.preferredWidth: 132
+                                        current: modelData.current
+                                        value: modelData.color !== modelData.current
+                                               ? modelData.color : ""
+                                        onEdited: (hex) => backend.setHexTarget(modelData.name, hex)
+                                    }
+                                }
+
+                                MouseArea {
+                                    id: targetRowArea
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    acceptedButtons: Qt.NoButton
+                                }
+                            }
+                        }
+                    }
+                }
+
                 Item {
                     Layout.fillWidth: true
                     Layout.fillHeight: true

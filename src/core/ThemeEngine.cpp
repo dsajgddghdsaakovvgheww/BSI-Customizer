@@ -1571,22 +1571,29 @@ QList<QPair<QByteArray, QString>> ThemeEngine::oldPatterns(const QString &hexVal
 
 namespace {
 
+// Replaces every whole occurrence of the recorded slot value.  A slot has
+// exactly one valid length: a differently sized literal must never be
+// truncated or NUL-padded into it ("#80FF33\0" garbage breaks the player);
+// such a color is skipped and surfaced instead.
 void collectOccurrences(const QByteArray &data, const QByteArray &ov, const QString &encMode,
-                        const QString &newHex, QList<ThemeEngine::Replacement> &out)
+                        const QString &newHex, QList<ThemeEngine::Replacement> &out,
+                        const QString &itemName, QStringList *skipped)
 {
     const QByteArray newEnc =
         (encMode == QLatin1String("ascii")) ? newHex.toLatin1() : utf16le(newHex);
+    if (newEnc.size() != ov.size()) {
+        if (skipped)
+            skipped->append(QStringLiteral("%1: the new value does not fit the recorded slot; "
+                                           "skipped instead of truncating it.")
+                                .arg(itemName));
+        return;
+    }
     qsizetype idx = 0;
     while (true) {
         idx = data.indexOf(ov, idx);
         if (idx < 0)
             break;
-        QByteArray rep = newEnc;
-        if (rep.size() < ov.size())
-            rep += QByteArray(ov.size() - rep.size(), '\0');
-        else if (rep.size() > ov.size())
-            rep = rep.left(ov.size());
-        out << ThemeEngine::Replacement { idx, int(ov.size()), rep };
+        out << ThemeEngine::Replacement { idx, int(ov.size()), newEnc };
         idx += ov.size();
     }
 }
@@ -1624,20 +1631,27 @@ bool qmlNameEndOk(const QByteArray &data, qint64 end, const QString &enc)
 
 // Symmetric to qmlNameEndOk: the name must not be the tail of a longer
 // identifier ("transparent" inside "dangerTransparent", "white" inside
-// "snowwhite" ...).
+// "snowwhite" ...), and it must not be a MEMBER ACCESS ("colors.primary80",
+// "UiTheme.colors.primary80"): those are QML usages of a declaration, and
+// the hex that follows them in the file belongs to something else.
 bool qmlNameStartOk(const QByteArray &data, qint64 start, const QString &enc)
 {
-    QChar ch;
-    if (enc == QLatin1String("utf-16-le")) {
-        if (start < 2)
-            return true;
-        ch = QChar(uchar(data[int(start) - 2]) | uchar(data[int(start) - 1]) << 8);
-    } else {
-        if (start < 1)
-            return true;
-        ch = QChar(uchar(data[int(start) - 1]));
-    }
-    return !isIdentChar(ch);
+    const bool u16 = (enc != QLatin1String("ascii"));
+    const int step = u16 ? 2 : 1;
+    auto unitAt = [&](qint64 at) -> int {
+        if (u16)
+            return uchar(data[int(at)]) | (uchar(data[int(at) + 1]) << 8);
+        return uchar(data[int(at)]);
+    };
+    qint64 at = start - step;
+    while (at >= step && (unitAt(at) == ' ' || unitAt(at) == '\t'))
+        at -= step;
+    if (at < step)
+        return true;
+    const int ch = unitAt(at);
+    if (ch == '.')
+        return false;
+    return !isIdentChar(QChar(ch));
 }
 
 QList<QPair<qint64, QString>> iterQmlNames(const QByteArray &data, const QString &name)
@@ -1671,6 +1685,128 @@ QList<QPair<qint64, QString>> iterQmlNames(const QByteArray &data, const QString
 // Layout B is how the palette is stored in compiled Qt 5 players: the value
 // is a separate utf-16le string record right after the name's record
 // (24-byte header: FFFFFFFF, size, alloc=0, offset=24 twice, flags=0).
+// ---- compiled-declaration run check (Bug 1, part two) --------------------
+// In a compiled string pool a real declaration lives in a RUN of alternating
+// name-record / hex-record pairs (the palette literal: "primary80",
+// "#232642", "primary70", "#2B2E4C", ...).  A lone name-record whose
+// neighbour merely happens to be a hex record (a mixed constant dump, e.g.
+// next to "bootPromotionButtonClicked") is adjacency, not a declaration -
+// binding it repaints some other element's color.
+bool poolHdrAt(const QByteArray &data, qint64 h, QByteArray *text)
+{
+    if (h < 0 || h + 24 > data.size())
+        return false;
+    if (data.mid(int(h), 4) != QByteArray::fromHex("ffffffff"))
+        return false;
+    quint32 size = 0;
+    for (int b = 0; b < 4; ++b)
+        size |= quint32(uchar(data[int(h) + 4 + b])) << (8 * b);
+    if (size == 0 || size > 200 || h + 24 + qint64(size) * 2 > data.size())
+        return false;
+    if (data.mid(int(h) + 8, 16) != QByteArray::fromHex("00000000180000001800000000000000"))
+        return false;
+    if (text)
+        *text = data.mid(int(h) + 24, int(size) * 2);
+    return true;
+}
+
+qint64 poolNextHdr(const QByteArray &data, qint64 after)
+{
+    for (int k = 0; k <= 4; ++k) {
+        const qint64 p = after + 2 * k;
+        if (data.mid(int(p), 4) == QByteArray::fromHex("ffffffff")) {
+            QByteArray t;
+            if (poolHdrAt(data, p, &t))
+                return p;
+        }
+        if (data.mid(int(p), 2) != QByteArray(2, 0))
+            break;
+    }
+    return -1;
+}
+
+bool poolTextIsName(const QByteArray &raw)
+{
+    const QString s = QString::fromUtf16(reinterpret_cast<const char16_t *>(raw.constData()),
+                                         raw.size() / 2);
+    if (s.isEmpty())
+        return false;
+    for (const QChar &c : s) {
+        if (!isIdentChar(c))
+            return false;
+    }
+    return true;
+}
+
+bool poolTextIsHex(const QByteArray &raw)
+{
+    const QString s = QString::fromUtf16(reinterpret_cast<const char16_t *>(raw.constData()),
+                                         raw.size() / 2);
+    if (s.size() != 7 && s.size() != 9)
+        return false;
+    if (!s.startsWith(QLatin1Char('#')))
+        return false;
+    for (int i = 1; i < s.size(); ++i) {
+        const char c = s.at(i).toLatin1();
+        const bool hex = (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+        if (!hex)
+            return false;
+    }
+    return true;
+}
+
+bool poolPairInDeclarationRun(const QByteArray &data, qint64 nameHdr)
+{
+    // A verified declaration sits in a cluster of name-record / hex-record
+    // PAIRS (the compiled palette literal, where an interned value may be
+    // shared, so strict alternation is not guaranteed).  A lone pair in a
+    // mixed constant dump (next to "bootPromotionButtonClicked" & friends) is
+    // adjacency, not a declaration: count the pairs in a window of records
+    // around the candidate - declarations count many, dump adjacency counts
+    // at most one or two.
+    constexpr int W = 10;
+    constexpr int minPairs = 3;
+
+    QVector<QByteArray> back;
+    qint64 cur = nameHdr;
+    for (int i = 0; i < W; ++i) {
+        bool found = false;
+        for (int g = 0; g <= 4 && !found; ++g) {
+            const qint64 end = cur - 2 * g;
+            for (int n = 1; n <= 59 && !found; ++n) {
+                const qint64 h = end - qint64(n) * 2 - 24;
+                QByteArray t;
+                if (h >= 0 && poolHdrAt(data, h, &t) && t.size() == n * 2
+                    && h + 24 + t.size() + 2 * g == cur) {
+                    back.append(t);
+                    cur = h;
+                    found = true;
+                }
+            }
+        }
+        if (!found)
+            break;
+    }
+    QVector<QByteArray> texts;
+    texts.reserve(back.size() + W + 1);
+    for (int i = back.size() - 1; i >= 0; --i)
+        texts.append(back.at(i));
+    qint64 h = nameHdr;
+    for (int i = 0; i <= W && h >= 0; ++i) {
+        QByteArray t;
+        if (!poolHdrAt(data, h, &t))
+            break;
+        texts.append(t);
+        h = poolNextHdr(data, h + 24 + t.size());
+    }
+    int pairs = 0;
+    for (int i = 0; i + 1 < texts.size(); ++i) {
+        if (poolTextIsName(texts.at(i)) && poolTextIsHex(texts.at(i + 1)))
+            ++pairs;
+    }
+    return pairs >= minPairs;
+}
+
 bool findHexAfter(const QByteArray &data, qint64 namePos, qint64 nameLen, const QString &enc,
                   qint64 *hexOff, int *hexLen, QByteArray *hexRaw)
 {
@@ -1745,6 +1881,23 @@ bool findHexAfter(const QByteArray &data, qint64 namePos, qint64 nameLen, const 
     // merely happens to contain a header-shaped sequence must not be treated
     // as a pool record (a raw byte rewrite there breaks the player).
     static const QByteArray hdrTail = QByteArray::fromHex("00000000180000001800000000000000");
+
+    // The NAME must itself be a standalone QStringData record of exactly its
+    // own length.  A color-name-shaped substring inside a bigger record (an
+    // embedded QML usage like "UiTheme.colors.primary80") otherwise binds the
+    // value record that merely happens to follow that record and silently
+    // repaints whatever the neighbouring record belongs to.
+    if (namePos < 24)
+        return false;
+    {
+        const QByteArray nameHdr = data.mid(int(namePos - 24), 24);
+        quint32 nameSize = 0;
+        for (int b = 0; b < 4; ++b)
+            nameSize |= quint32(uchar(nameHdr[4 + b])) << (8 * b);
+        if (nameHdr.left(4) != QByteArray::fromHex("ffffffff")
+            || nameSize != quint32(nameLen / 2) || nameHdr.mid(8, 16) != hdrTail)
+            return false;
+    }
     for (int k = 0; k <= 4; ++k) {
         const int g = 2 * k;
         if (g + 24 > tail.size())
@@ -1770,6 +1923,8 @@ bool findHexAfter(const QByteArray &data, qint64 namePos, qint64 nameLen, const 
             continue;
         const int vstart = g + 24;
         if (!valueAt(vstart, int(size)))
+            continue;
+        if (!poolPairInDeclarationRun(data, namePos - 24))
             continue;
         takeValue(vstart, int(size));
         return true;
@@ -1803,7 +1958,7 @@ QString ThemeEngine::findQmlColor(const QByteArray &data, const QString &name)
 
 QList<ThemeEngine::Replacement> ThemeEngine::collectThemeReplacements(
     const QByteArray &data, const QString &profile, const QList<HexColorItem> &colors,
-    const QList<HexColorItem> &qmlColors)
+    const QList<HexColorItem> &qmlColors, QStringList *skipped)
 {
     static const QRegularExpression re6(QStringLiteral("^#[0-9A-Fa-f]{6}$"));
     static const QRegularExpression re68(QStringLiteral("^#[0-9A-Fa-f]{6,8}$"));
@@ -1817,43 +1972,62 @@ QList<ThemeEngine::Replacement> ThemeEngine::collectThemeReplacements(
             continue;
         const QString oldHex = item.currentHex;
         const QString newHex = item.color;
-        if (newHex.isEmpty() || !re6.match(newHex).hasMatch())
+        if (newHex.isEmpty())
             continue;
+        if (!re6.match(newHex).hasMatch()) {
+            if (skipped)
+                skipped->append(QStringLiteral("%1: \"%2\" is not a #RRGGBB value.")
+                                    .arg(item.name, newHex));
+            continue;
+        }
         if (oldHex.compare(newHex, Qt::CaseInsensitive) == 0)
             continue;
 
         if (profile == QLatin1String("MSI5") && item.name == QLatin1String("Sidebar (#000000)")) {
             // Locate the sidebar #000000 RELATIVE to the Settings Window color.
+            // If that anchor is missing (or not found) the target is skipped:
+            // "the first #000000 in the file" must never be patched blindly.
             const QString settingsHex = targets.value(QStringLiteral("Settings Window")).first;
             bool done = false;
-            for (const QString &enc : { QStringLiteral("utf-16-le"), QStringLiteral("ascii") }) {
-                const QByteArray settingsPat =
-                    (enc == QLatin1String("utf-16-le")) ? utf16le(settingsHex)
-                                                        : settingsHex.toLatin1();
-                const qsizetype swPos = data.indexOf(settingsPat);
-                if (swPos < 0)
-                    continue;
-                const QByteArray oldPat =
-                    (enc == QLatin1String("utf-16-le")) ? utf16le(oldHex) : oldHex.toLatin1();
-                const qsizetype sidePos = data.indexOf(oldPat, swPos + settingsPat.size());
-                if (sidePos >= 0) {
-                    QByteArray rep =
+            if (!settingsHex.isEmpty()) {
+                for (const QString &enc :
+                     { QStringLiteral("utf-16-le"), QStringLiteral("ascii") }) {
+                    const QByteArray settingsPat =
+                        (enc == QLatin1String("utf-16-le")) ? utf16le(settingsHex)
+                                                            : settingsHex.toLatin1();
+                    const qsizetype swPos = data.indexOf(settingsPat);
+                    if (swPos < 0)
+                        continue;
+                    const QByteArray oldPat =
+                        (enc == QLatin1String("utf-16-le")) ? utf16le(oldHex) : oldHex.toLatin1();
+                    const QByteArray rep =
                         (enc == QLatin1String("utf-16-le")) ? utf16le(newHex) : newHex.toLatin1();
-                    if (rep.size() < oldPat.size())
-                        rep += QByteArray(oldPat.size() - rep.size(), '\0');
-                    else if (rep.size() > oldPat.size())
-                        rep = rep.left(oldPat.size());
-                    repls << Replacement { sidePos, int(oldPat.size()), rep };
-                    done = true;
-                    break;
+                    if (rep.size() != oldPat.size()) {
+                        if (skipped)
+                            skipped->append(QStringLiteral("%1: the new value does not fit the "
+                                                           "recorded slot; skipped instead of "
+                                                           "truncating it.")
+                                                .arg(item.name));
+                        done = true;
+                        break;
+                    }
+                    const qsizetype sidePos = data.indexOf(oldPat, swPos + settingsPat.size());
+                    if (sidePos >= 0) {
+                        repls << Replacement { sidePos, int(oldPat.size()), rep };
+                        done = true;
+                        break;
+                    }
                 }
             }
-            Q_UNUSED(done)
+            if (!done && skipped)
+                skipped->append(QStringLiteral("%1: the Settings Window anchor is missing or not "
+                                               "found; skipped instead of patching blindly.")
+                                    .arg(item.name));
             continue;
         }
 
         for (const auto &pat : oldPatterns(oldHex, QStringLiteral("both")))
-            collectOccurrences(data, pat.first, pat.second, newHex, repls);
+            collectOccurrences(data, pat.first, pat.second, newHex, repls, item.name, skipped);
     }
 
     // ---- QML color names stored as EXE strings ----
@@ -1925,9 +2099,17 @@ ThemeEngine::PatchResult ThemeEngine::applyHexTheme(const QString &exePath, cons
     file.close();
     const QByteArray original = data;
 
-    const QList<Replacement> repls = collectThemeReplacements(data, profile, colors, qmlColors);
-    if (repls.isEmpty())
+    QStringList skippedColors;
+    const QList<Replacement> repls =
+        collectThemeReplacements(data, profile, colors, qmlColors, &skippedColors);
+    for (const QString &note : skippedColors)
+        log(logger, note, "orange");
+    if (repls.isEmpty()) {
+        if (!skippedColors.isEmpty())
+            return { false, QStringLiteral("No changes applied: every selected color was skipped "
+                                           "(see the notes above).") };
         return { false, QStringLiteral("No changes selected") };
+    }
 
     // Never theme a player whose embedded resources are already broken: a
     // damaged file cannot be fixed by more rewrites, and never write a color
