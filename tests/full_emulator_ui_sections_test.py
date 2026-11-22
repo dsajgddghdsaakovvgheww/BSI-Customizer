@@ -46,7 +46,7 @@ with tempfile.TemporaryDirectory() as folder:
     (temp/'UiButton.qml').write_text('''import QtQuick 2.15
 import QtQuick.Controls 2.15
 Button {
- id:button;property var pColor:null
+ id:button;property QtObject pColor:QtObject {property QtObject normal:QtObject {property color textColor:"magenta"}}
  contentItem:Text {text:button.text;color:button.pColor?button.pColor.normal.textColor:"magenta";verticalAlignment:Text.AlignVCenter;horizontalAlignment:Text.AlignHCenter;font.pixelSize:13}
 }
 ''')
