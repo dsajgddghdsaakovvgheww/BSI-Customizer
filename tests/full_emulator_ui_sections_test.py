@@ -40,7 +40,7 @@ def visual(item,name):
 
 with tempfile.TemporaryDirectory() as folder:
     temp=Path(folder)
-    for name in ('UiColumnLayout.qml','UiRowLayout.qml'):
+    for name in ('UiColumnLayout.qml','UiRowLayout.qml','UiSlider.qml'):
         (temp/name).write_bytes((ROOT/'reference/full-emulator-ui/controls'/name).read_bytes())
     # Input/host doubles only; wrapper geometry and source transform are real.
     (temp/'UiButton.qml').write_text('''import QtQuick 2.15
@@ -86,10 +86,32 @@ Item {
     }
     UiColumnLayout {
      Component.onCompleted:objectName="fixtureFpsCard";spacing:12
-     Text {text:"Frame rate";color:Skin.Theme.text;font.pixelSize:16;font.bold:true}
-     Text {text:Math.round(iFrameRateSlider.value)+" FPS";color:Skin.Theme.accent;font.pixelSize:14}
-     Slider {id:iFrameRateSlider;objectName:"fixtureFps";from:1;to:240;value:120;stepSize:1;Layout.fillWidth:true}
-     CheckBox {text:"Enable high frame rate";checked:true}
+     UiSlider {
+      id:iFrameRateSlider;objectName:"fixtureFps";from:1;to:240;value:120;stepSize:1;Layout.fillWidth:true
+      pSelectedValueText:"Frame rate · "+Math.round(value);pRangeValueVisibility:true
+      pSize:QtObject {
+       property int handleWidth:20;property int handleHeight:20;property int sliderHeight:4
+       property font selectedValueFont:Qt.font({pixelSize:14})
+       property font recommendedValueFont:Qt.font({pixelSize:12})
+       property font rangeValueFont:Qt.font({pixelSize:12})
+      }
+      pColor:QtObject {
+       property color handleBackground:"purple";property color handleBackgroundDisabled:"grey";property color handleBorder:"purple"
+       property color sliderBackground:"grey";property color sliderBackgroundDisabled:"grey";property color sliderFill:"purple";property color sliderFillDisabled:"grey"
+       property color selectedValue:"white";property color recommendedValue:"white";property color rangeValue:"white"
+      }
+     }
+     UiColumnLayout {
+      Layout.fillWidth:true;spacing:4
+      Repeater {
+       model:["Enable high frame rate","Enable VSync (to prevent screen tearing)","Display FPS during gameplay"]
+       UiRowLayout {
+        Layout.fillWidth:true;spacing:8
+        Text {Layout.fillWidth:true;text:modelData;color:Skin.Theme.text;font.pixelSize:11}
+        Switch {checked:index!==1}
+       }
+      }
+     }
     }
    }
   }
@@ -116,7 +138,8 @@ Window {
  property QtObject pSettingsItems:QtObject {property list<QtObject> pSettingElements:[
   QtObject {property string pButtonId:"engine";property string pButtonText:"Performance";property var pComponentObj:null},
   QtObject {property string pButtonId:"display";property string pButtonText:"Display";property var pComponentObj:null},
-  QtObject {property string pButtonId:"graphics";property string pButtonText:"Graphics";property var pComponentObj:null}
+  QtObject {property string pButtonId:"graphics";property string pButtonText:"Graphics";property var pComponentObj:null},
+ EXTRA_TABS
  ]}
  Skin.SettingsShell {
   id:shell;anchors.fill:parent;bsiHost:host
@@ -124,7 +147,7 @@ Window {
  }
  Component {id:pageFactory;Page {objectName:"fixtureSectionPage";anchors.fill:parent}}
  Text {z:100;anchors.bottom:parent.bottom;anchors.horizontalCenter:parent.horizontalCenter;text:"Qt native-layout + input-double fixture — NOT a live OEM screenshot";color:Skin.Theme.muted;font.pixelSize:10}
-}'''.replace('SKIN',url).replace('INI',(temp/'theme.ini').as_posix())
+}'''.replace('SKIN',url).replace('INI',(temp/'theme.ini').as_posix()).replace('EXTRA_TABS',',\n'.join('QtObject {property string pButtonId:'+json.dumps(key)+';property string pButtonText:'+json.dumps(label)+';property var pComponentObj:null}' for key,label in [('gameSettings','Game settings'),('devices','Devices'),('gamepad','Gamepad'),('preferences','Preferences'),('phone','Phone'),('shortcuts','Shortcuts'),('userdata','User data'),('advanced','Advanced'),('about','About')]))
     (temp/'Window.qml').write_text(source)
     component=QQmlComponent(engine,QUrl.fromLocalFile(str(temp/'Window.qml')))
     assert not component.isError(),'\n'.join(e.toString() for e in component.errors())
@@ -146,6 +169,12 @@ Window {
     assert position.x()>points[0].x()+cards[0].width()/2,'native CPU control is not right-aligned'
     assert abs(position.x()+combo.width()-(points[0].x()+cards[0].width()-14))<2,'native CPU control lost its right inset'
     assert visual(root,'voidNativeResourceSummary').isVisible(),'compact selections strip missing'
+    native_slider=visual(root,'fixtureFps')
+    assert native_slider.property('pVoidInlineSlider')
+    assert visual(native_slider,'voidReferenceFpsValue') is not None
+    assert native_slider.property('contentItem').property('spacing')==0
+    assert visual(root,'voidReferenceBrandLogo').property('status')==1
+    assert visual(root,'bsiSettingsTab_11') is not None,'full native navigation fixture did not load'
     for preset in json.loads((ROOT/'assets/full-emulator-ui/themes.json').read_text()):
         window.setProperty('requested',preset['id']);QMetaObject.invokeMethod(window,'choose');settle()
         for card in cards:

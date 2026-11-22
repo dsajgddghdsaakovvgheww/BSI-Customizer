@@ -1,0 +1,12 @@
+{
+  "source": "User-supplied image-40.png",
+  "sha256": "5cfa6d7b582ba9c1339ad40ec850cf9418374f0e744b54ca3c5966bce1174e32",
+  "operations": [
+    "retain original bytes",
+    "trim alpha <= 3 fringe",
+    "crop transparent bounds",
+    "resize with Lanczos",
+    "center unchanged artwork for Windows shortcut icon"
+  ],
+  "colorsChanged": false
+}

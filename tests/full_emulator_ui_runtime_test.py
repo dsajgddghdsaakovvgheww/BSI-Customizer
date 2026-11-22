@@ -165,6 +165,12 @@ Window {
     # Sidebar colors must follow every palette without relying on hover/recreation.
         selected=visual(root,'bsiSettingsTab_1')
         assert visual(selected,'voidSettingsNavIcon').property('tint').name()==preset['palette']['accent']
+    # Reference footer picker is a real theme dropdown, not a decorative label.
+    click(visual(root,'voidSidebarThemePicker'))
+    QTest.keyClick(window,Qt.Key_Home)
+    for _ in range(3):QTest.keyClick(window,Qt.Key_Down)
+    QTest.keyClick(window,Qt.Key_Return);settle()
+    assert window.property('themeName')=='Forest','sidebar theme picker did not apply its selection'
     # Embedded Appearance never touches the backend tab index or its pending edits.
     assert visual(root,'openAppearance') is None
     window.setProperty('blockSwitch',True)

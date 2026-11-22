@@ -66,13 +66,15 @@ class SuiteTests(unittest.TestCase):
             self.assertNotIn(b'file:///C:/Program%20Files/',after['PlrSidebar.qml'])
             self.assertIn(b'component BsiSidebarInlineVisual: VoidChrome10.SidebarVisual {}',after['PlrSidebar.qml'])
             self.assertIn(b'VoidChrome10.SidebarSkin',after['PlrSidebar.qml'])
+            self.assertIn(b'VoidChrome10.TopbarSkin',after['PlrTopbar.qml'])
+            self.assertIn(b'host.color=Qt.binding', (root/'Assets/VOIDReferenceUI/TopbarSkin.qml').read_bytes())
             self.assertIn(b'asynchronous: false',after['UiSettingsWindow.qml'])
             self.assertNotIn(b'Component.onCompleted: setSource(',after['UiSettingsWindow.qml'])
             self.assertIn(b'VoidLiveTheme.Theme.',after['UiPerformanceSetting.qml'])
             self.assertIn(b'VoidLiveTheme.NativeSettingCard',after['UiPerformanceSetting.qml'])
             self.assertIn(b'pVoidPrimaryAction:true',after['UiPerformanceSetting.qml'])
             self.assertNotIn(b'VoidLiveTheme.Theme.',after['UiDialog.qml'])
-            self.assertIn(b'OLED STUDIO 13',(root/'Assets/VOIDReferenceUI/SettingsShell.qml').read_bytes())
+            self.assertIn(b'OLED STUDIO 14',(root/'Assets/VOIDReferenceUI/SettingsShell.qml').read_bytes())
             self.assertFalse((root/'Assets/VOIDReferenceUI/OptimizerPage.qml').exists())
             for name in ('UiSettingsWindow.qml', 'PlrSidebar.qml'):
                 for token in (b'voidOptimizer', b'pVoidOptimizer', b'VoidUiNav', b'F9'):
@@ -82,6 +84,18 @@ class SuiteTests(unittest.TestCase):
             E.restore(backup,root)
             self.assertEqual((root/'HD-Player.exe').read_bytes(),original)
             self.assertFalse((root/U.UI_STATE).exists())
+
+    def test_user_artwork_is_original_not_another_drawn_or_tinted_v(self):
+        import hashlib
+        brand=ROOT/'assets/full-emulator-ui/Branding'
+        info=json.loads((brand/'PROVENANCE.json').read_text())
+        self.assertEqual(hashlib.sha256((brand/'VOID-Original.png').read_bytes()).hexdigest(),info['sha256'])
+        self.assertFalse(info['colorsChanged'])
+        self.assertTrue((brand/'VOID-Emulator.ico').read_bytes().startswith(b'\0\0\1\0'))
+        logo=(ROOT/'assets/full-emulator-ui/BrandLogo.qml').read_text()
+        self.assertIn('Branding/VOID-Mark.png',logo)
+        self.assertNotIn('ThemeIcon',logo)
+        self.assertNotIn('Branding/VOID-',(ROOT/'assets/full-emulator-ui/IconMasks.js').read_text())
 
     def test_native_section_cards_are_additive_and_use_real_native_values(self):
         original={name:U.payload()['baseline/pages/'+name] for name in U.PAGE_NAMES}
@@ -94,6 +108,8 @@ class SuiteTests(unittest.TestCase):
         self.assertIn(b'Layout.alignment:Qt.AlignRight|Qt.AlignVCenter',performance)
         self.assertIn(b'pIcon:"cpu"',performance)
         self.assertIn(b'pIcon:"memory"',performance)
+        self.assertIn(b'pVoidInlineSlider:true',performance)
+        self.assertIn(b'text:Math.round(iFrameRateSlider.value)',performance)
         self.assertNotIn(b'Layout.preferredWidth: 200',performance)
         self.assertIn(b'pVoidPrimaryAction:true',performance)
         # Every original callback and QML token remains in order; only reviewed
@@ -188,7 +204,7 @@ class SuiteTests(unittest.TestCase):
             self.assertTrue(any(change.relative.endswith('old-optimizer.qml') and change.after is None for change in planned.changes))
             backup=E.commit(planned)
             self.assertFalse(old.exists())
-            self.assertIn(b'OLED STUDIO 13',shell.read_bytes())
+            self.assertIn(b'OLED STUDIO 14',shell.read_bytes())
             self.assertEqual(U.plan_install(root)[0].changes,[])
             E.restore(backup,root)
             for name,digest in before.items():self.assertEqual(S.sha((root/name).read_bytes()),digest,name)

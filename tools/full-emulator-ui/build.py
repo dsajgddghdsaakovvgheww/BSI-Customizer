@@ -40,6 +40,7 @@ def main():
              'Source/suite.py':(HERE/'suite.py').read_bytes(),'Source/build.py':Path(__file__).read_bytes(),
              'Source/legacy_installer.py':legacy,'Source/PROVENANCE.json':(ROOT/'reference/full-emulator-ui/PROVENANCE.json').read_bytes()}
     members.update({suite.PREFIX+name:data for name,data in assets.items()})
+    members['VOID-Emulator.ico']=assets['Branding/VOID-Emulator.ico']
     run='''@echo off
 setlocal
 set "PYTHONUTF8=1"
@@ -74,7 +75,9 @@ exit /b 1
     if chrome_screenshot.is_file():members['FIXTURE-FIRST-FRAME-NOT-OEM.png']=chrome_screenshot.read_bytes()
     sections_screenshot=ROOT/'.cache/full-ui/sections-fixture.png'
     if sections_screenshot.is_file():members['FIXTURE-SECTIONS-NOT-OEM.png']=sections_screenshot.read_bytes()
-    report={'compactSettings':True,'horizontalNativeCards':True,'isolatedStudioIcons':True,'sidebarAppearancePage':True,'crossEngineThemeRelay':True,'nativeSectionCards':True,'firstFrameChrome':True,'legacySidebarRebound':True,'presetCount':6,'runtimeThemeSwitching':True,'customAppearance':True,'surfaceRevision':13,'scopedNativeDialogAndPopupHooks':True,'idlePollingAdded':False,'suite':'VOID OLED Studio 13','sourceCommit':subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),
+    topbar_screenshot=ROOT/'.cache/full-ui/topbar-fixture.png'
+    if topbar_screenshot.is_file():members['FIXTURE-TOPBAR-NOT-OEM.png']=topbar_screenshot.read_bytes()
+    report={'userProvidedBrand':True,'oemTopbarInstanceOverride':True,'compactSettings':True,'horizontalNativeCards':True,'isolatedStudioIcons':True,'sidebarAppearancePage':True,'crossEngineThemeRelay':True,'nativeSectionCards':True,'firstFrameChrome':True,'legacySidebarRebound':True,'presetCount':6,'runtimeThemeSwitching':True,'customAppearance':True,'surfaceRevision':14,'scopedNativeDialogAndPopupHooks':True,'idlePollingAdded':False,'suite':'VOID OLED Studio 14','sourceCommit':subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),
             'legacyEngineSha256':suite.sha(legacy),'suiteSourceSha256':suite.sha((HERE/'suite.py').read_bytes()),
             'assetsSha256':{name:suite.sha(data) for name,data in assets.items()},
             'optimizerIncluded':False,'helperIncluded':False,'replacementInstallSupported':True,

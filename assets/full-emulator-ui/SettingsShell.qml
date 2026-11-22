@@ -70,14 +70,26 @@ Item {
         id:header
         anchors.left:parent.left;anchors.right:parent.right;anchors.top:parent.top
         height:52
-        MouseArea {anchors.fill:parent;anchors.rightMargin:72;onPressed:if(shell.bsiHost)shell.bsiHost.startSystemMove()}
-        Rectangle {
-            x:16;anchors.verticalCenter:parent.verticalCenter;width:25;height:25;radius:8;color:Theme.accent
-            OutlineIcon {anchors.centerIn:parent;width:17;height:17;kind:"brand";tint:Theme.background}
-        }
+        MouseArea {anchors.fill:parent;anchors.rightMargin:130;onPressed:if(shell.bsiHost)shell.bsiHost.startSystemMove()}
+        BrandLogo {x:14;anchors.verticalCenter:parent.verticalCenter;width:31;height:27}
         Text {x:51;anchors.verticalCenter:parent.verticalCenter;text:"𝓥𝓞𝓘𝓓";color:Theme.text;font.family:Theme.fontFamily;font.pixelSize:21;font.bold:true}
-        Text {x:142;anchors.verticalCenter:parent.verticalCenter;text:"/  SETTINGS";visible:!shell.bsiCompact;color:Theme.muted;font.family:Theme.fontFamily;font.pixelSize:9;font.letterSpacing:2}
-        Text {objectName:"voidFullUiVersion";anchors.right:closeButton.left;anchors.rightMargin:26;anchors.verticalCenter:parent.verticalCenter;text:"OLED STUDIO 13";color:Theme.muted;font.family:Theme.fontFamily;font.pixelSize:10;font.letterSpacing:1.3}
+        Text {x:142;anchors.verticalCenter:parent.verticalCenter;text:"Settings";visible:!shell.bsiCompact;color:Theme.muted;font.family:Theme.fontFamily;font.pixelSize:12}
+        Text {objectName:"voidFullUiVersion";visible:false;anchors.right:minimizeButton.left;anchors.rightMargin:26;anchors.verticalCenter:parent.verticalCenter;text:"OLED STUDIO 14";color:Theme.muted;font.family:Theme.fontFamily;font.pixelSize:10;font.letterSpacing:1.3}
+        Rectangle {x:124;anchors.verticalCenter:parent.verticalCenter;width:1;height:21;color:Theme.border;visible:!shell.bsiCompact}
+        ToolButton {
+            id:minimizeButton;objectName:"bsiSettingsMinimize";anchors.right:maximizeButton.left;anchors.rightMargin:4;anchors.verticalCenter:parent.verticalCenter;width:28;height:28;padding:7;hoverEnabled:true
+            Accessible.name:"Minimize"
+            contentItem:StudioGlyph {kind:"minimize";tint:Theme.muted}
+            background:Rectangle {radius:7;color:minimizeButton.hovered?Theme.raised:"transparent"}
+            onClicked:if(shell.bsiHost)shell.bsiHost.showMinimized()
+        }
+        ToolButton {
+            id:maximizeButton;objectName:"bsiSettingsMaximize";anchors.right:closeButton.left;anchors.rightMargin:4;anchors.verticalCenter:parent.verticalCenter;width:28;height:28;padding:7;hoverEnabled:true
+            Accessible.name:shell.bsiHost && shell.bsiHost.visibility===Window.Maximized?"Restore":"Maximize"
+            contentItem:ThemeIcon {source:shell.bsiHost && shell.bsiHost.visibility===Window.Maximized?"SharedIcons/restore.png":"SharedIcons/maximize.png";tint:Theme.muted}
+            background:Rectangle {radius:7;color:maximizeButton.hovered?Theme.raised:"transparent"}
+            onClicked:if(shell.bsiHost){if(shell.bsiHost.visibility===Window.Maximized)shell.bsiHost.showNormal();else shell.bsiHost.showMaximized()}
+        }
         ToolButton {
             id:closeButton;objectName:"bsiSettingsClose"
             anchors.right:parent.right;anchors.rightMargin:12;anchors.verticalCenter:parent.verticalCenter
@@ -95,14 +107,14 @@ Item {
         anchors.top:header.bottom;anchors.bottom:parent.bottom;anchors.topMargin:16;anchors.bottomMargin:12
         Row {
             visible:!shell.bsiCompact;x:12;y:2;spacing:10
-            StudioGlyph {width:29;height:29;kind:"brand";tint:Theme.accent}
+            BrandLogo {width:34;height:29}
             Text {text:"VOID";color:Theme.text;font.family:Theme.fontFamily;font.pixelSize:21;font.bold:true;anchors.verticalCenter:parent.verticalCenter}
         }
         Text {visible:!shell.bsiCompact;x:12;y:36;text:"Modern · Fast · Minimal";color:Theme.muted;font.family:Theme.fontFamily;font.pixelSize:9}
         Text {x:12;y:shell.bsiCompact?0:62;text:shell.bsiCompact?"UI":"PREFERENCES";color:Theme.muted;font.family:Theme.fontFamily;font.pixelSize:9;font.letterSpacing:1.5}
         ListView {
             id:navigation;objectName:"bsiSettingsNavigation"
-            anchors.fill:parent;anchors.topMargin:shell.bsiCompact?24:84;anchors.bottomMargin:shell.bsiCompact?20:64
+            anchors.fill:parent;anchors.topMargin:shell.bsiCompact?24:84;anchors.bottomMargin:shell.bsiCompact?20:86
             model:shell.bsiTabs;currentIndex:shell.selectedIndex;clip:true;spacing:3
             boundsBehavior:Flickable.StopAtBounds
             onCurrentIndexChanged:if(currentIndex>=0)positionViewAtIndex(currentIndex,ListView.Contain)
@@ -112,7 +124,7 @@ Item {
                 objectName:model.modelData.appearance?"bsiSettingsAppearance":"bsiSettingsTab_"+model.modelData.nativeIndex
                 property var row:model.modelData
                 readonly property bool selected:index===shell.selectedIndex
-                width:navigation.width;height:30;hoverEnabled:true;padding:0
+                width:navigation.width;height:28;hoverEnabled:true;padding:0
                 scale:down?0.98:1
                 Behavior on scale {enabled:Theme.motionEnabled;NumberAnimation {duration:Theme.duration;easing.type:Easing.OutCubic}}
                 Accessible.name:row.entry.pButtonText
@@ -135,7 +147,30 @@ Item {
             anchors.left:parent.left;anchors.leftMargin:12;anchors.right:parent.right;anchors.bottom:parent.bottom;spacing:7
             Row {spacing:6
                 Rectangle {width:5;height:5;radius:3;color:Theme.accent;anchors.verticalCenter:parent.verticalCenter}
-                Text {text:Theme.name;color:Theme.muted;font.family:Theme.fontFamily;font.pixelSize:10}
+                Text {text:"My theme";color:Theme.muted;font.family:Theme.fontFamily;font.pixelSize:10}
+            }
+            ComboBox {
+                id:sidebarTheme;objectName:"voidSidebarThemePicker";width:shell.bsiRailWidth-24;height:26;padding:8;rightPadding:26
+                Accessible.name:"Emulator theme"
+                model:Theme.presets;textRole:"name";valueRole:"id"
+                displayText:Theme.name
+                currentIndex:{for(var i=0;i<Theme.presets.length;++i)if(Theme.presets[i].id===Theme.selectedId)return i;return -1}
+                onActivated:Theme.choose(currentValue)
+                contentItem:Text {text:sidebarTheme.displayText;color:Theme.text;font.family:Theme.fontFamily;font.pixelSize:10;verticalAlignment:Text.AlignVCenter;elide:Text.ElideRight}
+                indicator:StudioGlyph {x:sidebarTheme.width-21;y:7;width:12;height:12;kind:"chevrondown";tint:Theme.muted}
+                background:Rectangle {color:Theme.background;radius:10;border.width:1;border.color:Theme.border}
+                delegate:ItemDelegate {
+                    width:sidebarTheme.width-12;height:29
+                    contentItem:Text {text:modelData.name;color:Theme.text;font.family:Theme.fontFamily;font.pixelSize:10;verticalAlignment:Text.AlignVCenter}
+                    background:Rectangle {radius:6;color:highlighted?Theme.raised:Theme.surface}
+                    highlighted:sidebarTheme.highlightedIndex===index
+                }
+                popup:Popup {
+                    y:-implicitHeight-4;width:sidebarTheme.width;padding:6
+                    implicitHeight:contentItem.implicitHeight+12
+                    contentItem:ListView {clip:true;implicitHeight:contentHeight;model:sidebarTheme.popup.visible?sidebarTheme.delegateModel:null;currentIndex:sidebarTheme.highlightedIndex}
+                    background:Rectangle {radius:10;color:Theme.surface;border.width:1;border.color:Theme.border}
+                }
             }
             Text {text:"Developed By NOVA XIS";color:Theme.muted;font.family:Theme.fontFamily;font.pixelSize:8}
         }
@@ -149,13 +184,13 @@ Item {
         Item {
             id:hero
             anchors.left:parent.left;anchors.right:parent.right;anchors.top:parent.top;height:shell.showInspector?108:66
-            StudioGlyph {x:0;y:1;width:32;height:32;kind:shell.currentKind;tint:Theme.accent}
+            StudioGlyph {x:0;y:1;width:32;height:32;kind:shell.currentKind==="performance"?"gauge":shell.currentKind;tint:Theme.accent}
             Text {x:45;y:0;width:parent.width-195;text:shell.intro()[0];color:Theme.text;font.family:Theme.fontFamily;font.pixelSize:23;font.weight:Font.DemiBold;elide:Text.ElideRight}
             Text {x:45;y:32;width:parent.width-45;text:shell.intro()[1];color:Theme.muted;font.family:Theme.fontFamily;font.pixelSize:11;elide:Text.ElideRight}
             Rectangle {
                 anchors.right:parent.right;y:2;width:128;height:28;radius:14;color:Theme.surface;border.width:1;border.color:Theme.border
                 StudioGlyph {x:11;anchors.verticalCenter:parent.verticalCenter;width:14;height:14;kind:"layers";tint:Theme.muted}
-                Text {anchors.verticalCenter:parent.verticalCenter;x:33;text:"OLED STUDIO 13";color:Theme.muted;font.family:Theme.fontFamily;font.pixelSize:9}
+                Text {anchors.verticalCenter:parent.verticalCenter;x:33;text:"OLED STUDIO 14";color:Theme.muted;font.family:Theme.fontFamily;font.pixelSize:9}
             }
             Rectangle {
                 id:inspector;objectName:"voidNativeResourceSummary";visible:shell.showInspector

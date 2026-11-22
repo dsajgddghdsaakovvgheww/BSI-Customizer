@@ -89,7 +89,13 @@ Item {
         item.pColor=sliderColor.createObject(item)
         // UiSlider paints its real track INSIDE contentItem, not background.
         // Keep its real labels/ranges; never draw a second track over the caption.
-        if(item.contentItem && item.contentItem.spacing!==undefined)item.contentItem.spacing=12
+        if(item.contentItem && item.contentItem.spacing!==undefined)item.contentItem.spacing=item.pVoidInlineSlider===true?0:12
+        if(item.pVoidInlineSlider===true && item.contentItem && item.contentItem.pChildren) {
+            var nativeRows=item.contentItem.pChildren
+            // Only this reviewed marked UiSlider: keep real track, handle and
+            // value/input behavior; the card supplies the native caption + badge.
+            if(nativeRows.length===3){nativeRows[0].visible=false;nativeRows[2].visible=false}
+        }
         var track=findSliderTrack(item.contentItem,item,0)
         if(track && item.handle) {
             item.handle.border.width=0

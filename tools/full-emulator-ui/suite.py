@@ -1,4 +1,4 @@
-"""VOID OLED Studio 13: full eligible native-QML visual pass, using pinned transactions.
+"""VOID OLED Studio 14: full eligible native-QML visual pass, using pinned transactions.
 No resource scanning occurs on import. Check/Apply/Export are explicit commands.
 """
 import argparse
@@ -63,7 +63,7 @@ def runtime():
             raise RuntimeError('Pinned replacement hook changed; review required.')
         text = text.replace(before, after, 1)
     text = text.replace('Settings now uses the reference shell and contains the VOID Optimizer tab.', 'Settings now uses OLED Studio with live Appearance controls (no optimizer).')
-    text=text.replace('VOID FULL UI V5 — Carbon palette / incremental styling / native session tools; boot logic protected','VOID OLED STUDIO 13 - six dark presets / native UI / no optimizer')
+    text=text.replace('VOID FULL UI V5 — Carbon palette / incremental styling / native session tools; boot logic protected','VOID OLED STUDIO 14 - six dark presets / native UI / no optimizer')
     exec(compile(text, 'pinned-void-ui-engine.py', 'exec'), module.__dict__)
     module.live_names=set()
     module.live_coverage=[]
@@ -173,7 +173,7 @@ def runtime():
             item = rows.setdefault(row['name'], {})
             item.update(row)
             item.setdefault('status', 'changed' if row['changed'] else 'verified')
-        report['suite'] = 'VOID OLED Studio 13'
+        report['suite'] = 'VOID OLED Studio 14'
         report['live_theme_bindings']=module.live_coverage
         report['theme_presets']=[entry['name'] for entry in json.loads(assets['themes.json'])]
         report['all_ui_runtime_certified'] = False
@@ -449,7 +449,7 @@ def first_frame_sources(module, desired, url):
 
 def native_section_sources(module, desired, url):
     """Reviewed visual-only native card layouts with byte-exact inverse proof."""
-    result=dict(desired);manager=module.manager();marker='// VOID NATIVE SECTION CARDS 13'
+    result=dict(desired);manager=module.manager();marker='// VOID NATIVE SECTION CARDS 14'
     for name in module.PAGE_NAMES:
         if name not in result:continue
         body=result[name];source=body.decode('utf-8-sig')
@@ -484,7 +484,13 @@ def native_section_sources(module, desired, url):
                 for n,key in enumerate(children):
                     child=scopes[key];cb=child['bindings'];layout=''
                     manager.require(not any(role in cb for role in ('Layout.row','Layout.column','Layout.columnSpan','Layout.rowSpan')),'Unexpected native card positions.')
-                    if index==3:layout='Layout.row:'+str(n)+'\nLayout.column:0\nLayout.columnSpan:2\n'
+                    if index==3:
+                        inline_fps=scopes[children[0]]['type']=='UiSlider' and identity(scopes[children[0]])=='iFrameRateSlider'
+                        if inline_fps and n==0:
+                            layout='property bool pVoidInlineSlider:true\nrightPadding:54\nLayout.minimumWidth:180\nLayout.row:'+card_id+'.pInline?0:2\nLayout.column:'+card_id+'.pInline?1:0\nLayout.rowSpan:'+card_id+'.pInline?2:1\nLayout.columnSpan:'+card_id+'.pInline?1:2\n'
+                            layout+='Rectangle {objectName:"voidReferenceFpsValue";anchors.right:parent.right;anchors.verticalCenter:parent.verticalCenter;width:44;height:30;radius:Math.min(VoidLiveTheme.Theme.corner,8);color:VoidLiveTheme.Theme.background;border.width:1;border.color:VoidLiveTheme.Theme.border;Text {anchors.centerIn:parent;text:Math.round(iFrameRateSlider.value);color:VoidLiveTheme.Theme.text;font.family:VoidLiveTheme.Theme.fontFamily;font.pixelSize:12}}\n'
+                        else:layout='Layout.row:'+('('+card_id+'.pInline?1:2)+'+str(n) if inline_fps else str(n))+'\nLayout.column:0\nLayout.columnSpan:2\n'
+
                     elif n==0 or (n==1 and has_description):
                         layout='Layout.row:'+str(n)+'\nLayout.column:0\nLayout.columnSpan:'+card_id+'.pInline?1:2\nLayout.minimumWidth:0\n'
                         if 'Layout.fillWidth' not in cb:layout+='Layout.fillWidth:true\n'
@@ -493,6 +499,9 @@ def native_section_sources(module, desired, url):
                         layout='Layout.row:'+card_id+'.pInline?0:2\nLayout.column:'+card_id+'.pInline?1:0\nLayout.columnSpan:'+card_id+'.pInline?1:2\nLayout.rowSpan:'+card_id+'.pInline?2:1\n'
                         if 'Layout.alignment' not in cb:layout+='Layout.alignment:Qt.AlignRight|Qt.AlignVCenter\n'
                     edits.append((tokens[key].end,tokens[key].end,'\n'+layout))
+                if index==3 and children and scopes[children[0]]['type']=='UiSlider' and identity(scopes[children[0]])=='iFrameRateSlider':
+                    fields+='Text {Layout.row:0;Layout.column:0;Layout.columnSpan:'+card_id+'.pInline?1:2;Layout.preferredWidth:190;Layout.fillWidth:true;wrapMode:Text.Wrap;text:iFrameRateSlider.pSelectedValueText;color:VoidLiveTheme.Theme.text;font.family:VoidLiveTheme.Theme.fontFamily;font.pixelSize:14;font.bold:true}\n'
+                    fields+='Text {Layout.row:1;Layout.column:0;Layout.columnSpan:'+card_id+'.pInline?1:2;Layout.fillWidth:true;wrapMode:Text.Wrap;text:"Limit or unlock your frame rate.";color:VoidLiveTheme.Theme.muted;font.family:VoidLiveTheme.Theme.fontFamily;font.pixelSize:11}\n'
                 if index<3 and not has_description:
                     description=['Allocate CPU cores for your games.','Set the memory available to the emulator.','Balance resources for the way you play.'][index]
                     fields+='Text {Layout.row:1;Layout.column:0;Layout.columnSpan:'+card_id+'.pInline?1:2;Layout.fillWidth:true;wrapMode:Text.Wrap;text:'+json.dumps(description)+';color:VoidLiveTheme.Theme.muted;font.family:VoidLiveTheme.Theme.fontFamily;font.pixelSize:11}\n'
@@ -704,7 +713,7 @@ def main(argv=None):
     module.replacing_ui = '--replace-ui' in argv
     if module.replacing_ui:
         print('REPLACE UI: old UI files/state will be replaced; apps/data and independent helpers are not removed.')
-    print('VOID OLED STUDIO 13 - live native appearance / six presets / custom colors')
+    print('VOID OLED STUDIO 14 - live native appearance / six presets / custom colors')
     if '--export-sources' in argv:
         parser = argparse.ArgumentParser()
         parser.add_argument('--export-sources', type=Path, required=True)

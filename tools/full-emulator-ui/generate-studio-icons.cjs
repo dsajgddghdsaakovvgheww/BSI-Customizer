@@ -4,6 +4,7 @@ const fs=require('fs'),path=require('path');
 const {Resvg}=require('../../.cache/glyphgen/node_modules/@resvg/resvg-js');
 const out=path.resolve(__dirname,'../../assets/full-emulator-ui/StudioIcons');fs.mkdirSync(out,{recursive:true});
 const shapes={
+ gauge:'<path d="M3 18a10 10 0 1 1 18 0"/><path d="M12 3v2M5 7l1.5 1.5M3 13h2m14 0h2M18 7l-5 6"/><circle cx="12" cy="14" r="2"/>',
  performance:'<path fill="white" stroke="none" d="m13 2-9 12h6l-1 8 11-14h-7l2-6Z"/>',
  display:'<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8m-4-4v4"/>',
  graphics:'<path d="M12 3a9 9 0 1 0 0 18h1.5a2 2 0 0 0 1.5-3.3 1.5 1.5 0 0 1 1.1-2.5H18a3 3 0 0 0 3-3c0-5.2-4-9.2-9-9.2Z"/><path d="M7 11h.01M9 7h.01m5 0h.01m3 4h.01" stroke-width="3"/>',

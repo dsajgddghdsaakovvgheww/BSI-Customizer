@@ -10,6 +10,16 @@ Item {
     property var pending:new Set()
     property bool scheduled:false
     property int visitedNodes:0
+    readonly property url brandSource:Qt.resolvedUrl("Branding/VOID-Mark.png")
+    ThemeRelay {hostWindow:skin.host ? skin.host.Window.window : null}
+    function prepareHost() {
+        if(!host)return
+        // plr.qml assigns the OEM color on the PlrTopbar INSTANCE. Source-color
+        // rewriting inside PlrTopbar.qml alone cannot override that binding.
+        if(host.color!==undefined)host.color=Qt.binding(function(){return Theme.background})
+        if(host.gradient!==undefined)host.gradient=null
+        walk(host,0)
+    }
     function enqueue(item) {
         if (!item) return
         pending.add(item)
@@ -33,6 +43,12 @@ Item {
             var seen=watched,queue=pending
             hook.createObject(item,{owner:item,cleanup:function(){seen.delete(item);queue.delete(item)}})
         }
+        if(/UiImage/.test(String(item)) && !/UiImageButton/.test(String(item)) && item.asset==="BlueStacksLogo" && item.source!==undefined) {
+            item.source=Qt.binding(function(){return skin.brandSource})
+            item.asynchronous=false
+            if(item.pImageWidth!==undefined)item.pImageWidth=28
+            if(item.pImageHeight!==undefined)item.pImageHeight=20
+        }
         if(/UiImageButton/.test(String(item)) && item.contentItem && item.asset!==undefined)
             face.createObject(item,{control:item})
         if(item.children)for(var i=0;i<item.children.length;++i)walk(item.children[i],depth+1)
@@ -50,8 +66,8 @@ Item {
         function onChildrenChanged(){skin.enqueue(owner)}
     } }
     property bool initialized:false
-    onHostChanged:if(initialized)walk(host,0)
-    Component.onCompleted:{initialized=true;Theme.sync();walk(host,0)}
+    onHostChanged:if(initialized)prepareHost()
+    Component.onCompleted:{initialized=true;Theme.sync();prepareHost()}
     Connections {
         target:skin.host ? skin.host.Window.window : null
         function onActiveChanged(){if(target && target.active)Theme.sync()}
