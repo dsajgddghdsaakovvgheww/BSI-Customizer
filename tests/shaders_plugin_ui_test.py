@@ -637,9 +637,14 @@ Window {
         assert native_display.commits == 0 and not native_display.writes and not evaluate("!!restartPrompt"), "texture-only strength Save must not resize/restart or enable visual effects"
         click(item("shaderEnhance")); click(item("shaderReset"))
         assert evaluate("draft.potatoStrength") == half and settings()["potatoStrength"] == half, "visual presets/reset preserve the saved texture percentage"
-        click(strength, .01)
-        QTest.keyClick(window, Qt.Key.Key_Home)
-        assert evaluate("draft.potatoStrength") == 0
+        click(strength, .5)
+        assert evaluate("activeFocus", strength), "physical click must focus the native slider before keyboard input"
+        # Qt 5's stock Slider supports arrow steps, NOT Home/End. Preserve
+        # that native contract rather than inventing a custom key handler or
+        # accidentally treating an endpoint mouse click as keyboard coverage.
+        for _ in range(100):
+            QTest.keyClick(window, Qt.Key.Key_Left)
+        assert evaluate("draft.potatoStrength") == 0, ("native left-arrow endpoint", evaluate("draft.potatoStrength"), strength.property("value"))
         click(save_button)
         assert settings()["potatoGraphic"] and settings()["potatoStrength"] == 0 and evaluate("Engine.metrics.potatoStrength") == 0
         assert "Native sampling; no texture reduction requested" in item("shaderPotatoTextureStatus").property("text")
@@ -649,8 +654,10 @@ Window {
             refused = json.loads(evaluate("JSON.stringify(Engine.apply(Object.assign({}, draft, {potatoStrength: " + invalid + "})))"))
             assert not refused["ok"] and profile.read_bytes() == saved_zero and settings()["potatoStrength"] == 0, "C++ rejects malformed percentages even when bypassing QML"
         click(strength, .5)
-        QTest.keyClick(window, Qt.Key.Key_End)
-        assert evaluate("draft.potatoStrength") == 100
+        assert evaluate("activeFocus", strength)
+        for _ in range(100):
+            QTest.keyClick(window, Qt.Key.Key_Right)
+        assert evaluate("draft.potatoStrength") == 100, ("native right-arrow endpoint", evaluate("draft.potatoStrength"), strength.property("value"))
         click(save_button)
         assert settings()["potatoStrength"] == 100 and not page.property("pEnableSave")
         click(item("shaderEnhance")); click(item("shaderReset"))
