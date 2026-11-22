@@ -1,0 +1,2967 @@
+{
+  "schema": "bsi.hd-player-native-renderer-evidence.v1",
+  "scope": "Read-only static analysis of four supplied references; not vendor authenticity, installed runtime, original source recovery or game acceptance",
+  "provenance": {
+    "repository": "https://github.com/MrPcGamerYT/HD-Player",
+    "commit": "6e4dc894eb1b6956060b3f76d13fc438e5178d03",
+    "allFourPinnedExeHashesMatched": true,
+    "files": [
+      {
+        "input": "HD-Player MSI v5.9.exe",
+        "gitBlobSha1": "1b9c42a9f6bf35ebc18249da9b1ed41449de6404",
+        "inputSha256": "1f473ca2ec1e684cf85dbf1cacd47ed0cb33c27c6fe298ada1775f2a3414f2ed",
+        "member": null,
+        "playerBytes": 10068960,
+        "playerSha256": "1f473ca2ec1e684cf85dbf1cacd47ed0cb33c27c6fe298ada1775f2a3414f2ed",
+        "expectedVersion": "5.9.300.6315"
+      },
+      {
+        "input": "HD-Player v.5.10 bluestacks.exe",
+        "gitBlobSha1": "720fd46ac1c445300c2202a5623d619b337a1937",
+        "inputSha256": "bcec63030f032fef60850559b5a5c40fdcce44f3b129aa5ccee05e990957467b",
+        "member": null,
+        "playerBytes": 11991040,
+        "playerSha256": "bcec63030f032fef60850559b5a5c40fdcce44f3b129aa5ccee05e990957467b",
+        "expectedVersion": "5.10.150.1016"
+      },
+      {
+        "input": "HD-Player MSI Latest version.zip",
+        "gitBlobSha1": "d0c82bfe62ff0d96996af63d6829bdefadd84c12",
+        "inputSha256": "a1dfd66e60eed7f990182f8255226608e6ba037d28c489f1f3f0e1e678f8f989",
+        "member": "HD-Player.exe",
+        "playerBytes": 23858608,
+        "playerSha256": "b373ad8ce5dbc6b1e605b3c153d20b69bf5769b7ff82f896291e4844ab418efd",
+        "expectedVersion": "5.22.75.6322"
+      },
+      {
+        "input": "HD-Player latest version Bluestacks 5.zip",
+        "gitBlobSha1": "b591915ccf787cea82d89c243d042e9d6b433f81",
+        "inputSha256": "1d5b9c5116428121e13471820a2f647c9fa452f88bd34c7fa04ab1e05a212c4f",
+        "member": "HD-Player.exe",
+        "playerBytes": 33149872,
+        "playerSha256": "d2f8509d025f90bd23604aa1c8f6981c456468bceab4db4a30bb380806826f39",
+        "expectedVersion": "5.22.285.1013"
+      }
+    ]
+  },
+  "auditor": {
+    "path": "scripts/Inspect-PlayerRenderer.py",
+    "sha256": "831c34b31703cdd0b83471adbab9075ab5dd69ae5aeffa4b552f746b5db7c7c5",
+    "pefile": "2024.8.26",
+    "capstone": "5.0.6"
+  },
+  "localTests": {
+    "rendererAudit": {
+      "tests": 14,
+      "passed": 14,
+      "fourPinnedSamplesActuallyRead": true,
+      "peExecuted": false
+    },
+    "retainedQtInventory": {
+      "tests": 11,
+      "passed": 11,
+      "fourPinnedSamplesActuallyRead": true,
+      "peExecuted": false
+    }
+  },
+  "independentDecoder": {
+    "version": "GNU objdump (GNU Binutils for Debian) 2.40",
+    "allImportModulesAndInstructionWitnessesMatched": true,
+    "instructionWitnessChecksPerSample": [
+      52,
+      52,
+      64,
+      64
+    ],
+    "totalInstructionWitnessChecks": 232,
+    "playerHashesUnchanged": true,
+    "additionalFocusedWindowWitnessChecksPerSample": [
+      23,
+      23,
+      23,
+      24
+    ],
+    "additionalFocusedWindowWitnessChecks": 93,
+    "witnessTotalsAreChecksNotNecessarilyUniqueInstructions": true
+  },
+  "reports": [
+    {
+      "schema": "bsi.player-renderer-static-audit.v1",
+      "input": "HD-Player MSI v5.9.exe",
+      "archiveSha256": null,
+      "image": {
+        "sha256": "1f473ca2ec1e684cf85dbf1cacd47ed0cb33c27c6fe298ada1775f2a3414f2ed",
+        "bytes": 10068960,
+        "machine": "0x8664",
+        "dll": false,
+        "fileVersion": "5.9.300.6315",
+        "productVersion": "0.0.0.0",
+        "releaseFixedFlags": true,
+        "fileType": 2,
+        "imports": [
+          "advapi32.dll",
+          "api-ms-win-crt-convert-l1-1-0.dll",
+          "api-ms-win-crt-environment-l1-1-0.dll",
+          "api-ms-win-crt-filesystem-l1-1-0.dll",
+          "api-ms-win-crt-heap-l1-1-0.dll",
+          "api-ms-win-crt-locale-l1-1-0.dll",
+          "api-ms-win-crt-math-l1-1-0.dll",
+          "api-ms-win-crt-runtime-l1-1-0.dll",
+          "api-ms-win-crt-stdio-l1-1-0.dll",
+          "api-ms-win-crt-string-l1-1-0.dll",
+          "api-ms-win-crt-time-l1-1-0.dll",
+          "api-ms-win-crt-utility-l1-1-0.dll",
+          "avrt.dll",
+          "boost_json-vc142-mt-x64-1_76.dll",
+          "d3d11.dll",
+          "dinput8.dll",
+          "discord_game_sdk.dll",
+          "dxgi.dll",
+          "gdi32.dll",
+          "imm32.dll",
+          "kernel32.dll",
+          "msvcp140.dll",
+          "msvcp140_atomic_wait.dll",
+          "netapi32.dll",
+          "ole32.dll",
+          "oleaut32.dll",
+          "qt5core.dll",
+          "qt5gui.dll",
+          "qt5multimedia.dll",
+          "qt5network.dll",
+          "qt5qml.dll",
+          "qt5quick.dll",
+          "qt5widgets.dll",
+          "qt5xml.dll",
+          "rpcrt4.dll",
+          "shell32.dll",
+          "user32.dll",
+          "vcruntime140.dll",
+          "vcruntime140_1.dll",
+          "winmm.dll"
+        ],
+        "compiledMinorTags": []
+      },
+      "normalAndDelayGraphicsOrLoaderImports": [
+        {
+          "iatRva": 3326704,
+          "module": "KERNEL32.dll",
+          "kind": "normal",
+          "symbol": "GetProcAddress"
+        },
+        {
+          "iatRva": 3327096,
+          "module": "KERNEL32.dll",
+          "kind": "normal",
+          "symbol": "LoadLibraryW"
+        },
+        {
+          "iatRva": 3338816,
+          "module": "d3d11.dll",
+          "kind": "normal",
+          "symbol": "D3D11CreateDevice"
+        },
+        {
+          "iatRva": 3338848,
+          "module": "dxgi.dll",
+          "kind": "normal",
+          "symbol": "CreateDXGIFactory1"
+        }
+      ],
+      "exactAsciiAnchorEvidence": {
+        "HD-Opengl-Native": {
+          "literalRvas": [
+            8709616
+          ],
+          "decodedCodeReferences": [
+            {
+              "instructionRva": 1098902,
+              "unwindRange": [
+                1098400,
+                1100408
+              ],
+              "mnemonic": "movups",
+              "literalRva": 8709616
+            }
+          ]
+        },
+        "libOpenglRender": {
+          "literalRvas": [
+            8709640
+          ],
+          "decodedCodeReferences": [
+            {
+              "instructionRva": 1098985,
+              "unwindRange": [
+                1098400,
+                1100408
+              ],
+              "mnemonic": "movsd",
+              "literalRva": 8709640
+            }
+          ]
+        },
+        "grApiInit": {
+          "literalRvas": [
+            8709744
+          ],
+          "decodedCodeReferences": [
+            {
+              "instructionRva": 1099084,
+              "unwindRange": [
+                1098400,
+                1100408
+              ],
+              "mnemonic": "lea",
+              "literalRva": 8709744
+            }
+          ]
+        },
+        "grLibInit": {
+          "literalRvas": [
+            8709688
+          ],
+          "decodedCodeReferences": [
+            {
+              "instructionRva": 1100124,
+              "unwindRange": [
+                1098400,
+                1100408
+              ],
+              "mnemonic": "lea",
+              "literalRva": 8709688
+            }
+          ]
+        },
+        "Initializing ui ...": {
+          "literalRvas": [
+            3488336
+          ],
+          "decodedCodeReferences": [
+            {
+              "instructionRva": 407473,
+              "unwindRange": [
+                390256,
+                414800
+              ],
+              "mnemonic": "lea",
+              "literalRva": 3488336
+            }
+          ]
+        },
+        "Initializing graphics ...": {
+          "literalRvas": [
+            3488472
+          ],
+          "decodedCodeReferences": [
+            {
+              "instructionRva": 409372,
+              "unwindRange": [
+                390256,
+                414800
+              ],
+              "mnemonic": "lea",
+              "literalRva": 3488472
+            }
+          ]
+        },
+        "imgdOnEglCreateContext": {
+          "literalRvas": [
+            8712384
+          ],
+          "decodedCodeReferences": [
+            {
+              "instructionRva": 1132368,
+              "unwindRange": [
+                1132192,
+                1132927
+              ],
+              "mnemonic": "lea",
+              "literalRva": 8712384
+            }
+          ]
+        },
+        "tmapOnEglCreateContext": {
+          "literalRvas": [
+            9010304
+          ],
+          "decodedCodeReferences": [
+            {
+              "instructionRva": 2358901,
+              "unwindRange": [
+                2358688,
+                2359709
+              ],
+              "mnemonic": "lea",
+              "literalRva": 9010304
+            }
+          ]
+        },
+        "eglGetProcAddress": {
+          "literalRvas": [],
+          "decodedCodeReferences": []
+        },
+        "wglGetProcAddress": {
+          "literalRvas": [],
+          "decodedCodeReferences": []
+        },
+        "eglCreateImageKHR": {
+          "literalRvas": [],
+          "decodedCodeReferences": []
+        },
+        "eglDestroyImageKHR": {
+          "literalRvas": [],
+          "decodedCodeReferences": []
+        },
+        "glEGLImageTargetTexture2DOES": {
+          "literalRvas": [],
+          "decodedCodeReferences": []
+        },
+        "glCopyImageSubData": {
+          "literalRvas": [],
+          "decodedCodeReferences": []
+        }
+      },
+      "rendererBoundaries": [
+        {
+          "unwindRangeBegin": 1098400,
+          "moduleOperandReferences": {
+            "HD-Opengl-Native": [
+              {
+                "instructionRva": 1098902,
+                "unwindRange": [
+                  1098400,
+                  1100408
+                ],
+                "mnemonic": "movups",
+                "literalRva": 8709616
+              }
+            ],
+            "libOpenglRender": [
+              {
+                "instructionRva": 1098985,
+                "unwindRange": [
+                  1098400,
+                  1100408
+                ],
+                "mnemonic": "movsd",
+                "literalRva": 8709640
+              }
+            ]
+          },
+          "directHelperImportWitnesses": [
+            {
+              "callerCallRva": 1099049,
+              "calleeRva": 2757296,
+              "api": {
+                "instructionRva": 2757410,
+                "module": "KERNEL32.dll",
+                "kind": "normal",
+                "symbol": "LoadLibraryW"
+              }
+            },
+            {
+              "callerCallRva": 1099110,
+              "calleeRva": 2757968,
+              "api": {
+                "instructionRva": 2758021,
+                "module": "KERNEL32.dll",
+                "kind": "normal",
+                "symbol": "GetProcAddress"
+              }
+            }
+          ],
+          "resolvedPointerCallWitnesses": [
+            {
+              "lookupHelperCallRva": 1099110,
+              "returnSavedAtRva": 1099115,
+              "nonvolatileRegister": "rbx",
+              "indirectCallRva": 1099313
+            }
+          ],
+          "directCallers": [
+            {
+              "callRva": 409531,
+              "targetRva": 1098400,
+              "unwindRange": [
+                390256,
+                414800
+              ]
+            }
+          ],
+          "privateAbiInferred": false
+        }
+      ],
+      "startupInstructionEvidence": [
+        {
+          "mainUnwindRange": [
+            390256,
+            414800
+          ],
+          "uiInitCallRva": 407521,
+          "uiInitTargetRva": 570544,
+          "qmlEngineLoadCalls": [
+            {
+              "instructionRva": 572058,
+              "module": "Qt5Qml.dll",
+              "kind": "normal",
+              "symbol": "?load@QQmlApplicationEngine@@QEAAXAEBVQUrl@@@Z"
+            }
+          ],
+          "graphicsInitCallRva": 409531,
+          "graphicsInitTargetRva": 1098400,
+          "scope": "same decoded native caller, instruction order only; not an installed startup trace"
+        }
+      ],
+      "nativeCallbackBuilderEvidence": [
+        {
+          "builderRva": 1131168,
+          "nativeStartupCallerRva": 409430,
+          "laterGraphicsInitCallRva": 409531,
+          "adjacentCodePointerStores": [
+            {
+              "addressLoadRva": 1131182,
+              "storeRva": 1131189,
+              "targetCodeRva": 1131296,
+              "destinationBaseRegister": "rdx",
+              "destinationOffset": 8,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 1131193,
+              "storeRva": 1131200,
+              "targetCodeRva": 1132192,
+              "destinationBaseRegister": "rdx",
+              "destinationOffset": 16,
+              "namedContextCallback": "imgdOnEglCreateContext"
+            },
+            {
+              "addressLoadRva": 1131204,
+              "storeRva": 1131211,
+              "targetCodeRva": 1133392,
+              "destinationBaseRegister": "rdx",
+              "destinationOffset": 24,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 1131215,
+              "storeRva": 1131222,
+              "targetCodeRva": 1134208,
+              "destinationBaseRegister": "rdx",
+              "destinationOffset": 32,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 1131226,
+              "storeRva": 1131233,
+              "targetCodeRva": 1134560,
+              "destinationBaseRegister": "rdx",
+              "destinationOffset": 40,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 1131237,
+              "storeRva": 1131244,
+              "targetCodeRva": 1133232,
+              "destinationBaseRegister": "rdx",
+              "destinationOffset": 48,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 1131248,
+              "storeRva": 1131255,
+              "targetCodeRva": 1133088,
+              "destinationBaseRegister": "rdx",
+              "destinationOffset": 56,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 1131259,
+              "storeRva": 1131266,
+              "targetCodeRva": 1131440,
+              "destinationBaseRegister": "rdx",
+              "destinationOffset": 64,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 1131270,
+              "storeRva": 1131277,
+              "targetCodeRva": 1132928,
+              "destinationBaseRegister": "rdx",
+              "destinationOffset": 72,
+              "namedContextCallback": null
+            }
+          ],
+          "scope": "code-pointer assignments; callback parameters, lifetime and private ABI are not inferred"
+        },
+        {
+          "builderRva": 2344624,
+          "nativeStartupCallerRva": 409442,
+          "laterGraphicsInitCallRva": 409531,
+          "adjacentCodePointerStores": [
+            {
+              "addressLoadRva": 2344936,
+              "storeRva": 2344943,
+              "targetCodeRva": 2356560,
+              "destinationBaseRegister": "rbx",
+              "destinationOffset": 0,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 2344946,
+              "storeRva": 2344953,
+              "targetCodeRva": 2358688,
+              "destinationBaseRegister": "rbx",
+              "destinationOffset": 8,
+              "namedContextCallback": "tmapOnEglCreateContext"
+            },
+            {
+              "addressLoadRva": 2344957,
+              "storeRva": 2344964,
+              "targetCodeRva": 2361728,
+              "destinationBaseRegister": "rbx",
+              "destinationOffset": 16,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 2344968,
+              "storeRva": 2344975,
+              "targetCodeRva": 2362464,
+              "destinationBaseRegister": "rbx",
+              "destinationOffset": 24,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 2344979,
+              "storeRva": 2344986,
+              "targetCodeRva": 2362912,
+              "destinationBaseRegister": "rbx",
+              "destinationOffset": 32,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 2344990,
+              "storeRva": 2344997,
+              "targetCodeRva": 2361712,
+              "destinationBaseRegister": "rbx",
+              "destinationOffset": 40,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 2345001,
+              "storeRva": 2345008,
+              "targetCodeRva": 2361696,
+              "destinationBaseRegister": "rbx",
+              "destinationOffset": 48,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 2345012,
+              "storeRva": 2345019,
+              "targetCodeRva": 2360784,
+              "destinationBaseRegister": "rbx",
+              "destinationOffset": 56,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 2345023,
+              "storeRva": 2345030,
+              "targetCodeRva": 2361184,
+              "destinationBaseRegister": "rbx",
+              "destinationOffset": 64,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 2345034,
+              "storeRva": 2345041,
+              "targetCodeRva": 2356640,
+              "destinationBaseRegister": "rbx",
+              "destinationOffset": 72,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 2345045,
+              "storeRva": 2345052,
+              "targetCodeRva": 2359712,
+              "destinationBaseRegister": "rbx",
+              "destinationOffset": 80,
+              "namedContextCallback": null
+            }
+          ],
+          "scope": "code-pointer assignments; callback parameters, lifetime and private ABI are not inferred"
+        }
+      ],
+      "registeredQml": {
+        "uniquePoolCount": 3,
+        "connectedFileEntryCount": 550,
+        "selectedSources": [
+          {
+            "path": "/plr.qml",
+            "treeRva": 4033184,
+            "recordRva": 3657180,
+            "decodedBytes": 34712,
+            "sha256": "e69d8d184d63199f6d29889fde7d5c2330de8bd7f09c6e4180cc9298e436a1db",
+            "registrationCallRvas": [
+              9454,
+              660990
+            ],
+            "rootCompletionLines": [
+              149
+            ],
+            "setBackendUiParamsPresent": true
+          },
+          {
+            "path": "/UiGraphicsSetting.qml",
+            "treeRva": 4033184,
+            "recordRva": 3622600,
+            "decodedBytes": 21121,
+            "sha256": "8fafe9efc9d232108928e358eeed9d8a8140ceac95f1502bd260fcc83bc423bf",
+            "registrationCallRvas": [
+              9454,
+              660990
+            ],
+            "rootCompletionLines": [],
+            "setBackendUiParamsPresent": false
+          }
+        ],
+        "mapping": "contiguous x64 argument setup -> actual qRegisterResourceData import/thunk; connected tree and name hashes checked",
+        "sourcePresenceIsNotCompiledCacheActivationProof": true
+      },
+      "playerOrDllExecuted": false,
+      "targetModified": false,
+      "privateRendererAbiCalled": false,
+      "runtimeRendererOrGameRouteProved": false,
+      "shaderSupportCertified": false,
+      "limits": [
+        "Missing import/literal is not absent runtime functionality; dynamic or private dispatch may exist.",
+        "Unwind ranges and decoded witnesses are not complete source functions/control flow or runtime order.",
+        "A selected library basename is not a loaded-module path, version, installed identity or GL ownership.",
+        "EXE-only archives do not include the selected graphics provider implementations."
+      ]
+    },
+    {
+      "schema": "bsi.player-renderer-static-audit.v1",
+      "input": "HD-Player v.5.10 bluestacks.exe",
+      "archiveSha256": null,
+      "image": {
+        "sha256": "bcec63030f032fef60850559b5a5c40fdcce44f3b129aa5ccee05e990957467b",
+        "bytes": 11991040,
+        "machine": "0x8664",
+        "dll": false,
+        "fileVersion": "5.10.150.1016",
+        "productVersion": "0.0.0.0",
+        "releaseFixedFlags": true,
+        "fileType": 2,
+        "imports": [
+          "advapi32.dll",
+          "api-ms-win-crt-convert-l1-1-0.dll",
+          "api-ms-win-crt-environment-l1-1-0.dll",
+          "api-ms-win-crt-filesystem-l1-1-0.dll",
+          "api-ms-win-crt-heap-l1-1-0.dll",
+          "api-ms-win-crt-locale-l1-1-0.dll",
+          "api-ms-win-crt-math-l1-1-0.dll",
+          "api-ms-win-crt-runtime-l1-1-0.dll",
+          "api-ms-win-crt-stdio-l1-1-0.dll",
+          "api-ms-win-crt-string-l1-1-0.dll",
+          "api-ms-win-crt-time-l1-1-0.dll",
+          "api-ms-win-crt-utility-l1-1-0.dll",
+          "avrt.dll",
+          "boost_json-vc142-mt-x64-1_76.dll",
+          "d3d11.dll",
+          "dinput8.dll",
+          "discord_game_sdk.dll",
+          "dxgi.dll",
+          "gdi32.dll",
+          "imm32.dll",
+          "kernel32.dll",
+          "msvcp140.dll",
+          "msvcp140_atomic_wait.dll",
+          "netapi32.dll",
+          "ole32.dll",
+          "oleaut32.dll",
+          "qt5core.dll",
+          "qt5gui.dll",
+          "qt5multimedia.dll",
+          "qt5network.dll",
+          "qt5qml.dll",
+          "qt5quick.dll",
+          "qt5webengine.dll",
+          "qt5widgets.dll",
+          "qt5xml.dll",
+          "rpcrt4.dll",
+          "shell32.dll",
+          "user32.dll",
+          "vcruntime140.dll",
+          "vcruntime140_1.dll",
+          "winmm.dll"
+        ],
+        "compiledMinorTags": []
+      },
+      "normalAndDelayGraphicsOrLoaderImports": [
+        {
+          "iatRva": 3592936,
+          "module": "KERNEL32.dll",
+          "kind": "normal",
+          "symbol": "GetProcAddress"
+        },
+        {
+          "iatRva": 3593240,
+          "module": "KERNEL32.dll",
+          "kind": "normal",
+          "symbol": "LoadLibraryW"
+        },
+        {
+          "iatRva": 3605296,
+          "module": "d3d11.dll",
+          "kind": "normal",
+          "symbol": "D3D11CreateDevice"
+        },
+        {
+          "iatRva": 3605328,
+          "module": "dxgi.dll",
+          "kind": "normal",
+          "symbol": "CreateDXGIFactory1"
+        }
+      ],
+      "exactAsciiAnchorEvidence": {
+        "HD-Opengl-Native": {
+          "literalRvas": [
+            9812592
+          ],
+          "decodedCodeReferences": [
+            {
+              "instructionRva": 1292226,
+              "unwindRange": [
+                1291712,
+                1293863
+              ],
+              "mnemonic": "movups",
+              "literalRva": 9812592
+            }
+          ]
+        },
+        "libOpenglRender": {
+          "literalRvas": [
+            9812616
+          ],
+          "decodedCodeReferences": [
+            {
+              "instructionRva": 1292309,
+              "unwindRange": [
+                1291712,
+                1293863
+              ],
+              "mnemonic": "movsd",
+              "literalRva": 9812616
+            }
+          ]
+        },
+        "grApiInit": {
+          "literalRvas": [
+            9812720
+          ],
+          "decodedCodeReferences": [
+            {
+              "instructionRva": 1292411,
+              "unwindRange": [
+                1291712,
+                1293863
+              ],
+              "mnemonic": "lea",
+              "literalRva": 9812720
+            }
+          ]
+        },
+        "grLibInit": {
+          "literalRvas": [
+            9812664
+          ],
+          "decodedCodeReferences": [
+            {
+              "instructionRva": 1293579,
+              "unwindRange": [
+                1291712,
+                1293863
+              ],
+              "mnemonic": "lea",
+              "literalRva": 9812664
+            }
+          ]
+        },
+        "Initializing ui ...": {
+          "literalRvas": [
+            3757720
+          ],
+          "decodedCodeReferences": [
+            {
+              "instructionRva": 454142,
+              "unwindRange": [
+                435456,
+                461464
+              ],
+              "mnemonic": "lea",
+              "literalRva": 3757720
+            }
+          ]
+        },
+        "Initializing graphics ...": {
+          "literalRvas": [
+            3757856
+          ],
+          "decodedCodeReferences": [
+            {
+              "instructionRva": 456041,
+              "unwindRange": [
+                435456,
+                461464
+              ],
+              "mnemonic": "lea",
+              "literalRva": 3757856
+            }
+          ]
+        },
+        "imgdOnEglCreateContext": {
+          "literalRvas": [
+            9815328
+          ],
+          "decodedCodeReferences": [
+            {
+              "instructionRva": 1328917,
+              "unwindRange": [
+                1328736,
+                1329677
+              ],
+              "mnemonic": "lea",
+              "literalRva": 9815328
+            }
+          ]
+        },
+        "tmapOnEglCreateContext": {
+          "literalRvas": [
+            10113688
+          ],
+          "decodedCodeReferences": [
+            {
+              "instructionRva": 2569781,
+              "unwindRange": [
+                2569568,
+                2570605
+              ],
+              "mnemonic": "lea",
+              "literalRva": 10113688
+            }
+          ]
+        },
+        "eglGetProcAddress": {
+          "literalRvas": [],
+          "decodedCodeReferences": []
+        },
+        "wglGetProcAddress": {
+          "literalRvas": [],
+          "decodedCodeReferences": []
+        },
+        "eglCreateImageKHR": {
+          "literalRvas": [],
+          "decodedCodeReferences": []
+        },
+        "eglDestroyImageKHR": {
+          "literalRvas": [],
+          "decodedCodeReferences": []
+        },
+        "glEGLImageTargetTexture2DOES": {
+          "literalRvas": [],
+          "decodedCodeReferences": []
+        },
+        "glCopyImageSubData": {
+          "literalRvas": [],
+          "decodedCodeReferences": []
+        }
+      },
+      "rendererBoundaries": [
+        {
+          "unwindRangeBegin": 1291712,
+          "moduleOperandReferences": {
+            "HD-Opengl-Native": [
+              {
+                "instructionRva": 1292226,
+                "unwindRange": [
+                  1291712,
+                  1293863
+                ],
+                "mnemonic": "movups",
+                "literalRva": 9812592
+              }
+            ],
+            "libOpenglRender": [
+              {
+                "instructionRva": 1292309,
+                "unwindRange": [
+                  1291712,
+                  1293863
+                ],
+                "mnemonic": "movsd",
+                "literalRva": 9812616
+              }
+            ]
+          },
+          "directHelperImportWitnesses": [
+            {
+              "callerCallRva": 1292376,
+              "calleeRva": 2982320,
+              "api": {
+                "instructionRva": 2982434,
+                "module": "KERNEL32.dll",
+                "kind": "normal",
+                "symbol": "LoadLibraryW"
+              }
+            },
+            {
+              "callerCallRva": 1292437,
+              "calleeRva": 2982992,
+              "api": {
+                "instructionRva": 2983045,
+                "module": "KERNEL32.dll",
+                "kind": "normal",
+                "symbol": "GetProcAddress"
+              }
+            }
+          ],
+          "resolvedPointerCallWitnesses": [
+            {
+              "lookupHelperCallRva": 1292437,
+              "returnSavedAtRva": 1292442,
+              "nonvolatileRegister": "rbx",
+              "indirectCallRva": 1292639
+            }
+          ],
+          "directCallers": [
+            {
+              "callRva": 456193,
+              "targetRva": 1291712,
+              "unwindRange": [
+                435456,
+                461464
+              ]
+            }
+          ],
+          "privateAbiInferred": false
+        }
+      ],
+      "startupInstructionEvidence": [
+        {
+          "mainUnwindRange": [
+            435456,
+            461464
+          ],
+          "uiInitCallRva": 454190,
+          "uiInitTargetRva": 630784,
+          "qmlEngineLoadCalls": [
+            {
+              "instructionRva": 632525,
+              "module": "Qt5Qml.dll",
+              "kind": "normal",
+              "symbol": "?load@QQmlApplicationEngine@@QEAAXAEBVQUrl@@@Z"
+            }
+          ],
+          "graphicsInitCallRva": 456193,
+          "graphicsInitTargetRva": 1291712,
+          "scope": "same decoded native caller, instruction order only; not an installed startup trace"
+        }
+      ],
+      "nativeCallbackBuilderEvidence": [
+        {
+          "builderRva": 1328224,
+          "nativeStartupCallerRva": 456092,
+          "laterGraphicsInitCallRva": 456193,
+          "adjacentCodePointerStores": [
+            {
+              "addressLoadRva": 1328224,
+              "storeRva": 1328231,
+              "targetCodeRva": 1328336,
+              "destinationBaseRegister": "rcx",
+              "destinationOffset": 8,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 1328235,
+              "storeRva": 1328242,
+              "targetCodeRva": 1328736,
+              "destinationBaseRegister": "rcx",
+              "destinationOffset": 16,
+              "namedContextCallback": "imgdOnEglCreateContext"
+            },
+            {
+              "addressLoadRva": 1328246,
+              "storeRva": 1328253,
+              "targetCodeRva": 1330144,
+              "destinationBaseRegister": "rcx",
+              "destinationOffset": 24,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 1328257,
+              "storeRva": 1328264,
+              "targetCodeRva": 1331088,
+              "destinationBaseRegister": "rcx",
+              "destinationOffset": 32,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 1328268,
+              "storeRva": 1328275,
+              "targetCodeRva": 1331440,
+              "destinationBaseRegister": "rcx",
+              "destinationOffset": 40,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 1328279,
+              "storeRva": 1328286,
+              "targetCodeRva": 1329984,
+              "destinationBaseRegister": "rcx",
+              "destinationOffset": 48,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 1328290,
+              "storeRva": 1328297,
+              "targetCodeRva": 1329840,
+              "destinationBaseRegister": "rcx",
+              "destinationOffset": 56,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 1328301,
+              "storeRva": 1328308,
+              "targetCodeRva": 1328464,
+              "destinationBaseRegister": "rcx",
+              "destinationOffset": 64,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 1328312,
+              "storeRva": 1328319,
+              "targetCodeRva": 1329680,
+              "destinationBaseRegister": "rcx",
+              "destinationOffset": 72,
+              "namedContextCallback": null
+            }
+          ],
+          "scope": "code-pointer assignments; callback parameters, lifetime and private ABI are not inferred"
+        },
+        {
+          "builderRva": 2555504,
+          "nativeStartupCallerRva": 456104,
+          "laterGraphicsInitCallRva": 456193,
+          "adjacentCodePointerStores": [
+            {
+              "addressLoadRva": 2555816,
+              "storeRva": 2555823,
+              "targetCodeRva": 2567440,
+              "destinationBaseRegister": "rbx",
+              "destinationOffset": 0,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 2555826,
+              "storeRva": 2555833,
+              "targetCodeRva": 2569568,
+              "destinationBaseRegister": "rbx",
+              "destinationOffset": 8,
+              "namedContextCallback": "tmapOnEglCreateContext"
+            },
+            {
+              "addressLoadRva": 2555837,
+              "storeRva": 2555844,
+              "targetCodeRva": 2572624,
+              "destinationBaseRegister": "rbx",
+              "destinationOffset": 16,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 2555848,
+              "storeRva": 2555855,
+              "targetCodeRva": 2573360,
+              "destinationBaseRegister": "rbx",
+              "destinationOffset": 24,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 2555859,
+              "storeRva": 2555866,
+              "targetCodeRva": 2573808,
+              "destinationBaseRegister": "rbx",
+              "destinationOffset": 32,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 2555870,
+              "storeRva": 2555877,
+              "targetCodeRva": 2572608,
+              "destinationBaseRegister": "rbx",
+              "destinationOffset": 40,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 2555881,
+              "storeRva": 2555888,
+              "targetCodeRva": 2572592,
+              "destinationBaseRegister": "rbx",
+              "destinationOffset": 48,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 2555892,
+              "storeRva": 2555899,
+              "targetCodeRva": 2571680,
+              "destinationBaseRegister": "rbx",
+              "destinationOffset": 56,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 2555903,
+              "storeRva": 2555910,
+              "targetCodeRva": 2572080,
+              "destinationBaseRegister": "rbx",
+              "destinationOffset": 64,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 2555914,
+              "storeRva": 2555921,
+              "targetCodeRva": 2567520,
+              "destinationBaseRegister": "rbx",
+              "destinationOffset": 72,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 2555925,
+              "storeRva": 2555932,
+              "targetCodeRva": 2570608,
+              "destinationBaseRegister": "rbx",
+              "destinationOffset": 80,
+              "namedContextCallback": null
+            }
+          ],
+          "scope": "code-pointer assignments; callback parameters, lifetime and private ABI are not inferred"
+        }
+      ],
+      "registeredQml": {
+        "uniquePoolCount": 3,
+        "connectedFileEntryCount": 582,
+        "selectedSources": [
+          {
+            "path": "/plr.qml",
+            "treeRva": 4600016,
+            "recordRva": 4213667,
+            "decodedBytes": 61269,
+            "sha256": "9608157ad9438714cae687913838d4f3ecaa16f7ac5b0e2a385c70872460beb7",
+            "registrationCallRvas": [
+              11358,
+              833870
+            ],
+            "rootCompletionLines": [
+              153
+            ],
+            "setBackendUiParamsPresent": true
+          },
+          {
+            "path": "/UiGraphicsSetting.qml",
+            "treeRva": 4600016,
+            "recordRva": 3906658,
+            "decodedBytes": 22148,
+            "sha256": "aa760795384ebf21db4611a6ea69b7a4efa4788035cf18ab94142e0e22bfb380",
+            "registrationCallRvas": [
+              11358,
+              833870
+            ],
+            "rootCompletionLines": [],
+            "setBackendUiParamsPresent": false
+          }
+        ],
+        "mapping": "contiguous x64 argument setup -> actual qRegisterResourceData import/thunk; connected tree and name hashes checked",
+        "sourcePresenceIsNotCompiledCacheActivationProof": true
+      },
+      "playerOrDllExecuted": false,
+      "targetModified": false,
+      "privateRendererAbiCalled": false,
+      "runtimeRendererOrGameRouteProved": false,
+      "shaderSupportCertified": false,
+      "limits": [
+        "Missing import/literal is not absent runtime functionality; dynamic or private dispatch may exist.",
+        "Unwind ranges and decoded witnesses are not complete source functions/control flow or runtime order.",
+        "A selected library basename is not a loaded-module path, version, installed identity or GL ownership.",
+        "EXE-only archives do not include the selected graphics provider implementations."
+      ]
+    },
+    {
+      "schema": "bsi.player-renderer-static-audit.v1",
+      "input": "HD-Player MSI Latest version.zip",
+      "archiveSha256": "a1dfd66e60eed7f990182f8255226608e6ba037d28c489f1f3f0e1e678f8f989",
+      "image": {
+        "sha256": "b373ad8ce5dbc6b1e605b3c153d20b69bf5769b7ff82f896291e4844ab418efd",
+        "bytes": 23858608,
+        "machine": "0x8664",
+        "dll": false,
+        "fileVersion": "5.22.75.6322",
+        "productVersion": "0.0.0.0",
+        "releaseFixedFlags": true,
+        "fileType": 2,
+        "imports": [
+          "advapi32.dll",
+          "agora_rtc_sdk.dll",
+          "api-ms-win-crt-convert-l1-1-0.dll",
+          "api-ms-win-crt-environment-l1-1-0.dll",
+          "api-ms-win-crt-filesystem-l1-1-0.dll",
+          "api-ms-win-crt-heap-l1-1-0.dll",
+          "api-ms-win-crt-locale-l1-1-0.dll",
+          "api-ms-win-crt-math-l1-1-0.dll",
+          "api-ms-win-crt-multibyte-l1-1-0.dll",
+          "api-ms-win-crt-runtime-l1-1-0.dll",
+          "api-ms-win-crt-stdio-l1-1-0.dll",
+          "api-ms-win-crt-string-l1-1-0.dll",
+          "api-ms-win-crt-time-l1-1-0.dll",
+          "api-ms-win-crt-utility-l1-1-0.dll",
+          "avrt.dll",
+          "bcrypt.dll",
+          "boost_json-vc142-mt-x64-1_76.dll",
+          "brotlidec.dll",
+          "crypt32.dll",
+          "d3d11.dll",
+          "dbghelp.dll",
+          "dinput8.dll",
+          "discord_game_sdk.dll",
+          "dxgi.dll",
+          "gdi32.dll",
+          "hid.dll",
+          "imm32.dll",
+          "iphlpapi.dll",
+          "kernel32.dll",
+          "msvcp140.dll",
+          "netapi32.dll",
+          "ole32.dll",
+          "oleaut32.dll",
+          "qt6core.dll",
+          "qt6gui.dll",
+          "qt6multimedia.dll",
+          "qt6network.dll",
+          "qt6qml.dll",
+          "qt6quick.dll",
+          "qt6quickcontrols2.dll",
+          "qt6webchannel.dll",
+          "qt6webchannelquick.dll",
+          "qt6webenginecore.dll",
+          "qt6webenginequick.dll",
+          "qt6widgets.dll",
+          "qt6xml.dll",
+          "rpcrt4.dll",
+          "shell32.dll",
+          "user32.dll",
+          "vcruntime140.dll",
+          "vcruntime140_1.dll",
+          "winmm.dll",
+          "ws2_32.dll",
+          "zlib1.dll"
+        ],
+        "compiledMinorTags": [
+          "6.7"
+        ]
+      },
+      "normalAndDelayGraphicsOrLoaderImports": [
+        {
+          "iatRva": 14115536,
+          "module": "KERNEL32.dll",
+          "kind": "normal",
+          "symbol": "GetProcAddress"
+        },
+        {
+          "iatRva": 14116056,
+          "module": "KERNEL32.dll",
+          "kind": "normal",
+          "symbol": "LoadLibraryW"
+        },
+        {
+          "iatRva": 14116776,
+          "module": "KERNEL32.dll",
+          "kind": "normal",
+          "symbol": "LoadLibraryA"
+        },
+        {
+          "iatRva": 14132272,
+          "module": "d3d11.dll",
+          "kind": "normal",
+          "symbol": "D3D11CreateDevice"
+        },
+        {
+          "iatRva": 14132344,
+          "module": "dxgi.dll",
+          "kind": "normal",
+          "symbol": "CreateDXGIFactory1"
+        }
+      ],
+      "exactAsciiAnchorEvidence": {
+        "HD-Opengl-Native": {
+          "literalRvas": [
+            18436800
+          ],
+          "decodedCodeReferences": [
+            {
+              "instructionRva": 3013518,
+              "unwindRange": [
+                3013008,
+                3015273
+              ],
+              "mnemonic": "movups",
+              "literalRva": 18436800
+            }
+          ]
+        },
+        "libOpenglRender": {
+          "literalRvas": [
+            18436824
+          ],
+          "decodedCodeReferences": [
+            {
+              "instructionRva": 3013601,
+              "unwindRange": [
+                3013008,
+                3015273
+              ],
+              "mnemonic": "movsd",
+              "literalRva": 18436824
+            }
+          ]
+        },
+        "grApiInit": {
+          "literalRvas": [
+            18436928
+          ],
+          "decodedCodeReferences": [
+            {
+              "instructionRva": 3013692,
+              "unwindRange": [
+                3013008,
+                3015273
+              ],
+              "mnemonic": "lea",
+              "literalRva": 18436928
+            }
+          ]
+        },
+        "grLibInit": {
+          "literalRvas": [
+            18436872
+          ],
+          "decodedCodeReferences": [
+            {
+              "instructionRva": 3014989,
+              "unwindRange": [
+                3013008,
+                3015273
+              ],
+              "mnemonic": "lea",
+              "literalRva": 18436872
+            }
+          ]
+        },
+        "Initializing ui ...": {
+          "literalRvas": [
+            14306816
+          ],
+          "decodedCodeReferences": [
+            {
+              "instructionRva": 688477,
+              "unwindRange": [
+                666928,
+                698387
+              ],
+              "mnemonic": "lea",
+              "literalRva": 14306816
+            }
+          ]
+        },
+        "Initializing graphics ...": {
+          "literalRvas": [
+            14307016
+          ],
+          "decodedCodeReferences": [
+            {
+              "instructionRva": 690681,
+              "unwindRange": [
+                666928,
+                698387
+              ],
+              "mnemonic": "lea",
+              "literalRva": 14307016
+            }
+          ]
+        },
+        "imgdOnEglCreateContext": {
+          "literalRvas": [
+            18440168
+          ],
+          "decodedCodeReferences": [
+            {
+              "instructionRva": 3053877,
+              "unwindRange": [
+                3053696,
+                3054637
+              ],
+              "mnemonic": "lea",
+              "literalRva": 18440168
+            }
+          ]
+        },
+        "tmapOnEglCreateContext": {
+          "literalRvas": [
+            18809128
+          ],
+          "decodedCodeReferences": [
+            {
+              "instructionRva": 4544933,
+              "unwindRange": [
+                4544720,
+                4545757
+              ],
+              "mnemonic": "lea",
+              "literalRva": 18809128
+            }
+          ]
+        },
+        "eglGetProcAddress": {
+          "literalRvas": [],
+          "decodedCodeReferences": []
+        },
+        "wglGetProcAddress": {
+          "literalRvas": [],
+          "decodedCodeReferences": []
+        },
+        "eglCreateImageKHR": {
+          "literalRvas": [],
+          "decodedCodeReferences": []
+        },
+        "eglDestroyImageKHR": {
+          "literalRvas": [],
+          "decodedCodeReferences": []
+        },
+        "glEGLImageTargetTexture2DOES": {
+          "literalRvas": [],
+          "decodedCodeReferences": []
+        },
+        "glCopyImageSubData": {
+          "literalRvas": [],
+          "decodedCodeReferences": []
+        }
+      },
+      "rendererBoundaries": [
+        {
+          "unwindRangeBegin": 3013008,
+          "moduleOperandReferences": {
+            "HD-Opengl-Native": [
+              {
+                "instructionRva": 3013518,
+                "unwindRange": [
+                  3013008,
+                  3015273
+                ],
+                "mnemonic": "movups",
+                "literalRva": 18436800
+              }
+            ],
+            "libOpenglRender": [
+              {
+                "instructionRva": 3013601,
+                "unwindRange": [
+                  3013008,
+                  3015273
+                ],
+                "mnemonic": "movsd",
+                "literalRva": 18436824
+              }
+            ]
+          },
+          "directHelperImportWitnesses": [
+            {
+              "callerCallRva": 3013656,
+              "calleeRva": 4930816,
+              "api": {
+                "instructionRva": 4930930,
+                "module": "KERNEL32.dll",
+                "kind": "normal",
+                "symbol": "LoadLibraryW"
+              }
+            },
+            {
+              "callerCallRva": 3013718,
+              "calleeRva": 4931488,
+              "api": {
+                "instructionRva": 4931541,
+                "module": "KERNEL32.dll",
+                "kind": "normal",
+                "symbol": "GetProcAddress"
+              }
+            }
+          ],
+          "resolvedPointerCallWitnesses": [
+            {
+              "lookupHelperCallRva": 3013718,
+              "returnSavedAtRva": 3013723,
+              "nonvolatileRegister": "rbx",
+              "indirectCallRva": 3013921
+            }
+          ],
+          "directCallers": [
+            {
+              "callRva": 690847,
+              "targetRva": 3013008,
+              "unwindRange": [
+                666928,
+                698387
+              ]
+            }
+          ],
+          "privateAbiInferred": false
+        }
+      ],
+      "startupInstructionEvidence": [
+        {
+          "mainUnwindRange": [
+            666928,
+            698387
+          ],
+          "uiInitCallRva": 688525,
+          "uiInitTargetRva": 1015792,
+          "qmlEngineLoadCalls": [
+            {
+              "instructionRva": 1019295,
+              "module": "Qt6Qml.dll",
+              "kind": "normal",
+              "symbol": "?load@QQmlApplicationEngine@@QEAAXAEBVQUrl@@@Z"
+            }
+          ],
+          "graphicsInitCallRva": 690847,
+          "graphicsInitTargetRva": 3013008,
+          "scope": "same decoded native caller, instruction order only; not an installed startup trace"
+        }
+      ],
+      "nativeCallbackBuilderEvidence": [
+        {
+          "builderRva": 3052256,
+          "nativeStartupCallerRva": 690732,
+          "laterGraphicsInitCallRva": 690847,
+          "adjacentCodePointerStores": [
+            {
+              "addressLoadRva": 3052256,
+              "storeRva": 3052263,
+              "targetCodeRva": 3052432,
+              "destinationBaseRegister": "rcx",
+              "destinationOffset": 8,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 3052267,
+              "storeRva": 3052274,
+              "targetCodeRva": 3053696,
+              "destinationBaseRegister": "rcx",
+              "destinationOffset": 24,
+              "namedContextCallback": "imgdOnEglCreateContext"
+            },
+            {
+              "addressLoadRva": 3052278,
+              "storeRva": 3052285,
+              "targetCodeRva": 3056096,
+              "destinationBaseRegister": "rcx",
+              "destinationOffset": 32,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 3052289,
+              "storeRva": 3052296,
+              "targetCodeRva": 3056672,
+              "destinationBaseRegister": "rcx",
+              "destinationOffset": 48,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 3052300,
+              "storeRva": 3052307,
+              "targetCodeRva": 3057024,
+              "destinationBaseRegister": "rcx",
+              "destinationOffset": 64,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 3052311,
+              "storeRva": 3052318,
+              "targetCodeRva": 3052032,
+              "destinationBaseRegister": "rcx",
+              "destinationOffset": 16,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 3052322,
+              "storeRva": 3052329,
+              "targetCodeRva": 3054800,
+              "destinationBaseRegister": "rcx",
+              "destinationOffset": 72,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 3052333,
+              "storeRva": 3052340,
+              "targetCodeRva": 3055232,
+              "destinationBaseRegister": "rcx",
+              "destinationOffset": 80,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 3052344,
+              "storeRva": 3052351,
+              "targetCodeRva": 3052832,
+              "destinationBaseRegister": "rcx",
+              "destinationOffset": 40,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 3052355,
+              "storeRva": 3052362,
+              "targetCodeRva": 3053264,
+              "destinationBaseRegister": "rcx",
+              "destinationOffset": 56,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 3052366,
+              "storeRva": 3052373,
+              "targetCodeRva": 3055760,
+              "destinationBaseRegister": "rcx",
+              "destinationOffset": 88,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 3052377,
+              "storeRva": 3052384,
+              "targetCodeRva": 3055920,
+              "destinationBaseRegister": "rcx",
+              "destinationOffset": 96,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 3052388,
+              "storeRva": 3052395,
+              "targetCodeRva": 3055600,
+              "destinationBaseRegister": "rcx",
+              "destinationOffset": 104,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 3052399,
+              "storeRva": 3052406,
+              "targetCodeRva": 3052560,
+              "destinationBaseRegister": "rcx",
+              "destinationOffset": 112,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 3052410,
+              "storeRva": 3052417,
+              "targetCodeRva": 3054640,
+              "destinationBaseRegister": "rcx",
+              "destinationOffset": 120,
+              "namedContextCallback": null
+            }
+          ],
+          "scope": "code-pointer assignments; callback parameters, lifetime and private ABI are not inferred"
+        },
+        {
+          "builderRva": 4531552,
+          "nativeStartupCallerRva": 690744,
+          "laterGraphicsInitCallRva": 690847,
+          "adjacentCodePointerStores": [
+            {
+              "addressLoadRva": 4531864,
+              "storeRva": 4531871,
+              "targetCodeRva": 4542592,
+              "destinationBaseRegister": "rbx",
+              "destinationOffset": 0,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 4531874,
+              "storeRva": 4531881,
+              "targetCodeRva": 4544720,
+              "destinationBaseRegister": "rbx",
+              "destinationOffset": 8,
+              "namedContextCallback": "tmapOnEglCreateContext"
+            },
+            {
+              "addressLoadRva": 4531885,
+              "storeRva": 4531892,
+              "targetCodeRva": 4547648,
+              "destinationBaseRegister": "rbx",
+              "destinationOffset": 16,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 4531896,
+              "storeRva": 4531903,
+              "targetCodeRva": 4548384,
+              "destinationBaseRegister": "rbx",
+              "destinationOffset": 24,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 4531907,
+              "storeRva": 4531914,
+              "targetCodeRva": 4548832,
+              "destinationBaseRegister": "rbx",
+              "destinationOffset": 32,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 4531918,
+              "storeRva": 4531925,
+              "targetCodeRva": 4547632,
+              "destinationBaseRegister": "rbx",
+              "destinationOffset": 40,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 4531929,
+              "storeRva": 4531936,
+              "targetCodeRva": 4547616,
+              "destinationBaseRegister": "rbx",
+              "destinationOffset": 48,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 4531940,
+              "storeRva": 4531947,
+              "targetCodeRva": 4546704,
+              "destinationBaseRegister": "rbx",
+              "destinationOffset": 56,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 4531951,
+              "storeRva": 4531958,
+              "targetCodeRva": 4547104,
+              "destinationBaseRegister": "rbx",
+              "destinationOffset": 64,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 4531962,
+              "storeRva": 4531969,
+              "targetCodeRva": 4542672,
+              "destinationBaseRegister": "rbx",
+              "destinationOffset": 72,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 4531973,
+              "storeRva": 4531980,
+              "targetCodeRva": 4545760,
+              "destinationBaseRegister": "rbx",
+              "destinationOffset": 80,
+              "namedContextCallback": null
+            }
+          ],
+          "scope": "code-pointer assignments; callback parameters, lifetime and private ABI are not inferred"
+        }
+      ],
+      "registeredQml": {
+        "uniquePoolCount": 3,
+        "connectedFileEntryCount": 736,
+        "selectedSources": [
+          {
+            "path": "/plr.qml",
+            "treeRva": 15318096,
+            "recordRva": 14463424,
+            "decodedBytes": 169480,
+            "sha256": "8ea15086f63141adb87cb7b4f31f97a22bed01760ed9a4c1537af40729142af9",
+            "registrationCallRvas": [
+              19406,
+              1611534
+            ],
+            "rootCompletionLines": [
+              150
+            ],
+            "setBackendUiParamsPresent": true
+          },
+          {
+            "path": "/UiGraphicsSetting.qml",
+            "treeRva": 15318096,
+            "recordRva": 14888177,
+            "decodedBytes": 23472,
+            "sha256": "2f45676b10b62a135d34d8fe43ef62db493a70b7240ffb5b0f1672a2d0ddaf76",
+            "registrationCallRvas": [
+              19406,
+              1611534
+            ],
+            "rootCompletionLines": [],
+            "setBackendUiParamsPresent": false
+          }
+        ],
+        "mapping": "contiguous x64 argument setup -> actual qRegisterResourceData import/thunk; connected tree and name hashes checked",
+        "sourcePresenceIsNotCompiledCacheActivationProof": true
+      },
+      "playerOrDllExecuted": false,
+      "targetModified": false,
+      "privateRendererAbiCalled": false,
+      "runtimeRendererOrGameRouteProved": false,
+      "shaderSupportCertified": false,
+      "limits": [
+        "Missing import/literal is not absent runtime functionality; dynamic or private dispatch may exist.",
+        "Unwind ranges and decoded witnesses are not complete source functions/control flow or runtime order.",
+        "A selected library basename is not a loaded-module path, version, installed identity or GL ownership.",
+        "EXE-only archives do not include the selected graphics provider implementations."
+      ]
+    },
+    {
+      "schema": "bsi.player-renderer-static-audit.v1",
+      "input": "HD-Player latest version Bluestacks 5.zip",
+      "archiveSha256": "1d5b9c5116428121e13471820a2f647c9fa452f88bd34c7fa04ab1e05a212c4f",
+      "image": {
+        "sha256": "d2f8509d025f90bd23604aa1c8f6981c456468bceab4db4a30bb380806826f39",
+        "bytes": 33149872,
+        "machine": "0x8664",
+        "dll": false,
+        "fileVersion": "5.22.285.1013",
+        "productVersion": "0.0.0.0",
+        "releaseFixedFlags": true,
+        "fileType": 2,
+        "imports": [
+          "advapi32.dll",
+          "agora_rtc_sdk.dll",
+          "api-ms-win-crt-convert-l1-1-0.dll",
+          "api-ms-win-crt-environment-l1-1-0.dll",
+          "api-ms-win-crt-filesystem-l1-1-0.dll",
+          "api-ms-win-crt-heap-l1-1-0.dll",
+          "api-ms-win-crt-locale-l1-1-0.dll",
+          "api-ms-win-crt-math-l1-1-0.dll",
+          "api-ms-win-crt-multibyte-l1-1-0.dll",
+          "api-ms-win-crt-runtime-l1-1-0.dll",
+          "api-ms-win-crt-stdio-l1-1-0.dll",
+          "api-ms-win-crt-string-l1-1-0.dll",
+          "api-ms-win-crt-time-l1-1-0.dll",
+          "api-ms-win-crt-utility-l1-1-0.dll",
+          "avrt.dll",
+          "bcrypt.dll",
+          "boost_json-vc142-mt-x64-1_76.dll",
+          "brotlidec.dll",
+          "crypt32.dll",
+          "d3d11.dll",
+          "dbghelp.dll",
+          "dinput8.dll",
+          "discord_game_sdk.dll",
+          "dwmapi.dll",
+          "dxgi.dll",
+          "gdi32.dll",
+          "hid.dll",
+          "imm32.dll",
+          "iphlpapi.dll",
+          "kernel32.dll",
+          "msvcp140.dll",
+          "netapi32.dll",
+          "ole32.dll",
+          "oleaut32.dll",
+          "powrprof.dll",
+          "qt6core.dll",
+          "qt6gui.dll",
+          "qt6multimedia.dll",
+          "qt6network.dll",
+          "qt6qml.dll",
+          "qt6quick.dll",
+          "qt6quickcontrols2.dll",
+          "qt6webchannel.dll",
+          "qt6webchannelquick.dll",
+          "qt6webenginecore.dll",
+          "qt6webenginequick.dll",
+          "qt6websockets.dll",
+          "qt6widgets.dll",
+          "qt6xml.dll",
+          "rpcrt4.dll",
+          "shell32.dll",
+          "shlwapi.dll",
+          "user32.dll",
+          "vcruntime140.dll",
+          "vcruntime140_1.dll",
+          "version.dll",
+          "winmm.dll",
+          "ws2_32.dll",
+          "zlib1.dll"
+        ],
+        "compiledMinorTags": [
+          "6.7"
+        ]
+      },
+      "normalAndDelayGraphicsOrLoaderImports": [
+        {
+          "iatRva": 15577896,
+          "module": "KERNEL32.dll",
+          "kind": "normal",
+          "symbol": "LoadLibraryA"
+        },
+        {
+          "iatRva": 15578248,
+          "module": "KERNEL32.dll",
+          "kind": "normal",
+          "symbol": "GetProcAddress"
+        },
+        {
+          "iatRva": 15578904,
+          "module": "KERNEL32.dll",
+          "kind": "normal",
+          "symbol": "LoadLibraryW"
+        },
+        {
+          "iatRva": 15596928,
+          "module": "d3d11.dll",
+          "kind": "normal",
+          "symbol": "D3D11CreateDevice"
+        },
+        {
+          "iatRva": 15597016,
+          "module": "dxgi.dll",
+          "kind": "normal",
+          "symbol": "CreateDXGIFactory"
+        },
+        {
+          "iatRva": 15597024,
+          "module": "dxgi.dll",
+          "kind": "normal",
+          "symbol": "CreateDXGIFactory1"
+        }
+      ],
+      "exactAsciiAnchorEvidence": {
+        "HD-Opengl-Native": {
+          "literalRvas": [
+            27379576
+          ],
+          "decodedCodeReferences": [
+            {
+              "instructionRva": 4104670,
+              "unwindRange": [
+                4104160,
+                4106622
+              ],
+              "mnemonic": "movups",
+              "literalRva": 27379576
+            }
+          ]
+        },
+        "libOpenglRender": {
+          "literalRvas": [
+            27379600
+          ],
+          "decodedCodeReferences": [
+            {
+              "instructionRva": 4104753,
+              "unwindRange": [
+                4104160,
+                4106622
+              ],
+              "mnemonic": "movsd",
+              "literalRva": 27379600
+            }
+          ]
+        },
+        "grApiInit": {
+          "literalRvas": [
+            27379704
+          ],
+          "decodedCodeReferences": [
+            {
+              "instructionRva": 4104844,
+              "unwindRange": [
+                4104160,
+                4106622
+              ],
+              "mnemonic": "lea",
+              "literalRva": 27379704
+            }
+          ]
+        },
+        "grLibInit": {
+          "literalRvas": [
+            27379648
+          ],
+          "decodedCodeReferences": [
+            {
+              "instructionRva": 4106338,
+              "unwindRange": [
+                4104160,
+                4106622
+              ],
+              "mnemonic": "lea",
+              "literalRva": 27379648
+            }
+          ]
+        },
+        "Initializing ui ...": {
+          "literalRvas": [
+            15779208
+          ],
+          "decodedCodeReferences": [
+            {
+              "instructionRva": 772257,
+              "unwindRange": [
+                744400,
+                782989
+              ],
+              "mnemonic": "lea",
+              "literalRva": 15779208
+            }
+          ]
+        },
+        "Initializing graphics ...": {
+          "literalRvas": [
+            15779400
+          ],
+          "decodedCodeReferences": [
+            {
+              "instructionRva": 774530,
+              "unwindRange": [
+                744400,
+                782989
+              ],
+              "mnemonic": "lea",
+              "literalRva": 15779400
+            }
+          ]
+        },
+        "imgdOnEglCreateContext": {
+          "literalRvas": [
+            27383272
+          ],
+          "decodedCodeReferences": [
+            {
+              "instructionRva": 4149973,
+              "unwindRange": [
+                4149792,
+                4150733
+              ],
+              "mnemonic": "lea",
+              "literalRva": 27383272
+            }
+          ]
+        },
+        "tmapOnEglCreateContext": {
+          "literalRvas": [
+            27759432
+          ],
+          "decodedCodeReferences": [
+            {
+              "instructionRva": 5791653,
+              "unwindRange": [
+                5791440,
+                5792477
+              ],
+              "mnemonic": "lea",
+              "literalRva": 27759432
+            }
+          ]
+        },
+        "eglGetProcAddress": {
+          "literalRvas": [],
+          "decodedCodeReferences": []
+        },
+        "wglGetProcAddress": {
+          "literalRvas": [],
+          "decodedCodeReferences": []
+        },
+        "eglCreateImageKHR": {
+          "literalRvas": [],
+          "decodedCodeReferences": []
+        },
+        "eglDestroyImageKHR": {
+          "literalRvas": [],
+          "decodedCodeReferences": []
+        },
+        "glEGLImageTargetTexture2DOES": {
+          "literalRvas": [],
+          "decodedCodeReferences": []
+        },
+        "glCopyImageSubData": {
+          "literalRvas": [],
+          "decodedCodeReferences": []
+        }
+      },
+      "rendererBoundaries": [
+        {
+          "unwindRangeBegin": 4104160,
+          "moduleOperandReferences": {
+            "HD-Opengl-Native": [
+              {
+                "instructionRva": 4104670,
+                "unwindRange": [
+                  4104160,
+                  4106622
+                ],
+                "mnemonic": "movups",
+                "literalRva": 27379576
+              }
+            ],
+            "libOpenglRender": [
+              {
+                "instructionRva": 4104753,
+                "unwindRange": [
+                  4104160,
+                  4106622
+                ],
+                "mnemonic": "movsd",
+                "literalRva": 27379600
+              }
+            ]
+          },
+          "directHelperImportWitnesses": [
+            {
+              "callerCallRva": 4104808,
+              "calleeRva": 6200672,
+              "api": {
+                "instructionRva": 6200786,
+                "module": "KERNEL32.dll",
+                "kind": "normal",
+                "symbol": "LoadLibraryW"
+              }
+            },
+            {
+              "callerCallRva": 4104870,
+              "calleeRva": 6201344,
+              "api": {
+                "instructionRva": 6201397,
+                "module": "KERNEL32.dll",
+                "kind": "normal",
+                "symbol": "GetProcAddress"
+              }
+            }
+          ],
+          "resolvedPointerCallWitnesses": [
+            {
+              "lookupHelperCallRva": 4104870,
+              "returnSavedAtRva": 4104875,
+              "nonvolatileRegister": "rbx",
+              "indirectCallRva": 4105073
+            }
+          ],
+          "directCallers": [
+            {
+              "callRva": 774725,
+              "targetRva": 4104160,
+              "unwindRange": [
+                744400,
+                782989
+              ]
+            }
+          ],
+          "privateAbiInferred": false
+        }
+      ],
+      "startupInstructionEvidence": [
+        {
+          "mainUnwindRange": [
+            744400,
+            782989
+          ],
+          "uiInitCallRva": 772305,
+          "uiInitTargetRva": 1176256,
+          "qmlEngineLoadCalls": [
+            {
+              "instructionRva": 1180651,
+              "module": "Qt6Qml.dll",
+              "kind": "normal",
+              "symbol": "?load@QQmlApplicationEngine@@QEAAXAEBVQUrl@@@Z"
+            }
+          ],
+          "graphicsInitCallRva": 774725,
+          "graphicsInitTargetRva": 4104160,
+          "scope": "same decoded native caller, instruction order only; not an installed startup trace"
+        }
+      ],
+      "nativeCallbackBuilderEvidence": [
+        {
+          "builderRva": 4148432,
+          "nativeStartupCallerRva": 774581,
+          "laterGraphicsInitCallRva": 774725,
+          "adjacentCodePointerStores": [
+            {
+              "addressLoadRva": 4148432,
+              "storeRva": 4148439,
+              "targetCodeRva": 4148608,
+              "destinationBaseRegister": "rcx",
+              "destinationOffset": 8,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 4148443,
+              "storeRva": 4148450,
+              "targetCodeRva": 4149792,
+              "destinationBaseRegister": "rcx",
+              "destinationOffset": 24,
+              "namedContextCallback": "imgdOnEglCreateContext"
+            },
+            {
+              "addressLoadRva": 4148454,
+              "storeRva": 4148461,
+              "targetCodeRva": 4152192,
+              "destinationBaseRegister": "rcx",
+              "destinationOffset": 32,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 4148465,
+              "storeRva": 4148472,
+              "targetCodeRva": 4152768,
+              "destinationBaseRegister": "rcx",
+              "destinationOffset": 48,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 4148476,
+              "storeRva": 4148483,
+              "targetCodeRva": 4153120,
+              "destinationBaseRegister": "rcx",
+              "destinationOffset": 64,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 4148487,
+              "storeRva": 4148494,
+              "targetCodeRva": 4148208,
+              "destinationBaseRegister": "rcx",
+              "destinationOffset": 16,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 4148498,
+              "storeRva": 4148505,
+              "targetCodeRva": 4150896,
+              "destinationBaseRegister": "rcx",
+              "destinationOffset": 72,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 4148509,
+              "storeRva": 4148516,
+              "targetCodeRva": 4151328,
+              "destinationBaseRegister": "rcx",
+              "destinationOffset": 80,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 4148520,
+              "storeRva": 4148527,
+              "targetCodeRva": 4148928,
+              "destinationBaseRegister": "rcx",
+              "destinationOffset": 40,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 4148531,
+              "storeRva": 4148538,
+              "targetCodeRva": 4149360,
+              "destinationBaseRegister": "rcx",
+              "destinationOffset": 56,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 4148542,
+              "storeRva": 4148549,
+              "targetCodeRva": 4151856,
+              "destinationBaseRegister": "rcx",
+              "destinationOffset": 88,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 4148553,
+              "storeRva": 4148560,
+              "targetCodeRva": 4152016,
+              "destinationBaseRegister": "rcx",
+              "destinationOffset": 96,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 4148564,
+              "storeRva": 4148571,
+              "targetCodeRva": 4151696,
+              "destinationBaseRegister": "rcx",
+              "destinationOffset": 104,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 4148575,
+              "storeRva": 4148582,
+              "targetCodeRva": 4148736,
+              "destinationBaseRegister": "rcx",
+              "destinationOffset": 112,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 4148586,
+              "storeRva": 4148593,
+              "targetCodeRva": 4150736,
+              "destinationBaseRegister": "rcx",
+              "destinationOffset": 120,
+              "namedContextCallback": null
+            }
+          ],
+          "scope": "code-pointer assignments; callback parameters, lifetime and private ABI are not inferred"
+        },
+        {
+          "builderRva": 5778272,
+          "nativeStartupCallerRva": 774593,
+          "laterGraphicsInitCallRva": 774725,
+          "adjacentCodePointerStores": [
+            {
+              "addressLoadRva": 5778584,
+              "storeRva": 5778591,
+              "targetCodeRva": 5789312,
+              "destinationBaseRegister": "rbx",
+              "destinationOffset": 0,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 5778594,
+              "storeRva": 5778601,
+              "targetCodeRva": 5791440,
+              "destinationBaseRegister": "rbx",
+              "destinationOffset": 8,
+              "namedContextCallback": "tmapOnEglCreateContext"
+            },
+            {
+              "addressLoadRva": 5778605,
+              "storeRva": 5778612,
+              "targetCodeRva": 5794368,
+              "destinationBaseRegister": "rbx",
+              "destinationOffset": 16,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 5778616,
+              "storeRva": 5778623,
+              "targetCodeRva": 5795104,
+              "destinationBaseRegister": "rbx",
+              "destinationOffset": 24,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 5778627,
+              "storeRva": 5778634,
+              "targetCodeRva": 5795552,
+              "destinationBaseRegister": "rbx",
+              "destinationOffset": 32,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 5778638,
+              "storeRva": 5778645,
+              "targetCodeRva": 5794352,
+              "destinationBaseRegister": "rbx",
+              "destinationOffset": 40,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 5778649,
+              "storeRva": 5778656,
+              "targetCodeRva": 5794336,
+              "destinationBaseRegister": "rbx",
+              "destinationOffset": 48,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 5778660,
+              "storeRva": 5778667,
+              "targetCodeRva": 5793424,
+              "destinationBaseRegister": "rbx",
+              "destinationOffset": 56,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 5778671,
+              "storeRva": 5778678,
+              "targetCodeRva": 5793824,
+              "destinationBaseRegister": "rbx",
+              "destinationOffset": 64,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 5778682,
+              "storeRva": 5778689,
+              "targetCodeRva": 5789392,
+              "destinationBaseRegister": "rbx",
+              "destinationOffset": 72,
+              "namedContextCallback": null
+            },
+            {
+              "addressLoadRva": 5778693,
+              "storeRva": 5778700,
+              "targetCodeRva": 5792480,
+              "destinationBaseRegister": "rbx",
+              "destinationOffset": 80,
+              "namedContextCallback": null
+            }
+          ],
+          "scope": "code-pointer assignments; callback parameters, lifetime and private ABI are not inferred"
+        }
+      ],
+      "registeredQml": {
+        "uniquePoolCount": 3,
+        "connectedFileEntryCount": 880,
+        "selectedSources": [
+          {
+            "path": "/plr.qml",
+            "treeRva": 17085744,
+            "recordRva": 16014093,
+            "decodedBytes": 199974,
+            "sha256": "75937ed0893a1b96359e06647f04c194840920156b98ae3c846ecce19ff8c57c",
+            "registrationCallRvas": [
+              23774,
+              2365390
+            ],
+            "rootCompletionLines": [
+              207
+            ],
+            "setBackendUiParamsPresent": true
+          },
+          {
+            "path": "/UiGraphicsSetting.qml",
+            "treeRva": 17085744,
+            "recordRva": 16465706,
+            "decodedBytes": 23275,
+            "sha256": "0f829196764edda4992460e4b71365573c36049a8ebe8605d4459cc688ffabee",
+            "registrationCallRvas": [
+              23774,
+              2365390
+            ],
+            "rootCompletionLines": [],
+            "setBackendUiParamsPresent": false
+          }
+        ],
+        "mapping": "contiguous x64 argument setup -> actual qRegisterResourceData import/thunk; connected tree and name hashes checked",
+        "sourcePresenceIsNotCompiledCacheActivationProof": true
+      },
+      "playerOrDllExecuted": false,
+      "targetModified": false,
+      "privateRendererAbiCalled": false,
+      "runtimeRendererOrGameRouteProved": false,
+      "shaderSupportCertified": false,
+      "limits": [
+        "Missing import/literal is not absent runtime functionality; dynamic or private dispatch may exist.",
+        "Unwind ranges and decoded witnesses are not complete source functions/control flow or runtime order.",
+        "A selected library basename is not a loaded-module path, version, installed identity or GL ownership.",
+        "EXE-only archives do not include the selected graphics provider implementations."
+      ]
+    }
+  ],
+  "productionChange": "none; no renderer callback/offset interception, no new shared-image alias support, no new packaged candidate",
+  "installedGameAcceptance": "last supplied game result remains negative; new b807653 candidate has not been game-confirmed",
+  "focusedNativeWindowAudit": {
+    "schema": "bsi.player-native-window-static-evidence.v1",
+    "method": "Focused manual site discovery; asserted bounded code/data relationships and independent GNU objdump instruction crosscheck",
+    "scope": "Implemented native UI child-window winId -> getter -> graphics-init argument path, not runtime pixels, complete private ABI, active game path or GL resource ownership",
+    "samples": [
+      {
+        "fileVersion": "5.9.300.6315",
+        "sha256": "1f473ca2ec1e684cf85dbf1cacd47ed0cb33c27c6fe298ada1775f2a3414f2ed",
+        "staticRootUrl": "qrc:/plr.qml",
+        "urlLiteralLoadRva": 572024,
+        "urlQStringHeaderRva": 9679304,
+        "urlUtf16DataRva": 9679328,
+        "uiStateSingletonSlotRva": 9790176,
+        "parentQWindowMemberOffset": 208,
+        "parentedQWindowConstructorCallRva": 572837,
+        "childQWindowPointerStoreRva": 572876,
+        "childQWindowMemberOffset": 224,
+        "childWinIdCallRva": 572976,
+        "childWinIdStoreRva": 572989,
+        "nativeWindowIdMemberOffset": 232,
+        "nativeWindowIdGetterRva": 551760,
+        "startupGetterCallRva": 409470,
+        "getterReturnPassedToGraphicsRcxRva": 409528,
+        "graphicsInitCallRva": 409531,
+        "graphicsInitTargetRva": 1098400,
+        "graphicsFirstArgumentSavedAtRva": 1098448,
+        "graphicsFirstArgumentNonvolatileRegister": "r14",
+        "privateDispatchGlobalSlotRva": 9792704,
+        "privateDispatchSlotDisplacement": 0,
+        "privateDispatchSlotLoadRva": 1099556,
+        "windowArgumentRestoredToRcxRva": 1099589,
+        "privateDispatchCallRva": 1099592,
+        "independentObjdumpWitnesses": [
+          {
+            "instructionRva": 551760,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 551767,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 551774,
+            "mnemonic": "ret"
+          },
+          {
+            "instructionRva": 572820,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 572827,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 572834,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 572837,
+            "mnemonic": "call"
+          },
+          {
+            "instructionRva": 572869,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 572876,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 572962,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 572969,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 572976,
+            "mnemonic": "call"
+          },
+          {
+            "instructionRva": 572982,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 572989,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 409470,
+            "mnemonic": "call"
+          },
+          {
+            "instructionRva": 409528,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 409531,
+            "mnemonic": "call"
+          },
+          {
+            "instructionRva": 572024,
+            "mnemonic": "lea"
+          },
+          {
+            "instructionRva": 1098448,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 1099549,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 1099556,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 1099589,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 1099592,
+            "mnemonic": "call"
+          }
+        ],
+        "playerExecuted": false,
+        "originalHashUnchanged": true
+      },
+      {
+        "fileVersion": "5.10.150.1016",
+        "sha256": "bcec63030f032fef60850559b5a5c40fdcce44f3b129aa5ccee05e990957467b",
+        "staticRootUrl": "qrc:/plr.qml",
+        "urlLiteralLoadRva": 632491,
+        "urlQStringHeaderRva": 10826184,
+        "urlUtf16DataRva": 10826208,
+        "uiStateSingletonSlotRva": 10948128,
+        "parentQWindowMemberOffset": 224,
+        "parentedQWindowConstructorCallRva": 633304,
+        "childQWindowPointerStoreRva": 633343,
+        "childQWindowMemberOffset": 240,
+        "childWinIdCallRva": 633443,
+        "childWinIdStoreRva": 633456,
+        "nativeWindowIdMemberOffset": 248,
+        "nativeWindowIdGetterRva": 607744,
+        "startupGetterCallRva": 456132,
+        "getterReturnPassedToGraphicsRcxRva": 456190,
+        "graphicsInitCallRva": 456193,
+        "graphicsInitTargetRva": 1291712,
+        "graphicsFirstArgumentSavedAtRva": 1291760,
+        "graphicsFirstArgumentNonvolatileRegister": "r14",
+        "privateDispatchGlobalSlotRva": 10950792,
+        "privateDispatchSlotDisplacement": 0,
+        "privateDispatchSlotLoadRva": 1292992,
+        "windowArgumentRestoredToRcxRva": 1293037,
+        "privateDispatchCallRva": 1293040,
+        "independentObjdumpWitnesses": [
+          {
+            "instructionRva": 607744,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 607751,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 607758,
+            "mnemonic": "ret"
+          },
+          {
+            "instructionRva": 633287,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 633294,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 633301,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 633304,
+            "mnemonic": "call"
+          },
+          {
+            "instructionRva": 633336,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 633343,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 633429,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 633436,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 633443,
+            "mnemonic": "call"
+          },
+          {
+            "instructionRva": 633449,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 633456,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 456132,
+            "mnemonic": "call"
+          },
+          {
+            "instructionRva": 456190,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 456193,
+            "mnemonic": "call"
+          },
+          {
+            "instructionRva": 632491,
+            "mnemonic": "lea"
+          },
+          {
+            "instructionRva": 1291760,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 1292985,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 1292992,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 1293037,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 1293040,
+            "mnemonic": "call"
+          }
+        ],
+        "playerExecuted": false,
+        "originalHashUnchanged": true
+      },
+      {
+        "fileVersion": "5.22.75.6322",
+        "sha256": "b373ad8ce5dbc6b1e605b3c153d20b69bf5769b7ff82f896291e4844ab418efd",
+        "staticRootUrl": "qrc:/plr.qml",
+        "urlLiteralLoadRva": 1019237,
+        "urlQStringHeaderRva": null,
+        "urlUtf16DataRva": 14329304,
+        "uiStateSingletonSlotRva": 23408984,
+        "parentQWindowMemberOffset": 232,
+        "parentedQWindowConstructorCallRva": 1020291,
+        "childQWindowPointerStoreRva": 1020330,
+        "childQWindowMemberOffset": 248,
+        "childWinIdCallRva": 1020431,
+        "childWinIdStoreRva": 1020444,
+        "nativeWindowIdMemberOffset": 256,
+        "nativeWindowIdGetterRva": 988992,
+        "startupGetterCallRva": 690786,
+        "getterReturnPassedToGraphicsRcxRva": 690844,
+        "graphicsInitCallRva": 690847,
+        "graphicsInitTargetRva": 3013008,
+        "graphicsFirstArgumentSavedAtRva": 3013060,
+        "graphicsFirstArgumentNonvolatileRegister": "r12",
+        "privateDispatchGlobalSlotRva": 23421352,
+        "privateDispatchSlotDisplacement": 0,
+        "privateDispatchSlotLoadRva": 3014394,
+        "windowArgumentRestoredToRcxRva": 3014447,
+        "privateDispatchCallRva": 3014450,
+        "independentObjdumpWitnesses": [
+          {
+            "instructionRva": 988992,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 988999,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 989006,
+            "mnemonic": "ret"
+          },
+          {
+            "instructionRva": 1020274,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 1020281,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 1020288,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 1020291,
+            "mnemonic": "call"
+          },
+          {
+            "instructionRva": 1020323,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 1020330,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 1020417,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 1020424,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 1020431,
+            "mnemonic": "call"
+          },
+          {
+            "instructionRva": 1020437,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 1020444,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 690786,
+            "mnemonic": "call"
+          },
+          {
+            "instructionRva": 690844,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 690847,
+            "mnemonic": "call"
+          },
+          {
+            "instructionRva": 1019237,
+            "mnemonic": "lea"
+          },
+          {
+            "instructionRva": 3013060,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 3014387,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 3014394,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 3014447,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 3014450,
+            "mnemonic": "call"
+          }
+        ],
+        "playerExecuted": false,
+        "originalHashUnchanged": true
+      },
+      {
+        "fileVersion": "5.22.285.1013",
+        "sha256": "d2f8509d025f90bd23604aa1c8f6981c456468bceab4db4a30bb380806826f39",
+        "staticRootUrl": "qrc:/plr.qml",
+        "urlLiteralLoadRva": 1180592,
+        "urlQStringHeaderRva": null,
+        "urlUtf16DataRva": 15803800,
+        "uiStateSingletonSlotRva": 32635928,
+        "parentQWindowMemberOffset": 248,
+        "parentedQWindowConstructorCallRva": 1182539,
+        "childQWindowPointerStoreRva": 1182578,
+        "childQWindowMemberOffset": 264,
+        "childWinIdCallRva": 1182773,
+        "childWinIdStoreRva": 1182789,
+        "nativeWindowIdMemberOffset": 272,
+        "nativeWindowIdGetterRva": 1148320,
+        "startupGetterCallRva": 774664,
+        "getterReturnPassedToGraphicsRcxRva": 774722,
+        "graphicsInitCallRva": 774725,
+        "graphicsInitTargetRva": 4104160,
+        "graphicsFirstArgumentSavedAtRva": 4104212,
+        "graphicsFirstArgumentNonvolatileRegister": "r12",
+        "privateDispatchGlobalSlotRva": 32652632,
+        "privateDispatchSlotDisplacement": 0,
+        "privateDispatchSlotLoadRva": 4105546,
+        "windowArgumentRestoredToRcxRva": 4105599,
+        "privateDispatchCallRva": 4105602,
+        "independentObjdumpWitnesses": [
+          {
+            "instructionRva": 1148320,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 1148327,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 1148334,
+            "mnemonic": "ret"
+          },
+          {
+            "instructionRva": 1182522,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 1182529,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 1182536,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 1182539,
+            "mnemonic": "call"
+          },
+          {
+            "instructionRva": 1182571,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 1182578,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 1182759,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 1182766,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 1182773,
+            "mnemonic": "call"
+          },
+          {
+            "instructionRva": 1182779,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 1182782,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 1182789,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 774664,
+            "mnemonic": "call"
+          },
+          {
+            "instructionRva": 774722,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 774725,
+            "mnemonic": "call"
+          },
+          {
+            "instructionRva": 1180592,
+            "mnemonic": "lea"
+          },
+          {
+            "instructionRva": 4104212,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 4105539,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 4105546,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 4105599,
+            "mnemonic": "mov"
+          },
+          {
+            "instructionRva": 4105602,
+            "mnemonic": "call"
+          }
+        ],
+        "playerExecuted": false,
+        "originalHashUnchanged": true
+      }
+    ],
+    "runtimeOrOwnershipCertified": false
+  }
+}

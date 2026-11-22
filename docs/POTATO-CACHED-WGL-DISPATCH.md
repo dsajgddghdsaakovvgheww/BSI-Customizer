@@ -35,6 +35,13 @@ nor successful game capture is inferred from that absence. The older 1,030 /
   pointer, no new application lookup reaches the repaired lookup handler.
   Presenter-only resolution cannot discover another context's different table.
 
+The later [actual-EXE native renderer audit](POTATO-HD-PLAYER-NATIVE-RENDERER-AUDIT.md)
+adds binary-specific native UI/QML/graphics call-site witnesses for all four
+references and confirms a separate graphics-provider / `grApiInit` boundary.
+Their recovered root QML hashes do not equal the public source blob above.
+Instruction order is still not a complete installed startup trace, and the
+providers' native implementations are not present in the EXE-only samples.
+
 **This is a concrete coverage defect, not attribution to the installed game.**
 Moving Qt/plugin initialization into `DllMain`, patching more PE imports or
 assuming all child completion/native startup order is unnecessary to repair

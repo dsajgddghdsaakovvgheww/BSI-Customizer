@@ -33,6 +33,20 @@ and no general EGLImage/private-transfer route is guessed.
 **Neither source similarity nor an authored regression diagnoses this game's
 unobserved material path.** Installed-game acceptance remains negative.
 
+The subsequent [deep audit of all four actual reference EXEs](POTATO-HD-PLAYER-NATIVE-RENDERER-AUDIT.md)
+now follows decoded native loader/lookup calls to the `HD-Opengl-Native` /
+`libOpenglRender` provider boundary and `grApiInit`, with version-dependent native
+context callback assignments. A focused follow-up also traces a separate parented
+QWindow's native ID into that private renderer dispatch in all four versions.
+It recovers the binary-specific registered QML rather than treating the public
+source copy as exact. Graphics DLLs were not included in those EXE-only inputs.
+The user has since supplied a separate ZIP: the [provider audit](POTATO-RENDERER-PROVIDER-AUDIT.md)
+verifies both DLLs as 5.12.120.6303 and follows actual interface construction,
+host GL dispatch and internal image creation/destruction/texture aliasing. This
+is concrete provider code, not attribution from public gfxstream sources. It
+still does not prove the launched installation's identity, the live missing
+resource link or a new production fix; no private ABI/ownership is guessed.
+
 ## Previous installed-player follow-ups: legal LINEAR consumer, still zero producers
 
 The reports have **1,577 grading frames / 3,145 NoSampler inspections** and

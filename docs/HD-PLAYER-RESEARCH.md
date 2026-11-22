@@ -10,6 +10,14 @@ unverified player/GPU gates. The older string/stream observations below are not
 an exhaustive Qt version matrix and do not authorize installation or performance
 changes; this shader work adds no optimizer/tuning features from this proposal.
 
+**Native renderer follow-up:** the [deep Potato/HD-Player binary audit](POTATO-HD-PLAYER-NATIVE-RENDERER-AUDIT.md)
+now verifies decoded loader/symbol/callback code and registered resource trees in
+all four exact EXEs, independently crosschecked with GNU objdump. It identifies
+the separate graphics-provider boundary. The [subsequent supplied-DLL audit](POTATO-RENDERER-PROVIDER-AUDIT.md)
+now verifies the two 5.12.120.6303 providers and follows real `grApiInit`/GL/image
+code, without executing them. Neither audit is original native source recovery,
+a complete private ABI, installed-game acceptance or another performance feature.
+
 ## What was inspected
 
 The four executables supplied in [MrPcGamerYT/HD-Player](https://github.com/MrPcGamerYT/HD-Player) were downloaded outside this repository and inspected statically. No supplied executable or DLL was run. The labels below reproduce the sample filenames; “latest” does not establish the newest publicly available build.
