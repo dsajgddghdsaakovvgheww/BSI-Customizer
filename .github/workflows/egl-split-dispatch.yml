@@ -1,6 +1,12 @@
 name: Authored split EGL dispatch contracts (not player certification)
 
 on:
+  pull_request:
+    paths:
+      - '.github/workflows/egl-split-dispatch.yml'
+      - 'src/shaders/PresentationHooks.*'
+      - 'src/shaders/EglDispatch*'
+      - 'tests/shaders/egl_split*'
   workflow_dispatch:
 
 permissions:
