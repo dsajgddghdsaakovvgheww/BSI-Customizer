@@ -1,4 +1,5 @@
-// Isolated Studio 13 symbol family. Never changes the shared 57-name Icons.js.
+// Project-drawn fallback family. After generation, reapply import-special-lineal.py
+// with licensed downloads to preserve the selected third-party UI symbols. Never changes the shared 57-name Icons.js.
 // npm install --prefix .cache/glyphgen --no-audit --no-fund @resvg/resvg-js@2.6.2
 const fs=require('fs'),path=require('path');
 const {Resvg}=require('../../.cache/glyphgen/node_modules/@resvg/resvg-js');

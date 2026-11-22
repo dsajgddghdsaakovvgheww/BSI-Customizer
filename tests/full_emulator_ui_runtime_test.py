@@ -127,7 +127,7 @@ Window {
     assert isinstance(window,QQuickWindow),type(window)
     root=window.contentItem();shell=visual(root,'bsiSettingsShell');page=visual(root,'testNativePage')
     assert page is not None
-    assert window.width()<=1000 and window.height()<=680,"Settings inflated beyond compact bounds"
+    assert window.width()<=1000 and window.height()<=700,"Settings inflated beyond compact bounds"
     p=page.mapToScene(QPointF(0,0));assert abs(p.x()-(12+shell.property("bsiRailWidth")+16))<1 and abs(p.y()-134)<1,(p.x(),p.y())
     click(visual(root,'testSave'));assert window.property('saved')==1
     switch=visual(root,'testSwitch');click(switch);assert switch.property('checked')

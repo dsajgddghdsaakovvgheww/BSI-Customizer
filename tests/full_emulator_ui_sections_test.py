@@ -59,10 +59,11 @@ Item {
  property int pCurrentCpu:4
  property int pMaxCpu:8
  property int saved:0
- property bool testInlineRowsHidden:!iFrameRateSlider.contentItem.pChildren[0].visible && !iFrameRateSlider.contentItem.pChildren[2].visible
+ function scrollToBottom(){iTestScroll.contentItem.contentY=Math.max(0,iTestScroll.contentHeight-iTestScroll.availableHeight)}
  UiColumnLayout {
   anchors.fill:parent;spacing:16
   ScrollView {
+   id:iTestScroll;objectName:"fixtureScroll"
    Layout.fillWidth:true;Layout.fillHeight:true;clip:true
    contentWidth:availableWidth
    UiColumnLayout {
@@ -83,7 +84,7 @@ Item {
     UiColumnLayout {
      Component.onCompleted:objectName="fixtureModeCard";spacing:12
      Text {text:"Performance mode";color:Skin.Theme.text;font.pixelSize:16;font.bold:true}
-     ComboBox {model:["High performance","Balanced","Low memory"];Layout.preferredWidth:220}
+     ComboBox {id:iMemoryModeCombobox;model:["High performance","Balanced","Low memory"];Layout.preferredWidth:220}
     }
     UiColumnLayout {
      Component.onCompleted:objectName="fixtureFpsCard";spacing:12
@@ -154,7 +155,7 @@ Window {
     assert not component.isError(),'\n'.join(e.toString() for e in component.errors())
     window=component.create();assert window,'\n'.join(e.toString() for e in component.errors())
     settle()
-    assert window.width()<=1000 and window.height()<=680,"Settings still opens oversized"
+    assert window.width()<=1000 and window.height()<=700,"Settings still opens oversized"
     # Render the normal 1000px design even on Qt offscreen's 800px virtual screen.
     window.setWidth(1000);window.setHeight(680);settle()
     root=window.contentItem();page=visual(root,'fixtureSectionPage')
@@ -165,30 +166,29 @@ Window {
     for i in range(3):
         assert abs(points[i].x()-points[i+1].x())<1,'cards do not share one left edge'
         assert abs(cards[i].width()-cards[i+1].width())<1,'card right edges do not align'
-        assert points[i+1].y()>=points[i].y()+cards[i].height()+11,'horizontal cards overlap'
+        assert points[i+1].y()>=points[i].y()+cards[i].height()+11,'vertical sections overlap'
     combo=visual(root,'fixtureCpu');position=combo.mapToScene(QPointF(0,0))
-    assert position.x()>points[0].x()+cards[0].width()/2,'native CPU control is not right-aligned'
-    assert abs(position.x()+combo.width()-(points[0].x()+cards[0].width()-14))<2,'native CPU control lost its right inset'
-    assert visual(root,'voidNativeResourceSummary').isVisible(),'compact selections strip missing'
+    assert abs(position.x()-(points[0].x()+60))<2,'vertical CPU control is not left-aligned'
+    assert position.y()>points[0].y()+40,'native control did not sit below its title'
     native_slider=visual(root,'fixtureFps')
-    assert native_slider.property('pVoidInlineSlider')
-    assert visual(native_slider,'voidReferenceFpsValue') is not None
-    assert native_slider.property('contentItem').property('spacing')==0
-    assert page.property('testInlineRowsHidden'),'native slider caption/ranges duplicated the reference card caption'
+    assert native_slider.property('contentItem').property('spacing')==12
+    assert visual(native_slider,'voidReferenceFpsValue') is None,'obsolete horizontal FPS badge survived'
+    assert visual(root,'bsiSettingsMinimize') is None
+    assert visual(root,'bsiSettingsMaximize') is None
+    assert visual(root,'bsiSettingsClose') is not None
     assert visual(root,'voidReferenceBrandLogo').property('imageStatus')==1
     assert visual(root,'bsiSettingsTab_11') is not None,'full native navigation fixture did not load'
     for preset in json.loads((ROOT/'assets/full-emulator-ui/themes.json').read_text()):
         window.setProperty('requested',preset['id']);QMetaObject.invokeMethod(window,'choose');settle()
         for card in cards:
             assert card.property('color').name()==preset['palette']['surface'],preset['id']
-            assert card.property('radius')==min(preset['radius'],14)
+            assert card.property('radius')==min(preset['radius'],12)
         button=visual(root,'fixtureNativeSave')
         assert button.property('pColor').property('normal').property('textColor').name()==preset['palette']['background']
     window.setProperty('requested','oled');QMetaObject.invokeMethod(window,'choose');settle()
-    badge=visual(native_slider,'voidReferenceFpsValue');before=native_slider.property('value')
-    badge_point=badge.mapToScene(QPointF(badge.width()/2,badge.height()/2))
-    QTest.mouseClick(window,Qt.LeftButton,Qt.NoModifier,QPoint(round(badge_point.x()),round(badge_point.y())));settle()
-    assert native_slider.property('value')==before,'read-only value badge changed native FPS'
+    output=ROOT/'.cache/full-ui/sections-fixture.png';output.parent.mkdir(parents=True,exist_ok=True)
+    assert window.grabWindow().save(str(output))
+    QMetaObject.invokeMethod(page,'scrollToBottom');settle()
     button=visual(root,'fixtureNativeSave');p=button.mapToScene(QPointF(button.width()/2,button.height()/2))
     QTest.mouseClick(window,Qt.LeftButton,Qt.NoModifier,QPoint(round(p.x()),round(p.y())));settle()
     assert page.property('saved')==1,'native Save callback lost under primary visuals'
@@ -196,14 +196,13 @@ Window {
     assert last_toggle is not None
     last_bottom=last_toggle.mapToScene(QPointF(0,last_toggle.height())).y()
     assert last_bottom<p.y()-20,('compact fixture hid the third FPS toggle',last_bottom,p.y())
-    output=ROOT/'.cache/full-ui/sections-fixture.png';output.parent.mkdir(parents=True,exist_ok=True)
-    assert window.grabWindow().save(str(output))
+    assert window.grabWindow().save(str(ROOT/'.cache/full-ui/sections-fps-fixture.png'))
     window.setWidth(720);settle()
     assert not visual(root,'voidNativeResourceSummary').isVisible(),'summary crowded narrow controls'
     assert all(card.width()>500 for card in cards)
     points=[card.mapToScene(QPointF(0,0)) for card in cards]
     assert points[1].y()>=points[0].y()+cards[0].height()+11
-    assert not cards[0].property('pInline'),"native controls did not reflow on a narrow screen"
+    assert cards[0].property('pVoidSectionCard')
     assert not warnings,'\n'.join(warnings)
     window.setVisible(False);window.deleteLater();settle()
-print('PASS: generated native cards render without overlap using src-code layout wrappers; six palettes/corners, primary Save callback/contrast, reference-style horizontal cards with right-aligned native inputs and responsive fallback. Native input doubles, NOT live OEM certification.')
+print('PASS: generated native cards render without overlap using src-code layout wrappers; six palettes/corners, primary Save callback/contrast, vertical native sections with left-aligned inputs, close-only header and scroll-reachable FPS controls. Native input doubles, NOT live OEM certification.')

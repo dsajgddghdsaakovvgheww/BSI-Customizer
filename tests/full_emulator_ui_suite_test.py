@@ -74,7 +74,7 @@ class SuiteTests(unittest.TestCase):
             self.assertIn(b'VoidLiveTheme.NativeSettingCard',after['UiPerformanceSetting.qml'])
             self.assertIn(b'pVoidPrimaryAction:true',after['UiPerformanceSetting.qml'])
             self.assertNotIn(b'VoidLiveTheme.Theme.',after['UiDialog.qml'])
-            self.assertIn(b'OLED STUDIO 14',(root/'Assets/VOIDReferenceUI/SettingsShell.qml').read_bytes())
+            self.assertIn(b'NATIVE SETTINGS',(root/'Assets/VOIDReferenceUI/SettingsShell.qml').read_bytes())
             self.assertFalse((root/'Assets/VOIDReferenceUI/OptimizerPage.qml').exists())
             for name in ('UiSettingsWindow.qml', 'PlrSidebar.qml'):
                 for token in (b'voidOptimizer', b'pVoidOptimizer', b'VoidUiNav', b'F9'):
@@ -105,11 +105,11 @@ class SuiteTests(unittest.TestCase):
         self.assertEqual(performance.count(b'VoidLiveTheme.NativeSettingCard'),4)
         self.assertIn(b'pVoidFps:iFrameRateSlider.value',performance)
         self.assertNotIn(b'NativeSectionGrid',performance)
-        self.assertIn(b'Layout.alignment:Qt.AlignRight|Qt.AlignVCenter',performance)
+        self.assertIn(b'Layout.alignment:Qt.AlignTop',performance)
         self.assertIn(b'pIcon:"cpu"',performance)
         self.assertIn(b'pIcon:"memory"',performance)
-        self.assertIn(b'pVoidInlineSlider:true',performance)
-        self.assertIn(b'text:Math.round(iFrameRateSlider.value)',performance)
+        self.assertNotIn(b'pVoidInlineSlider:true',performance)
+        self.assertIn(b'pRangeValueVisibility: true',performance)
         self.assertNotIn(b'Layout.preferredWidth: 200',performance)
         self.assertIn(b'pVoidPrimaryAction:true',performance)
         # Every original callback and QML token remains in order; only reviewed
@@ -204,7 +204,7 @@ class SuiteTests(unittest.TestCase):
             self.assertTrue(any(change.relative.endswith('old-optimizer.qml') and change.after is None for change in planned.changes))
             backup=E.commit(planned)
             self.assertFalse(old.exists())
-            self.assertIn(b'OLED STUDIO 14',shell.read_bytes())
+            self.assertIn(b'NATIVE SETTINGS',shell.read_bytes())
             self.assertEqual(U.plan_install(root)[0].changes,[])
             E.restore(backup,root)
             for name,digest in before.items():self.assertEqual(S.sha((root/name).read_bytes()),digest,name)

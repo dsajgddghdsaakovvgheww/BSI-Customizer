@@ -77,7 +77,7 @@ exit /b 1
     if sections_screenshot.is_file():members['FIXTURE-SECTIONS-NOT-OEM.png']=sections_screenshot.read_bytes()
     topbar_screenshot=ROOT/'.cache/full-ui/topbar-fixture.png'
     if topbar_screenshot.is_file():members['FIXTURE-TOPBAR-NOT-OEM.png']=topbar_screenshot.read_bytes()
-    report={'userProvidedBrand':True,'oemTopbarInstanceOverride':True,'compactSettings':True,'horizontalNativeCards':True,'isolatedStudioIcons':True,'sidebarAppearancePage':True,'crossEngineThemeRelay':True,'nativeSectionCards':True,'firstFrameChrome':True,'legacySidebarRebound':True,'presetCount':6,'runtimeThemeSwitching':True,'customAppearance':True,'surfaceRevision':14,'scopedNativeDialogAndPopupHooks':True,'idlePollingAdded':False,'suite':'VOID OLED Studio 14','sourceCommit':subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),
+    report={'userProvidedBrand':True,'oemTopbarInstanceOverride':True,'compactSettings':True,'verticalNativeSections':True,'settingsCloseOnly':True,'isolatedStudioIcons':True,'sidebarAppearancePage':True,'crossEngineThemeRelay':True,'nativeSectionCards':True,'firstFrameChrome':True,'legacySidebarRebound':True,'presetCount':6,'runtimeThemeSwitching':True,'customAppearance':True,'surfaceRevision':15,'scopedNativeDialogAndPopupHooks':True,'idlePollingAdded':False,'suite':'VOID OLED Studio 15','sourceCommit':subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),
             'legacyEngineSha256':suite.sha(legacy),'suiteSourceSha256':suite.sha((HERE/'suite.py').read_bytes()),
             'assetsSha256':{name:suite.sha(data) for name,data in assets.items()},
             'optimizerIncluded':False,'helperIncluded':False,'replacementInstallSupported':True,

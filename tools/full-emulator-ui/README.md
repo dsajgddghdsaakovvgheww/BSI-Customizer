@@ -1,4 +1,4 @@
-# VOID OLED Studio 14 — six live native themes
+# VOID OLED Studio 15 — six live native themes
 
 **𝓥𝓞𝓘𝓓 · Developed By NOVA XIS · https://www.youtube.com/@nova_xis20**
 
@@ -6,7 +6,7 @@ This changes the emulator, not the customizer. It is not another optimizer-only
 ZIP or a set of disconnected mock QML screens. Actual mapped native sources and
 their compiled-cache owners are patched in the established backed-up transaction.
 
-## Studio 14 — first-frame chrome and unified command rail
+## Studio 15 — first-frame chrome and unified command rail
 
 - Replaces the pack-owned legacy inline sidebar bridge that still referenced a
   fixed `C:/Program Files/.../BSISidebarVisual.qml`. The actual rail and its inline
@@ -53,7 +53,7 @@ changed, protected, verified/unchanged resources and unsupported visual bindings
 missing resources are not silently advertised as redesigned. The source-only test
 snapshot does not prove compatibility or exact appearance on a live OEM player.
 
-## OLED Studio 14 — live native Appearance
+## OLED Studio 15 — live native Appearance
 
 Open native **Settings → Appearance** in the **left sidebar**. Choose **OLED Black** (default),
 **Midnight Blue**, **Amethyst**, **Forest**, **Ember**, or **Rose Noir**. These are
@@ -83,7 +83,7 @@ one Carbon skin. Each also has its own corner and transition defaults.
 - `UI-COVERAGE.json` includes `live_theme_bindings` and `theme_presets`. Unsupported
   native expressions/artwork are reported rather than globally overwritten.
 
-### Studio 14 — supplied logo and native topbar repair
+### Studio 15 — supplied logo and native topbar repair
 
 - Your supplied angular purple V is used unchanged in color, not a redrawn V or a
   theme-tinted substitute. It appears in the Settings header/rail and the known
@@ -103,7 +103,7 @@ one Carbon skin. Each also has its own corner and transition defaults.
   Properties → Change Icon). The pack does not claim to replace the Windows EXE's
   embedded icon or modify your existing shortcut target/arguments automatically.
 
-### Studio 14 — reference-inspired horizontal workspace
+### Studio 15 — reference-inspired horizontal workspace
 
 - Settings remains compact: **1000 × 680** logical pixels or less on a small desktop.
 - CPU, RAM and Performance mode use full-width, equal-edge cards. A coordinated
@@ -254,3 +254,24 @@ refusal and byte-exact restoration. Qt tests exercise the connected shell, nativ
 control doubles, click routing, popup open/close, absence of optimizer entries and passive chrome.
 Fixture screenshots are labelled examples, not live MSI/BlueStacks captures.
 See `BUILD-REPORT.json` and `Source/PROVENANCE.json`. No player EXE/DLL is distributed.
+
+## Studio 15: vertical native Settings
+
+Native section layouts are now vertical (title, native controls, concise help).
+The Settings titlebar has Close only. Appearance uses vertical preset choices,
+full-width color fields, and separate typography/shape/motion sections.
+The installed Studio 14 owned card fields are removed before applying the new
+layout; native handlers, FPS limits, hardware models and validation are retained.
+
+### Third-party icon attribution
+Selected UI icons by **Magnific / Freepik**, Special Lineal family:
+https://www.magnific.com/author/magnific/icons/special-lineal_7
+See `Assets/VOIDReferenceUI/THIRD-PARTY-ICONS.json` for per-icon source links,
+digests and modifications. These assets are **not covered by the repository's MIT
+license**. They are incorporated into this emulator UI, not licensed as an icon
+pack. Do not extract/resell/relicense them as standalone stock assets.
+Terms: https://www.magnific.com/legal/terms-of-use
+Other symbols remain the project-drawn family; the supplied purple logo is unchanged.
+
+Rendering tests use the actual reviewed Performance page visual hierarchy as
+well as small control doubles; a passing fixture is not live OEM certification.

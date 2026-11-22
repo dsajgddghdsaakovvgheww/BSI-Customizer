@@ -49,8 +49,8 @@ Item {
         var area={x:host.screen.virtualX,y:host.screen.virtualY,width:host.screen.desktopAvailableWidth,height:host.screen.desktopAvailableHeight}
         if(!(area.width>0 && area.height>0))return
         // A compact utility window, never a desktop-filling dashboard.
-        host.width=Math.max(320,Math.min(1000,area.width-32))
-        host.height=Math.max(320,Math.min(680,area.height-32))
+        host.width=Math.max(320,Math.min(940,area.width-32))
+        host.height=Math.max(320,Math.min(700,area.height-32))
         host.x=Math.max(area.x,Math.min(host.x,area.x+area.width-host.width))
         host.y=Math.max(area.y,Math.min(host.y,area.y+area.height-host.height))
     }
@@ -70,26 +70,12 @@ Item {
         id:header
         anchors.left:parent.left;anchors.right:parent.right;anchors.top:parent.top
         height:52
-        MouseArea {anchors.fill:parent;anchors.rightMargin:130;onPressed:if(shell.bsiHost)shell.bsiHost.startSystemMove()}
+        MouseArea {anchors.fill:parent;anchors.rightMargin:56;onPressed:if(shell.bsiHost)shell.bsiHost.startSystemMove()}
         BrandLogo {x:14;anchors.verticalCenter:parent.verticalCenter;width:31;height:27}
         Text {x:51;anchors.verticalCenter:parent.verticalCenter;text:"𝓥𝓞𝓘𝓓";color:Theme.text;font.family:Theme.fontFamily;font.pixelSize:21;font.bold:true}
         Text {x:142;anchors.verticalCenter:parent.verticalCenter;text:"Settings";visible:!shell.bsiCompact;color:Theme.muted;font.family:Theme.fontFamily;font.pixelSize:12}
-        Text {objectName:"voidFullUiVersion";visible:false;anchors.right:minimizeButton.left;anchors.rightMargin:26;anchors.verticalCenter:parent.verticalCenter;text:"OLED STUDIO 14";color:Theme.muted;font.family:Theme.fontFamily;font.pixelSize:10;font.letterSpacing:1.3}
+        Text {objectName:"voidFullUiVersion";visible:false;anchors.right:closeButton.left;anchors.rightMargin:26;anchors.verticalCenter:parent.verticalCenter;text:"NATIVE SETTINGS";color:Theme.muted;font.family:Theme.fontFamily;font.pixelSize:10;font.letterSpacing:1.3}
         Rectangle {x:124;anchors.verticalCenter:parent.verticalCenter;width:1;height:21;color:Theme.border;visible:!shell.bsiCompact}
-        ToolButton {
-            id:minimizeButton;objectName:"bsiSettingsMinimize";anchors.right:maximizeButton.left;anchors.rightMargin:4;anchors.verticalCenter:parent.verticalCenter;width:28;height:28;padding:7;hoverEnabled:true
-            Accessible.name:"Minimize"
-            contentItem:StudioGlyph {kind:"minimize";tint:Theme.muted}
-            background:Rectangle {radius:7;color:minimizeButton.hovered?Theme.raised:"transparent"}
-            onClicked:if(shell.bsiHost)shell.bsiHost.showMinimized()
-        }
-        ToolButton {
-            id:maximizeButton;objectName:"bsiSettingsMaximize";anchors.right:closeButton.left;anchors.rightMargin:4;anchors.verticalCenter:parent.verticalCenter;width:28;height:28;padding:7;hoverEnabled:true
-            Accessible.name:shell.bsiHost && shell.bsiHost.visibility===Window.Maximized?"Restore":"Maximize"
-            contentItem:ThemeIcon {source:shell.bsiHost && shell.bsiHost.visibility===Window.Maximized?"SharedIcons/restore.png":"SharedIcons/maximize.png";tint:Theme.muted}
-            background:Rectangle {radius:7;color:maximizeButton.hovered?Theme.raised:"transparent"}
-            onClicked:if(shell.bsiHost){if(shell.bsiHost.visibility===Window.Maximized)shell.bsiHost.showNormal();else shell.bsiHost.showMaximized()}
-        }
         ToolButton {
             id:closeButton;objectName:"bsiSettingsClose"
             anchors.right:parent.right;anchors.rightMargin:12;anchors.verticalCenter:parent.verticalCenter
@@ -147,7 +133,7 @@ Item {
             anchors.left:parent.left;anchors.leftMargin:12;anchors.right:parent.right;anchors.bottom:parent.bottom;spacing:7
             Row {spacing:6
                 Rectangle {width:5;height:5;radius:3;color:Theme.accent;anchors.verticalCenter:parent.verticalCenter}
-                Text {text:"My theme";color:Theme.muted;font.family:Theme.fontFamily;font.pixelSize:10}
+                Text {text:"Theme";color:Theme.muted;font.family:Theme.fontFamily;font.pixelSize:10}
             }
             ComboBox {
                 id:sidebarTheme;objectName:"voidSidebarThemePicker";width:shell.bsiRailWidth-24;height:26;padding:8;rightPadding:26
@@ -190,7 +176,7 @@ Item {
             Rectangle {
                 anchors.right:parent.right;y:2;width:128;height:28;radius:14;color:Theme.surface;border.width:1;border.color:Theme.border
                 StudioGlyph {x:11;anchors.verticalCenter:parent.verticalCenter;width:14;height:14;kind:"layers";tint:Theme.muted}
-                Text {anchors.verticalCenter:parent.verticalCenter;x:33;text:"OLED STUDIO 14";color:Theme.muted;font.family:Theme.fontFamily;font.pixelSize:9}
+                Text {anchors.verticalCenter:parent.verticalCenter;x:33;text:"NATIVE SETTINGS";color:Theme.muted;font.family:Theme.fontFamily;font.pixelSize:9}
             }
             Rectangle {
                 id:inspector;objectName:"voidNativeResourceSummary";visible:shell.showInspector
