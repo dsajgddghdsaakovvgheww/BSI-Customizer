@@ -12,13 +12,16 @@ os.environ.setdefault('QT_QUICK_BACKEND','software')
 os.environ.setdefault('QT_QUICK_CONTROLS_STYLE','Basic')
 os.environ.setdefault('QSG_RENDER_LOOP','basic')
 from PySide6.QtCore import QMetaObject, QPoint, Qt, QUrl
-from PySide6.QtGui import QGuiApplication, QColor, QImage
+from PySide6.QtGui import QGuiApplication, QColor, QImage, QFontDatabase
 from PySide6.QtQml import QQmlComponent, QQmlEngine
 from PySide6.QtQuick import QQuickWindow
 from PySide6.QtTest import QTest
 
 ROOT=Path(__file__).resolve().parents[1]
 app=QGuiApplication([]);warnings=[]
+if os.name=='nt':
+    font=Path(os.environ['WINDIR'])/'Fonts/segoeui.ttf'
+    if font.is_file():QFontDatabase.addApplicationFont(str(font))
 def settle():
     for _ in range(30):app.processEvents();time.sleep(.01)
 def find(node,name):

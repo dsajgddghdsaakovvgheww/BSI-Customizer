@@ -59,6 +59,7 @@ Item {
  property int pCurrentCpu:4
  property int pMaxCpu:8
  property int saved:0
+ property bool testInlineRowsHidden:!iFrameRateSlider.contentItem.pChildren[0].visible && !iFrameRateSlider.contentItem.pChildren[2].visible
  UiColumnLayout {
   anchors.fill:parent;spacing:16
   ScrollView {
@@ -108,7 +109,7 @@ Item {
        UiRowLayout {
         Layout.fillWidth:true;spacing:8
         Text {Layout.fillWidth:true;text:modelData;color:Skin.Theme.text;font.pixelSize:11}
-        Switch {checked:index!==1}
+        Switch {objectName:"fixtureToggle_"+index;padding:0;checked:index!==1}
        }
       }
      }
@@ -173,6 +174,7 @@ Window {
     assert native_slider.property('pVoidInlineSlider')
     assert visual(native_slider,'voidReferenceFpsValue') is not None
     assert native_slider.property('contentItem').property('spacing')==0
+    assert page.property('testInlineRowsHidden'),'native slider caption/ranges duplicated the reference card caption'
     assert visual(root,'voidReferenceBrandLogo').property('imageStatus')==1
     assert visual(root,'bsiSettingsTab_11') is not None,'full native navigation fixture did not load'
     for preset in json.loads((ROOT/'assets/full-emulator-ui/themes.json').read_text()):
@@ -186,6 +188,10 @@ Window {
     button=visual(root,'fixtureNativeSave');p=button.mapToScene(QPointF(button.width()/2,button.height()/2))
     QTest.mouseClick(window,Qt.LeftButton,Qt.NoModifier,QPoint(round(p.x()),round(p.y())));settle()
     assert page.property('saved')==1,'native Save callback lost under primary visuals'
+    last_toggle=visual(root,'fixtureToggle_2')
+    assert last_toggle is not None
+    last_bottom=last_toggle.mapToScene(QPointF(0,last_toggle.height())).y()
+    assert last_bottom<p.y()-20,('compact fixture hid the third FPS toggle',last_bottom,p.y())
     output=ROOT/'.cache/full-ui/sections-fixture.png';output.parent.mkdir(parents=True,exist_ok=True)
     assert window.grabWindow().save(str(output))
     window.setWidth(720);settle()
