@@ -31,6 +31,37 @@ Item {
         implicitHeight:36;leftPadding:10;rightPadding:10;selectByMouse:true
         background:Rectangle {radius:7;color:Theme.background;border.width:1;border.color:parent.activeFocus?Theme.accent:Theme.border}
     }
+    component ThemeSlider:Slider {
+        id:slider
+        implicitHeight:30;padding:0
+        background:Rectangle {
+            x:slider.leftPadding;y:slider.topPadding+(slider.availableHeight-height)/2
+            width:slider.availableWidth;height:4;radius:2;color:Theme.border
+            Rectangle {width:parent.width*slider.visualPosition;height:parent.height;radius:2;color:slider.enabled?Theme.accent:Theme.muted}
+        }
+        handle:Rectangle {
+            x:slider.leftPadding+slider.visualPosition*(slider.availableWidth-width)
+            y:slider.topPadding+(slider.availableHeight-height)/2
+            width:16;height:16;radius:8;color:slider.enabled?Theme.accent:Theme.muted
+            border.width:slider.activeFocus?2:0;border.color:Theme.text
+        }
+    }
+    component ThemeSwitch:Switch {
+        id:toggle
+        implicitHeight:28;padding:0;spacing:10
+        indicator:Rectangle {
+            implicitWidth:42;implicitHeight:24;y:(toggle.height-height)/2;radius:12
+            color:toggle.checked?Theme.accent:Theme.raised;border.width:1;border.color:toggle.checked?Theme.accent:Theme.border
+            Rectangle {
+                x:toggle.checked?21:3;y:3;width:18;height:18;radius:9;color:toggle.checked?Theme.background:Theme.muted
+                Behavior on x {enabled:Theme.motionEnabled;NumberAnimation {duration:Theme.duration;easing.type:Easing.OutCubic}}
+            }
+        }
+        contentItem:Text {
+            text:toggle.text;leftPadding:toggle.indicator.width+toggle.spacing
+            verticalAlignment:Text.AlignVCenter;color:Theme.text;font.family:Theme.fontFamily;font.pixelSize:12
+        }
+    }
     ColumnLayout {
         anchors.fill:parent;spacing:12
         ScrollView {
@@ -109,13 +140,13 @@ Item {
                     Label {text:"Interface font";color:Theme.text;font.pixelSize:12}
                     Field {objectName:"themeFont";Layout.fillWidth:true;text:Theme.fontFamily;onEditingFinished:if(!Theme.setFont(text))panel.errorText="Enter an installed font name.";Accessible.name:"Interface font"}
                     Label {text:"Corner radius · "+Theme.corner+" px";color:Theme.text;font.pixelSize:12}
-                    Slider {objectName:"themeCorners";Layout.fillWidth:true;from:0;to:24;stepSize:1;value:Theme.corner;onMoved:Theme.setCorner(value);palette.highlight:Theme.accent;palette.button:Theme.accent;Accessible.name:"Corner radius"}
+                    ThemeSlider {objectName:"themeCorners";Layout.fillWidth:true;from:0;to:24;stepSize:1;value:Theme.corner;onMoved:Theme.setCorner(value);palette.highlight:Theme.accent;palette.button:Theme.accent;Accessible.name:"Corner radius"}
                 }
                 Section {
                     Heading {title:"Motion";detail:"Subtle transitions, or an instant interface."}
-                    Switch {objectName:"themeMotion";text:"Enable interface animations";checked:Theme.motionEnabled;onToggled:Theme.setMotion(checked);palette.windowText:Theme.text;palette.highlight:Theme.accent}
+                    ThemeSwitch {objectName:"themeMotion";text:"Enable interface animations";checked:Theme.motionEnabled;onToggled:Theme.setMotion(checked);palette.windowText:Theme.text;palette.highlight:Theme.accent}
                     Label {text:"Transition duration · "+Theme.duration+" ms";color:Theme.muted;font.pixelSize:11}
-                    Slider {objectName:"themeDuration";Layout.fillWidth:true;from:0;to:400;stepSize:10;value:Theme.duration;enabled:Theme.motionEnabled;onMoved:Theme.setDuration(value);palette.highlight:Theme.accent;Accessible.name:"Transition duration"}
+                    ThemeSlider {objectName:"themeDuration";Layout.fillWidth:true;from:0;to:400;stepSize:10;value:Theme.duration;enabled:Theme.motionEnabled;onMoved:Theme.setDuration(value);palette.highlight:Theme.accent;Accessible.name:"Transition duration"}
                 }
                 Label {Layout.fillWidth:true;text:'Selected icons by <a href="https://www.magnific.com/author/magnific/icons/special-lineal_7">Magnific / Freepik</a> · Special Lineal';textFormat:Text.RichText;color:Theme.muted;linkColor:Theme.accent;font.pixelSize:10;onLinkActivated:function(link){Qt.openUrlExternally(link)}}
                 Label {Layout.fillWidth:true;wrapMode:Text.Wrap;color:Theme.warning;visible:Theme.textContrast<4.5;text:"Low text contrast. Try a brighter primary text color."}
