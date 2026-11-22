@@ -1636,22 +1636,17 @@ bool qmlNameEndOk(const QByteArray &data, qint64 end, const QString &enc)
 // the hex that follows them in the file belongs to something else.
 bool qmlNameStartOk(const QByteArray &data, qint64 start, const QString &enc)
 {
-    const bool u16 = (enc != QLatin1String("ascii"));
-    const int step = u16 ? 2 : 1;
-    auto unitAt = [&](qint64 at) -> int {
-        if (u16)
-            return uchar(data[int(at)]) | (uchar(data[int(at) + 1]) << 8);
-        return uchar(data[int(at)]);
-    };
-    qint64 at = start - step;
-    while (at >= step && (unitAt(at) == ' ' || unitAt(at) == '\t'))
-        at -= step;
-    if (at < step)
-        return true;
-    const int ch = unitAt(at);
-    if (ch == '.')
-        return false;
-    return !isIdentChar(QChar(ch));
+    QChar ch;
+    if (enc == QLatin1String("utf-16-le")) {
+        if (start < 2)
+            return true;
+        ch = QChar(uchar(data[int(start) - 2]) | uchar(data[int(start) - 1]) << 8);
+    } else {
+        if (start < 1)
+            return true;
+        ch = QChar(uchar(data[int(start) - 1]));
+    }
+    return !isIdentChar(ch) && ch != QLatin1Char('.');
 }
 
 QList<QPair<qint64, QString>> iterQmlNames(const QByteArray &data, const QString &name)
