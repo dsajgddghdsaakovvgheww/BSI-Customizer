@@ -36,6 +36,7 @@ Item {
         return null
     }
     function attach() {
+        peer=null
         if(!hostWindow)return
         var ancestor=hostWindow.transientParent
         for(var i=0;ancestor && i<12;++i,ancestor=ancestor.transientParent) {

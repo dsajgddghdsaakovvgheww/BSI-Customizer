@@ -14,6 +14,7 @@ from PySide6.QtCore import QMetaObject, QPoint, QPointF, Qt, QUrl
 from PySide6.QtGui import QGuiApplication, QFontDatabase
 from PySide6.QtQml import QQmlComponent, QQmlEngine
 from PySide6.QtTest import QTest
+from PySide6.QtQuick import QQuickWindow
 
 ROOT=Path(__file__).resolve().parents[1]
 spec=importlib.util.spec_from_file_location('sections_suite',ROOT/'tools/full-emulator-ui/suite.py')

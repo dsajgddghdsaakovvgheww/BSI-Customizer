@@ -10,7 +10,7 @@ Item {
     objectName:"bsiSettingsShell"
     property var bsiHost
     property var bsiTheme
-    readonly property bool bsiCompact:width<720
+    readonly property bool bsiCompact:width<860
     readonly property int bsiRailWidth:bsiCompact?64:width<1100?200:224
     readonly property var nativeTabs:(bsiHost && bsiHost.pSettingsItems)?bsiHost.pSettingsItems.pSettingElements:[]
     readonly property var bsiTabs:tabEntries()
