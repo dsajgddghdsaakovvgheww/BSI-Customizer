@@ -145,7 +145,7 @@ Window {
     output=ROOT/'.cache/full-ui';output.mkdir(parents=True,exist_ok=True)
     assert window.grabWindow().save(str(output/'native-layout-fixture.png'))
     QMetaObject.invokeMethod(page,'custom');settle()
-    assert visual(root,'iCustomCpuCombobx').isVisible() and visual(root,'iCustomRamTextField').isVisible(),'custom native inputs lost'
+    assert visual(root,'iCustomCpuCombobx').isVisible() and visual(root,'iCustomRamTextField').isVisible(),('custom native inputs lost',visual(root,'iCustomCpuCombobx').isVisible(),visual(root,'iCustomRamTextField').isVisible(),ram.property('currentIndex'),page.property('pRamModel'),warnings)
     QMetaObject.invokeMethod(page,'bottom');settle()
     last=visual(root,'iEnableFpsDisplayToggleBtn');p=last.mapToScene(QPointF(0,last.height()))
     assert last.isVisible() and 200<p.y()<650,('third native FPS toggle unreachable',p)
