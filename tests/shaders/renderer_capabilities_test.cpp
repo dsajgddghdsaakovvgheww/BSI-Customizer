@@ -170,7 +170,7 @@ int main(){
             &&audit.candidates[static_cast<std::size_t>(GlCandidateStop::Qualified)]==1&&audit.codeProviders[0]==1
             &&!runtime.metrics().textureInspected&&!runtime.metrics().textureTransferCalls&&!runtime.metrics().textureProducerDraws,
             "transfer rejection diagnostics never count as qualified ownership, inspected draws or successful copies");
-    attempt.api=static_cast<GlColorTransfer::Kind>(999);runtime.textureTransferAuditReport(attempt);
+    attempt.api=999;runtime.textureTransferAuditReport(attempt);
     require(runtime.metrics().textureTransferAudit.calls==audit.calls,"unrecognized transfer audit enums are bounded before indexing");
     attempt.api=GlColorTransfer::CopyTexSubImage2D;attempt.providers=2;attempt.stop=GlTransferStop::NoCandidate;attempt.candidates={};
     attempt.candidates[static_cast<std::size_t>(GlCandidateStop::Renderer)]=1;

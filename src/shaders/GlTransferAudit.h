@@ -29,7 +29,8 @@ inline constexpr std::array<const char*,static_cast<std::size_t>(GlTransferDescr
     "non-normalized-or-missing-rgb", "destination-image-unqualified", "named-image-descriptor", "feedback"}};
 inline constexpr std::array<const char*,3> glTransferApiLabels{{"blit", "copy-subimage", "named-copy"}};
 struct GlTransferAttempt {
-    GlColorTransfer::Kind api=GlColorTransfer::BlitFramebuffer;
+    // Validated diagnostic index, not a possibly out-of-range native enum.
+    unsigned api=GlColorTransfer::BlitFramebuffer;
     GlTransferStop stop=GlTransferStop::Exception;
     GlTransferDescriptor descriptor=GlTransferDescriptor::None;
     std::array<unsigned,glCandidateLabels.size()> candidates{};
