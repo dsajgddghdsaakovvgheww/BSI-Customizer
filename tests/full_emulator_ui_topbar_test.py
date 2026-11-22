@@ -44,7 +44,7 @@ Image {readonly property int testStatus:status;property string asset:"BlueStacks
 ''')
     (temp/'UiImageButton.qml').write_text('''import QtQuick 2.15
 import QtQuick.Controls 2.15
-Button {property string asset:"TitlebarClose";width:32;height:32;contentItem:Rectangle {color:"#ff00ff"}
+Button {hoverEnabled:true;property string asset:"TitlebarClose";width:32;height:32;contentItem:Rectangle {color:"#ff00ff"}
 background:Rectangle {color:"transparent"}}
 ''')
     source='''import QtQuick 2.15
@@ -123,9 +123,9 @@ Window {
         assert side_glyph.property('tint').name()==preset['palette']['muted']
         assert menu_glyph.property('tint').name()==preset['palette']['muted']
         QTest.mouseMove(window,QPoint(530,20));settle()
-        assert menu_glyph.property('tint').name()==preset['palette']['accent'],'topbar hover not synchronized'
+        assert menu_glyph.property('tint').name()==preset['palette']['accent'],('topbar hover not synchronized',menu.property('hovered'),menu_glyph.property('tint').name(),preset['id'])
         QTest.mouseMove(window,QPoint(572,76));settle()
-        assert side_glyph.property('tint').name()==preset['palette']['accent'],'sidebar hover not synchronized'
+        assert side_glyph.property('tint').name()==preset['palette']['accent'],('sidebar hover not synchronized',side.property('hovered'),side_glyph.property('tint').name(),preset['id'])
         assert menu_glyph.property('tint').name()==preset['palette']['muted'],'topbar hover stuck after pointer left'
         QTest.mouseMove(window,QPoint(200,160));settle()
         assert window.grabWindow().pixelColor(300,20).name()==preset['palette']['background'],'OEM gradient returned'

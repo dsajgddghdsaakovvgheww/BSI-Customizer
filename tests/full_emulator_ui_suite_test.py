@@ -109,6 +109,18 @@ class SuiteTests(unittest.TestCase):
             a,b=root['bindings']['onClosing'];return source[tokens[a].start:tokens[b-1].end]
         self.assertEqual(closing(before),closing(after))
 
+    def test_supplied_settings_button_selected_color_retains_native_click_contract(self):
+        source=b'''import QtQuick 2.15
+import "file:///Skin/" as VoidLiveTheme
+Rectangle {property bool pSelected:false;signal settingClicked()
+Text {color:pSelected ? UiTheme.colors.subWindowHeaderClick : VoidLiveTheme.Theme.muted}
+MouseArea {anchors.fill:parent;onClicked:{settingClicked();parent.forceActiveFocus()}}
+}'''
+        U.live_names.add('UiSettingsButton.qml')
+        result=S.live_theme_sources(U,{'UiSettingsButton.qml':source},'file:///Skin/')['UiSettingsButton.qml']
+        self.assertIn(b'pSelected ? VoidLiveTheme.Theme.accent : VoidLiveTheme.Theme.muted',result)
+        self.assertIn(b'onClicked:{settingClicked();parent.forceActiveFocus()}',result)
+
     def test_native_section_cards_are_additive_and_use_real_native_values(self):
         original={name:U.payload()['baseline/pages/'+name] for name in U.PAGE_NAMES}
         styled=S.native_section_sources(U,original,'file:///Skin/')
