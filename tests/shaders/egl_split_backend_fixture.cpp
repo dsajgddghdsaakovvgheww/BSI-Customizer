@@ -8,7 +8,10 @@
 BSI_EGL_SPLIT_APIS(BSI_SPLIT_DECLARE)
 #undef BSI_SPLIT_DECLARE
 namespace {
+unsigned splitCreateVariant=0;
+void *variedCreateProcedure(unsigned variant);
 void *splitProcedure(const char *name){
+    if(splitCreateVariant&&std::strcmp(name,"eglCreateWindowSurface")==0)return variedCreateProcedure(splitCreateVariant);
 #define BSI_SPLIT_RESOLVE(Result,Name,Params,Args) if(std::strcmp(name,#Name)==0)return reinterpret_cast<void*>(&bsiImpl_##Name);
     BSI_EGL_SPLIT_APIS(BSI_SPLIT_RESOLVE)
 #undef BSI_SPLIT_RESOLVE
@@ -89,6 +92,20 @@ template<unsigned Index,typename Function,typename... Args>auto invokeNative(Fun
     }
 BSI_EGL_SPLIT_APIS(BSI_SPLIT_IMPLEMENT)
 #undef BSI_SPLIT_IMPLEMENT
+namespace {
+std::array<volatile LONG,16> variantCalls{};
+template<unsigned Variant> __declspec(noinline) void *WINAPI variedCreate(void *d,void *c,void *w,const int *a){
+    InterlockedIncrement(&variantCalls[Variant]);return bsiImpl_eglCreateWindowSurface(d,c,w,a);
+}
+template<std::size_t... Variant>auto createProcedures(std::index_sequence<Variant...>){
+    return std::array<void*,sizeof...(Variant)>{{reinterpret_cast<void*>(&variedCreate<Variant>)...}};
+}
+void *variedCreateProcedure(unsigned variant){
+    static const auto entries=createProcedures(std::make_index_sequence<16>{});
+    return variant&&variant<=entries.size()?entries[variant-1]:nullptr;
+}
+}
+extern "C" __declspec(dllexport) void bsiSplitCreateVariant(unsigned variant){splitCreateVariant=variant;}
 extern "C" __declspec(dllexport) LONG bsiSplitCalls(unsigned entry){return entry<EglSplitFixture::Count?nativeCounts[entry]:-1;}
 extern "C" __declspec(dllexport) void bsiSplitFailure(unsigned entry,int fail){if(entry<EglSplitFixture::Count)nativeFailures[entry]=fail!=0;}
 extern "C" __declspec(dllexport) std::uintptr_t bsiSplitResult(unsigned entry){return entry<EglSplitFixture::Count?nativeCalls[entry].result:0;}

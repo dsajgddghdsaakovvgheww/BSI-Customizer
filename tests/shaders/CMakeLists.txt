@@ -216,7 +216,7 @@ if(WIN32)
     add_executable(shader-egl-split-dispatch-test egl_split_dispatch_test.cpp)
     target_link_libraries(shader-egl-split-dispatch-test PRIVATE shader-presentation-test-code)
     add_dependencies(shader-egl-split-dispatch-test shader-egl-split-shim-A shader-egl-split-shim-B)
-    foreach(mode exports queried cached present retire-surface retire-context resolver)
+    foreach(mode exports queried cached present retire-surface retire-context resolver native-image capacity)
         add_test(NAME shader-egl-split-${mode}-contract COMMAND shader-egl-split-dispatch-test
             "$<TARGET_FILE:shader-egl-split-shim-A>" "$<TARGET_FILE:shader-egl-split-backend-A>"
             "$<TARGET_FILE:shader-egl-split-shim-B>" "$<TARGET_FILE:shader-egl-split-backend-B>" ${mode})

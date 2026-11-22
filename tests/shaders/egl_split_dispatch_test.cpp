@@ -9,6 +9,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <string>
+#include <set>
 #include <thread>
 #include <type_traits>
 using namespace BsiShaders;
@@ -60,6 +61,7 @@ struct Fixture {
         SetLastError(0x424277);const auto result=function(args...);const auto error=GetLastError();
         require(error==EglSplitFixture::nativeError(Entry,expectedFailure),"exact native Win32 LastError survives optional observation");
         require(calls(Entry)==before+1,"each exact native implementation executes ONCE through shim/implementation nesting");
+        require(fn<DWORD(*)(unsigned)>(backend,"bsiSplitIncomingError")(Entry)==0x424277,"optional pre-observation preserves the native original's incoming LastError too");
         const std::array<std::uintptr_t,sizeof...(Args)> arguments{{value(args)...}};
         require(fn<int(*)(unsigned,const std::uintptr_t*,unsigned)>(backend,"bsiSplitArguments")(Entry,arguments.data(),unsigned(arguments.size()))!=0,"all native EGL arguments arrive unchanged");
         require(fn<std::uintptr_t(*)(unsigned)>(backend,"bsiSplitResult")(Entry)==value(result),"caller receives native implementation result unchanged");
@@ -96,6 +98,16 @@ struct Fixture {
             :invoke<EglSplitFixture::eglDestroySurface>(entry<unsigned(WINAPI*)(void*,void*)>(kind,name),display,object);
         fail(kind,false);forcedFailure=EglSplitFixture::Count;require((result!=0)!=failure,"failed/successful native teardown retained");return result;
     }
+    void *pbuffer(bool secret=false){
+        const int attrs[]{0x32c0,secret,0x3038};
+        return invoke<EglSplitFixture::eglCreatePbufferSurface>(entry<void*(WINAPI*)(void*,void*,const int*)>(EglSplitFixture::eglCreatePbufferSurface,"eglCreatePbufferSurface"),display,reinterpret_cast<void*>(0x5670),attrs);
+    }
+    void bind(void *surface,bool failure=false){
+        fail(EglSplitFixture::eglBindTexImage,failure);forcedFailure=failure?unsigned(EglSplitFixture::eglBindTexImage):unsigned(EglSplitFixture::Count);
+        const auto result=invoke<EglSplitFixture::eglBindTexImage>(entry<unsigned(WINAPI*)(void*,void*,int)>(EglSplitFixture::eglBindTexImage,"eglBindTexImage"),display,surface,0x3084);
+        fail(EglSplitFixture::eglBindTexImage,false);forcedFailure=EglSplitFixture::Count;require((result!=0)!=failure,"exact native image-bind SUCCESS/FAILURE retained");
+    }
+    void nativeTarget(unsigned name){fn<void(*)(unsigned)>(backend,"bsiFixtureNativeTextureTarget")(name);}
     void resource(unsigned mode){fn<void(*)(unsigned,unsigned)>(backend,"bsiFixtureResourceState")(mode,50);}
     void draw(LONG expected){
         const auto before=count("bsiFixtureDrawCalls"),privateBefore=count("bsiFixturePrivateDraws");
@@ -108,14 +120,14 @@ struct Fixture {
 }
 int main(int argc,char **argv){
     require(argc==6,"pass two shim/backend pairs and an explicit contract mode");const std::string mode=argv[5];
-    require(mode=="exports"||mode=="queried"||mode=="cached"||mode=="present"||mode=="retire-surface"||mode=="retire-context"||mode=="resolver","recognized split-dispatch contract mode");
+    require(mode=="exports"||mode=="queried"||mode=="cached"||mode=="present"||mode=="retire-surface"||mode=="retire-context"||mode=="resolver"||mode=="native-image"||mode=="capacity","recognized split-dispatch contract mode");
     const auto instance=GetModuleHandleW(nullptr);
     const auto root=CreateWindowExW(0,L"STATIC",L"Split EGL root",WS_OVERLAPPEDWINDOW,0,0,900,600,nullptr,nullptr,instance,nullptr);
     const auto game=CreateWindowExW(0,L"STATIC",L"Split EGL game",WS_CHILD,0,0,640,360,root,nullptr,instance,nullptr);
     const auto foreign=CreateWindowExW(0,L"STATIC",L"Split EGL foreign",WS_POPUP,0,0,640,360,nullptr,nullptr,instance,nullptr);require(root&&game&&foreign,"real owned/foreign native HWNDs");
     Fixture a,b;a.open(argv[1],argv[2]);b.open(argv[3],argv[4]);
     auto &runtime=Runtime::instance();runtime.setTexture({true,true,TextureDrawPolicy::OwnedMipCompatibility});runtime.start(value(root));a.ready();b.ready();
-    a.queried=mode=="queried";a.cached=mode=="cached";
+    a.queried=mode=="queried"||mode=="native-image";a.cached=mode=="cached";
     const auto scene=a.context();const auto target=a.surface(game);require(scene&&target,"native context and owned window surface");a.current(target,scene);
     if(mode=="resolver"){
         a.fn<void(*)(unsigned)>(a.backend,"bsiFixtureProcedureVariant")(2);const auto exact=a.query("glDrawElements",true);
@@ -132,8 +144,55 @@ int main(int argc,char **argv){
         runtime.stop();DestroyWindow(foreign);DestroyWindow(game);DestroyWindow(root);
         std::printf("PASS: %s exact original/results/errors and native retirement across split import/queried aliases\n",mode.c_str());return 0;
     }
+    if(mode=="native-image"){
+        const auto isolated=a.context(),shared=a.context(false,scene),offscreen=a.pbuffer(),protectedPbuffer=a.pbuffer(true);
+        require(isolated&&shared&&offscreen&&protectedPbuffer,"queried typed context/share/pbuffer implementations");
+        const auto consume=[&]{
+            runtime.setTexture({false,true,TextureDrawPolicy::OwnedMipCompatibility});runtime.setTexture({true,true,TextureDrawPolicy::OwnedMipCompatibility});
+            a.current(target,scene);a.resource(1);a.draw(0);a.nativeTarget(50);
+        };
+        consume();a.current(offscreen,shared);a.resource(2);a.draw(2);
+        require(runtime.metrics().textureProducerDraws==1,"queried context creation records ONE explicit share namespace through nested import/body calls");
+        a.current(offscreen,isolated);a.resource(2);a.draw(0);require(runtime.metrics().textureProducerDraws==1,"equal isolated texture names do not borrow that explicit sharing");
+        consume();a.bind(offscreen,true);a.current(offscreen,isolated);a.resource(4);a.draw(0);
+        require(!runtime.metrics().textureTransferCalls&&!runtime.metrics().textureProducerDraws,"failed queried native binding publishes no image/resource proof");
+        consume();a.bind(offscreen);
+        require(runtime.metrics().textureTransferCalls==1&&runtime.metrics().textureTransferInputs==1&&!runtime.metrics().textureProducerDraws,"nested public/implementation image binding publishes ONCE, only after native SUCCESS");
+        a.current(offscreen,isolated);a.resource(4);a.draw(2);
+        require(runtime.metrics().textureProducerDraws==1&&runtime.metrics().textureProducerBindings==2,"queried native pbuffer link reaches NONSHARING upstream material, not the LINEAR compositor");
+        a.resource(2);a.draw(0);require(runtime.metrics().textureProducerDraws==1,"native image link cannot merge isolated FBO texture names");
+        a.current(target,scene);for(unsigned i=0;i<3;++i)a.swap(target);
+        a.current(offscreen,isolated);a.resource(4);a.draw(0);require(runtime.metrics().textureProducerDraws==1,"queried alias discovery does not renew resource TTL");
+        consume();a.bind(protectedPbuffer);require(!runtime.metrics().textureTransferCalls,"protected pbuffer creation cannot publish a native image source");
+        consume();a.bind(offscreen);a.remove(offscreen);a.current(offscreen,isolated);a.resource(4);a.draw(0);
+        require(!runtime.metrics().textureProducerDraws,"queried pbuffer retirement revokes the exact native lifetime, even if a raw double later binds its stale handle");
+        runtime.setTexture({false,true,TextureDrawPolicy::OwnedMipCompatibility});a.current(target,scene);a.resource(4);a.draw(0);
+        require(!runtime.metrics().textureInspected&&!runtime.metrics().textureDraws,"Off remains native after queried image/share activity");
+        a.remove(target);a.remove(protectedPbuffer);a.remove(isolated,true);a.remove(shared,true);a.remove(scene,true);
+        runtime.stop();DestroyWindow(foreign);DestroyWindow(game);DestroyWindow(root);
+        std::puts("PASS: queried split EGL typed sharing/pbuffer/image binding, exact native arguments/results/incoming+outgoing LastError, once-only publication, isolated namespaces, protected/failure/TTL/retirement/LINEAR/Off controls");return 0;
+    }
     a.resource(1);a.draw(0);require(!runtime.metrics().textureDraws,"legal one-level LINEAR compositor remains native");
     a.resource(4);a.draw(2);require(runtime.metrics().textureDraws==1,"existing material mips reach private samplers through split provider");
+    if(mode=="capacity"){
+        std::set<void*> targets;
+        // One normal body + fifteen additional exact targets fill the bounded
+        // operation pool. A sixteenth extra target must remain native, NOT
+        // silently retain ownership while its future retirement could be lost.
+        targets.insert(a.implementation("eglCreateWindowSurface"));
+        for(unsigned variant=1;variant<=16;++variant){
+            a.fn<void(*)(unsigned)>(a.backend,"bsiSplitCreateVariant")(variant);const auto entry=a.query("eglCreateWindowSurface");
+            require(entry&&targets.insert(entry).second,"authored unmerged independent lifecycle code targets");
+            require((originalPresentationFunction(entry)!=nullptr)==(variant<16),"bounded typed alias pool fails explicitly at capacity without changing returned address");
+        }
+        runtime.setTexture({false,true,TextureDrawPolicy::OwnedMipCompatibility});runtime.setTexture({true,true,TextureDrawPolicy::OwnedMipCompatibility});
+        auto queries=a.count("bsiFixtureGlQueries");a.resource(4);a.draw(0);a.swap(target);
+        require(!runtime.metrics().textureInspected&&!runtime.metrics().textureDraws&&a.count("bsiFixtureGlQueries")==queries,"uncovered known lifecycle alias disables optional provider work BEFORE GL inspection");
+        a.queried=true;const auto nativeOnly=a.surface(game);require(nativeOnly!=nullptr,"pool exhaustion preserves successful native creation through the uncovered returned target");a.current(nativeOnly,scene);a.swap(nativeOnly);a.resource(4);a.draw(0);
+        require(!runtime.metrics().textureInspected&&!runtime.metrics().textureDraws,"new native success cannot re-enable a faulted lifecycle provider or fabricate ownership");
+        a.remove(nativeOnly);a.remove(target);a.remove(scene,true);runtime.stop();DestroyWindow(foreign);DestroyWindow(game);DestroyWindow(root);
+        std::puts("PASS: sixteen exact lifecycle alias slots, explicit overflow, unchanged native pointer/result/args/errors and fail-closed optional work; no GL/resource authorization on exhaustion");return 0;
+    }
     const auto inspected=runtime.metrics().textureInspected;
     const auto unowned=a.surface(foreign),secret=a.context(true),secretSurface=a.surface(game,0,true);
     a.current(unowned,scene);auto queries=a.count("bsiFixtureGlQueries");a.resource(4);a.draw(0);require(a.count("bsiFixtureGlQueries")==queries,"foreign drawable rejected before GL queries");
