@@ -31,6 +31,13 @@ bool protectedContext();
 inline volatile LONG draws=0,privateDraws=0,invalid=0,textureDeletes=0,renderbufferDeletes=0,transfers=0,stateQueries=0;
 inline std::uint64_t expectedHash=0,lastHash=0,expectedTransferHash=0,lastTransferHash=0;
 inline void (WINAPI *onTransfer)()=nullptr;
+// Optional adversarial Win32 error-state oracle. State inspection may change
+// LastError; a detour must restore the incoming value before its original and
+// preserve the original's outgoing value after metadata/diagnostic work.
+inline bool transferErrorProbe=false;
+inline DWORD transferIncomingError=0;
+inline void transferEntered(){if(transferErrorProbe)transferIncomingError=GetLastError();}
+inline void transferReturned(){if(transferErrorProbe)SetLastError(0x424288);}
 inline U lastPrivateBindings=0,nestedPrivateBindings=0,nestedMode=0;
 inline bool nestedArgumentsIntact=true;
 inline F expectedMinimumLod=3;
@@ -42,6 +49,7 @@ inline const unsigned char *WINAPI getStringi(U,U index){InterlockedIncrement(&s
     if(state().desktop&&!index)return reinterpret_cast<const unsigned char*>("GL_NV_copy_image");bad();return nullptr;
 }
 inline void WINAPI getInteger(U name,I *out){InterlockedIncrement(&stateQueries);
+    if(transferErrorProbe)SetLastError(0x987643);
     auto &g=state();
     switch(name){
     case 0x821d:*out=(g.protectionExtension?1:0)+(g.desktop?1:0);break;case 0x821e:if(!g.protectionExtension)bad();*out=protectedContext()?0x10:0;break;
@@ -155,14 +163,16 @@ inline const std::array<std::array<void*,BsiShaders::glDrawAliases>,BsiShaders::
 #undef BSI_FIXTURE_CALLBACKS
 }};
 template<U Alias> void WINAPI blitFramebuffer(I sx0,I sy0,I sx1,I sy1,I dx0,I dy0,I dx1,I dy1,U mask,U filter){
+    transferEntered();
     InterlockedIncrement(&transfers);lastTransferHash=hash(100,Alias,sx0,sy0,sx1,sy1,dx0,dy0,dx1,dy1,mask,filter);
     if(state().active!=3||state().bindings!=std::array<U,4>{{1,2,0,0}})bad();
-    if(onTransfer)onTransfer();
+    if(onTransfer)onTransfer();transferReturned();
 }
 template<U Alias> void WINAPI copyTexSubImage2D(U target,I level,I dx,I dy,I x,I y,I width,I height){
+    transferEntered();
     InterlockedIncrement(&transfers);lastTransferHash=hash(101,Alias,target,level,dx,dy,x,y,width,height);
     if(state().active!=3||state().bindings!=std::array<U,4>{{1,2,0,0}})bad();
-    if(onTransfer)onTransfer();
+    if(onTransfer)onTransfer();transferReturned();
 }
 inline bool restored();
 inline B WINAPI isTexture(U name){InterlockedIncrement(&stateQueries);return name==50||name==51||name==1||name==2;}
@@ -181,8 +191,9 @@ inline void WINAPI namedRenderbuffer(U name,U key,I *out){
     switch(key){case 0x8d42:case 0x8d43:*out=64;break;case 0x8d44:*out=0x8058;break;case 0x8cab:*out=0;break;default:*out=0;bad();}
 }
 template<U Alias> void WINAPI copyImage(U src,U st,I sl,I sx,I sy,I sz,U dst,U dt,I dl,I dx,I dy,I dz,I width,I height,I depth){
+    transferEntered();
     InterlockedIncrement(&transfers);lastTransferHash=hash(102,Alias,src,st,sl,sx,sy,sz,dst,dt,dl,dx,dy,dz,width,height,depth);
-    if(!restored())bad();if(onTransfer)onTransfer();
+    if(!restored())bad();if(onTransfer)onTransfer();transferReturned();
 }
 inline const std::array<void*,4> blitTargets{{reinterpret_cast<void*>(&blitFramebuffer<0>),reinterpret_cast<void*>(&blitFramebuffer<1>),reinterpret_cast<void*>(&blitFramebuffer<2>),reinterpret_cast<void*>(&blitFramebuffer<3>)}};
 inline const std::array<void*,2> copyTargets{{reinterpret_cast<void*>(&copyTexSubImage2D<0>),reinterpret_cast<void*>(&copyTexSubImage2D<1>)}};

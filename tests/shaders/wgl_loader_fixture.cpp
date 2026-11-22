@@ -199,6 +199,8 @@ API void bsiFixtureLateTransfer(unsigned copy){
 }
 
 API LONG bsiFixtureGlQueries(){return EglDrawFixture::stateQueries;}
+API void bsiFixtureTransferErrorProbe(int enable){EglDrawFixture::transferErrorProbe=enable!=0;EglDrawFixture::transferIncomingError=0;}
+API DWORD bsiFixtureTransferIncomingError(){return EglDrawFixture::transferIncomingError;}
 API void bsiFixtureImageCopy(unsigned alias,unsigned invalid){
     unsigned src=70,st=0x8d41;int sl=0,sx=1,sy=2,sz=0;constexpr unsigned dst=50,dt=0x0de1;constexpr int dl=0,dx=3,dy=4,dz=0,height=56,depth=1;int width=57;
     if(invalid==1)st=0x8513;if(invalid==2)sl=1;if(invalid==3)width=65;if(invalid==4)src=0;
