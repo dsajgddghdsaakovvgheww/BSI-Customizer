@@ -430,7 +430,7 @@ struct GameImageBinding {
     GlColorResource source{};GlTextureBinding binding{};
     std::uint64_t revision=0,serial=0;std::uintptr_t object=0;
     bool captured=false;
-    GameImageBinding(unsigned provider,GlColorResource nativeSource)noexcept
+    GameImageBinding(unsigned provider,GlColorResource nativeSource,std::uint64_t nativeSerial)noexcept
         :scope(hooks().renderMutex,presenting),outer(++depth==1),source(nativeSource){
         try{
             auto &h=hooks();auto &runtime=Runtime::instance();
@@ -439,7 +439,11 @@ struct GameImageBinding {
             drainResources();const auto route=runtime.textureRoute();const auto &quality=route.configuration;
             h.provenance.synchronize(route.object,route.revision);
             if(quality.active()&&quality.externalOverridesReviewed&&quality.drawPolicy==TextureDrawPolicy::OwnedMipCompatibility
-               &&route.object&&runtime.eligible(route.window)&&h.drainedResourceSerial==h.resourceSerial.load()){
+               &&route.object&&runtime.eligible(route.window)&&h.drainedResourceSerial==nativeSerial
+               &&h.drainedResourceSerial==h.resourceSerial.load()){
+                // The source generation AND epoch were read together under
+                // surfaceMutex. Draining a newer retirement must not pair the
+                // OLD lifetime with a newly captured otherwise-stable serial.
                 GameCandidate candidate;
                 if(candidate.find(provider,route)){
                     scope.guardInspection();std::string detail;
@@ -595,10 +599,13 @@ template<std::size_t... Index> auto pbufferReleaseCallbacks(std::index_sequence<
 template<std::size_t... Index> auto pbufferDestroyCallbacks(std::index_sequence<Index...>){return std::array<void*,sizeof...(Index)>{{reinterpret_cast<void*>(&destroyPbuffer<Index>)...}};}
 template<unsigned Index> BOOL WINAPI bindPbufferTexture(void *pbuffer,int buffer){
     const auto incoming=GetLastError();auto &h=hooks();auto &entry=h.pbufferBinds[Index];
-    std::uintptr_t generation=0;
-    try{std::lock_guard<std::mutex> lock(h.surfaceMutex);generation=h.wglPbuffers.generation(reinterpret_cast<std::uintptr_t>(pbuffer));}catch(...){}
+    std::uintptr_t generation=0;std::uint64_t nativeSerial=0;
+    try{
+        std::lock_guard<std::mutex> lock(h.surfaceMutex);
+        generation=h.wglPbuffers.generation(reinterpret_cast<std::uintptr_t>(pbuffer));nativeSerial=h.resourceSerial.load();
+    }catch(...){}
     const unsigned color=buffer>=0x2083&&buffer<=0x2086?0x0400u+unsigned(buffer-0x2083):0;
-    GameImageBinding capture(0,GlColorResource::pbuffer(generation,color));
+    GameImageBinding capture(0,GlColorResource::pbuffer(generation,color),nativeSerial);
     SetLastError(incoming);
     const auto result=reinterpret_cast<WglBindTexture>(entry.original.load(std::memory_order_acquire))(pbuffer,buffer);
     const auto nativeError=GetLastError();
@@ -786,13 +793,15 @@ template<unsigned Index> void *WINAPI createdPbuffer(void *display,void *config,
     return surface;
 }
 template<unsigned Index> unsigned WINAPI bindEglTexture(void *display,void *surface,int buffer){
-    auto &h=hooks();auto &p=h.egl[Index];std::uintptr_t generation=0;
+    auto &h=hooks();auto &p=h.egl[Index];std::uintptr_t generation=0;std::uint64_t nativeSerial=0;
     try{
+        const bool current=p.currentDisplay()==display&&rendererFor(Index+1)==Renderer::OpenGLES;
         std::lock_guard<std::mutex> lock(h.surfaceMutex);
         const auto found=p.pbuffers.find({reinterpret_cast<std::uintptr_t>(display),reinterpret_cast<std::uintptr_t>(surface)});
-        if(found!=p.pbuffers.end()&&p.currentDisplay()==display&&rendererFor(Index+1)==Renderer::OpenGLES)generation=found->second;
+        if(current&&found!=p.pbuffers.end())generation=found->second;
+        nativeSerial=h.resourceSerial.load();
     }catch(...){}
-    GameImageBinding capture(Index+1,GlColorResource::pbuffer(generation,buffer==0x3084?0x0405u:0));
+    GameImageBinding capture(Index+1,GlColorResource::pbuffer(generation,buffer==0x3084?0x0405u:0),nativeSerial);
     const auto result=p.bindTexture(display,surface,buffer);
     if(result&&capture.captured)try{
         int target=0,format=0,level=-1;
