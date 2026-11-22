@@ -9,7 +9,17 @@ struct Pbuffer {bool live=false;HDC dc=nullptr;HWND window=nullptr;unsigned leas
 thread_local Context *currentContext=nullptr;
 thread_local HDC drawDc=nullptr,readDc=nullptr;
 volatile LONG swaps=0,gets=0,releases=0,destroys=0,creates=0,shares=0,imageBinds=0,lateTextureDeletes=0,lateRenderbufferDeletes=0;
+volatile LONG procedureQueries=0,makeCalls=0,makeContextCalls=0;
+HDC lastMakeDraw=nullptr,lastMakeRead=nullptr;HGLRC lastMakeContext=nullptr;
 unsigned failures=0;
+PROC lateElements(unsigned bank){
+    static const PROC entries[]{
+        reinterpret_cast<PROC>(&EglDrawFixture::drawElements<BsiShaders::glDrawAliases>),
+        reinterpret_cast<PROC>(&EglDrawFixture::drawElements<BsiShaders::glDrawAliases+1>),
+        reinterpret_cast<PROC>(&EglDrawFixture::drawElements<BsiShaders::glDrawAliases+2>),
+        reinterpret_cast<PROC>(&EglDrawFixture::drawElements<BsiShaders::glDrawAliases+3>)};
+    return entries[bank&3];
+}
 void WINAPI lateDeleteTextures(int count,const unsigned*){InterlockedExchangeAdd(&lateTextureDeletes,count);}
 void WINAPI lateDeleteRenderbuffers(int count,const unsigned*){InterlockedExchangeAdd(&lateRenderbufferDeletes,count);}
 Context *newContext(){
@@ -36,8 +46,21 @@ API BOOL WINAPI bsiWglDeleteContext(HGLRC value){
     context->live=false;if(currentContext==context){currentContext=nullptr;drawDc=readDc=nullptr;}return TRUE;
 }
 API BOOL WINAPI bsiWglShareLists(HGLRC a,HGLRC b){InterlockedIncrement(&shares);return a&&b&&!(failures&8);}
-API BOOL WINAPI bsiWglMakeCurrent(HDC dc,HGLRC context){drawDc=readDc=dc;currentContext=reinterpret_cast<Context*>(context);defaultBuffers();return TRUE;}
-API BOOL WINAPI bsiWglMakeContextCurrent(HDC draw,HDC read,HGLRC context){drawDc=draw;readDc=read;currentContext=reinterpret_cast<Context*>(context);defaultBuffers();return TRUE;}
+API BOOL WINAPI bsiWglMakeCurrent(HDC dc,HGLRC context){
+    InterlockedIncrement(&makeCalls);lastMakeDraw=lastMakeRead=dc;lastMakeContext=context;
+    if(failures&1024){SetLastError(0x4422f0);return FALSE;}
+    drawDc=readDc=dc;currentContext=reinterpret_cast<Context*>(context);defaultBuffers();SetLastError(0x442201);return TRUE;
+}
+API BOOL WINAPI bsiWglMakeContextCurrent(HDC draw,HDC read,HGLRC context){
+    InterlockedIncrement(&makeContextCalls);lastMakeDraw=draw;lastMakeRead=read;lastMakeContext=context;
+    if(failures&2048){SetLastError(0x4422f1);return FALSE;}
+    drawDc=draw;readDc=read;currentContext=reinterpret_cast<Context*>(context);defaultBuffers();SetLastError(0x442202);return TRUE;
+}
+API BOOL WINAPI bsiWglMakeContextCurrentExt(HDC draw,HDC read,HGLRC context){
+    InterlockedIncrement(&makeContextCalls);lastMakeDraw=draw;lastMakeRead=read;lastMakeContext=context;
+    if(failures&2048){SetLastError(0x4422f1);return FALSE;}
+    drawDc=draw;readDc=read;currentContext=reinterpret_cast<Context*>(context);defaultBuffers();SetLastError(0x442203);return TRUE;
+}
 API BOOL WINAPI bsiWglSwapBuffers(HDC){InterlockedIncrement(&swaps);return TRUE;}
 API HDC WINAPI bsiWglGetPbufferDC(void *value){
     InterlockedIncrement(&gets);auto *p=validPbuffer(value);if(!p||(failures&1))return nullptr;++p->leases;return p->dc;
@@ -66,7 +89,7 @@ API BOOL WINAPI bsiWglBindTexImage(void *value,int buffer){
     return validPbuffer(value)&&buffer>=0x2083&&buffer<=0x2086&&!(failures&32);
 }
 API PROC WINAPI bsiWglGetProcAddress(LPCSTR name){
-    SetLastError(0x13579b);
+    InterlockedIncrement(&procedureQueries);SetLastError(0x13579b);
     if(!name)return nullptr;
     // The presenter cannot resolve these distinct entry points. A later native
     // lookup on another dispatch table must be observed before its first draw.
@@ -75,7 +98,7 @@ API PROC WINAPI bsiWglGetProcAddress(LPCSTR name){
         if(std::strcmp(name,"glDrawElements")==0){
             static constexpr std::intptr_t invalid[]{1,2,3,-1};const auto failure=variant>>8;
             if(failure>=1&&failure<=4)return reinterpret_cast<PROC>(invalid[failure-1]);
-            if(variant&1)return reinterpret_cast<PROC>(&EglDrawFixture::drawElements<BsiShaders::glDrawAliases>);
+            if(variant&1)return lateElements(variant>>16);
         }
         if((variant&2)&&std::strcmp(name,"glBlitFramebuffer")==0)return reinterpret_cast<PROC>(&EglDrawFixture::blitFramebuffer<4>);
         if((variant&4)&&std::strcmp(name,"glCopyTexSubImage2D")==0)return reinterpret_cast<PROC>(&EglDrawFixture::copyTexSubImage2D<2>);
@@ -90,7 +113,7 @@ API PROC WINAPI bsiWglGetProcAddress(LPCSTR name){
     WGL("wglCreateContextAttribsARB",bsiWglCreateContextAttribs);
     WGL("wglBindTexImageARB",bsiWglBindTexImage);WGL("wglQueryPbufferARB",bsiWglQueryPbuffer);
     WGL("wglGetCurrentReadDCARB",bsiWglGetCurrentReadDC);WGL("wglGetCurrentReadDCEXT",bsiWglGetCurrentReadDC);
-    WGL("wglMakeContextCurrentARB",bsiWglMakeContextCurrent);
+    WGL("wglMakeContextCurrentARB",bsiWglMakeContextCurrent);WGL("wglMakeContextCurrentEXT",bsiWglMakeContextCurrentExt);
     WGL("wglGetPbufferDCARB",bsiWglGetPbufferDC);WGL("wglGetPbufferDCEXT",bsiWglGetPbufferDC);
     WGL("wglReleasePbufferDCARB",bsiWglReleasePbufferDC);WGL("wglReleasePbufferDCEXT",bsiWglReleasePbufferDC);
     WGL("wglDestroyPbufferARB",bsiWglDestroyPbuffer);WGL("wglDestroyPbufferEXT",bsiWglDestroyPbuffer);
@@ -140,6 +163,16 @@ API void bsiFixtureTransferToDefault(){EglDrawFixture::state().framebuffer=0;}
 API void bsiFixtureProcedureVariant(unsigned variant){if(currentContext)currentContext->procedures=variant;}
 API LONG bsiFixtureLateTextureDeletes(){return lateTextureDeletes;}
 API LONG bsiFixtureLateRenderbufferDeletes(){return lateRenderbufferDeletes;}
+API LONG bsiFixtureProcedureQueries(){return procedureQueries;}
+API LONG bsiFixtureMakeCalls(){return makeCalls;}
+API LONG bsiFixtureMakeContextCalls(){return makeContextCalls;}
+API LONG bsiFixtureMakeArguments(HDC draw,HDC read,HGLRC context){return lastMakeDraw==draw&&lastMakeRead==read&&lastMakeContext==context;}
+API void bsiFixtureCachedDraw(PROC entry,unsigned bank,unsigned mode){
+    constexpr unsigned kind=static_cast<unsigned>(BsiShaders::GlDrawKind::Elements);
+    constexpr int count=13;constexpr unsigned type=0x1403;const auto *indices=reinterpret_cast<void*>(0x123400);
+    EglDrawFixture::expectedHash=EglDrawFixture::hash(kind,BsiShaders::glDrawAliases+(bank&3),mode,count,type,indices);
+    reinterpret_cast<void(WINAPI*)(unsigned,int,unsigned,const void*)>(entry)(mode,count,type,indices);
+}
 API void bsiFixtureLateDraw(unsigned mode){
     constexpr unsigned kind=static_cast<unsigned>(BsiShaders::GlDrawKind::Elements),alias=BsiShaders::glDrawAliases;
     constexpr int count=13;constexpr unsigned type=0x1403;const auto *indices=reinterpret_cast<void*>(0x123400);
