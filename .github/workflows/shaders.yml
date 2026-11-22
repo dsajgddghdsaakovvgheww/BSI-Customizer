@@ -50,6 +50,12 @@ on:
       - '.github/workflows/shaders.yml'
       - '.gitattributes'
   workflow_dispatch:
+    inputs:
+      focused_egl:
+        description: 'Run only the authored Windows split-EGL dispatch contracts'
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
@@ -59,7 +65,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  focused-egl:
+    if: ${{ inputs.focused_egl == true }}
+    uses: ./.github/workflows/egl-split-dispatch.yml
   qt-evidence:
+    if: ${{ inputs.focused_egl != true }}
     name: Qt inventory and Phone-source recovery on four pinned player samples
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -99,6 +109,7 @@ jobs:
         run: python tests/shaders/qt_host_paths_test.py -v
 
   linux-public-qt5:
+    if: ${{ inputs.focused_egl != true }}
     name: Actual Qt 5 public bridge on a newer independent Qt 5 runtime (Linux fixture)
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -169,6 +180,7 @@ jobs:
         run: echo 'Actual Linux Qt bridge cross-patch fixture, not Windows Qt 5.15.4 or installed-player/game/GPU certification.' >> "$GITHUB_STEP_SUMMARY"
 
   native-vulkan-gl:
+    if: ${{ inputs.focused_egl != true }}
     name: Native Vulkan and GLES pixels (Mesa software; not hardware)
     runs-on: ubuntu-24.04
     timeout-minutes: 25
@@ -247,6 +259,7 @@ jobs:
         run: echo 'Software/API tests only. No HD-Player installation, Win32 presentation hook or Intel/AMD/NVIDIA hardware certification is implied.' >> "$GITHUB_STEP_SUMMARY"
 
   windows-plugin:
+    if: ${{ inputs.focused_egl != true }}
     name: Windows x64 bridge ${{ matrix.qt }} -> host ${{ matrix.host-qt }} and WARP
     # Qt 6.2 headers still use stdext array iterators removed in VS 2026.
     # Use the actual supported v143 toolchain, not patched SDK headers.

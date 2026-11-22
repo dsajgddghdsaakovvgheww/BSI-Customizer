@@ -8,6 +8,7 @@ on:
       - 'src/shaders/EglDispatch*'
       - 'tests/shaders/egl_split*'
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read

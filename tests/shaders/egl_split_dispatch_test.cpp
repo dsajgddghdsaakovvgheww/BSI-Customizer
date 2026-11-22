@@ -38,8 +38,9 @@ struct Fixture {
         // not a PE forwarder or two names for one implementation address.
 #define BSI_CHECK_SHIM(Result,Name,Params,Args) { \
         const auto *code=reinterpret_cast<const unsigned char*>(GetProcAddress(shim,#Name)); \
-        require(code&&code[0]==0xff&&code[1]==0x25,"public shim begins with a RIP-indirect imported-code jump"); \
-        std::int32_t offset=0;std::memcpy(&offset,code+2,4);void *imported=nullptr;std::memcpy(&imported,code+6+offset,sizeof(imported)); \
+        const auto *jump=code&&code[0]==0x48?code+1:code; \
+        require(jump&&jump[0]==0xff&&jump[1]==0x25,"public shim begins with a RIP-indirect imported-code jump"); \
+        std::int32_t offset=0;std::memcpy(&offset,jump+2,4);void *imported=nullptr;std::memcpy(&imported,jump+6+offset,sizeof(imported)); \
         require(imported==implementation(#Name)&&imported!=code,"declared shim import and resolver implementation live at distinct addresses"); \
         }
         BSI_EGL_SPLIT_APIS(BSI_CHECK_SHIM)
