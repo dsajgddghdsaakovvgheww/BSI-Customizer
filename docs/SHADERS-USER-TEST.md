@@ -129,21 +129,27 @@ requires explicit review of existing driver LOD/AA overrides, and currently has
 a GL 3.3/GLES 3.1 draw-time path only. No supplied DLL is installed. See
 [exact coverage and resource-provenance limits](TEXTURE-QUALITY-PORTABILITY.md).
 
-**Latest reported result remains not working:** **3,154 presentation frames /
-6,297 NoSampler inspections**, with zero replacements, linked producers or
-qualified transfers, saved strength 100%. The installed module hash is unknown;
-that is not proof of a stale installation. The inspected mutable RGB 256x256
-image specifically reports legal **GL_LINEAR 0x2601 / non-mip-filter=1**, not
-missing required mip 1. This is not a small Potato effect. Grading and saved/armed
-state are not game texture changes. The [PF-driven split-EGL lifecycle repair and exact new test downloads](POTATO-EGL-LIFECYCLE-ALIASES.md)
-reproduce a separate public-dispatch defect and pass the new Windows contracts;
-this is not proof that this is the launched game's renderer branch or a
-successful game-texture repair. That candidate's copied status must identify
-module build **`00c1b7c…`** and capture **`gl-egl-lifecycle-alias-v3`** after the
-reviewed native-module update. The [resource-only route repair](POTATO-RESOURCE-ONLY-ROUTES.md),
+**Latest reported result remains not working:** the copied header identifies
+module **`00c1b7c…` / `gl-egl-lifecycle-alias-v3`**, with **706 presentation frames /
+330 NoSampler inspections** and zero replacements, linked producers or qualified
+transfers at saved strength 100%. The update was reached; do not dismiss this as
+a stale installation or request more play time. The inspected mutable RGB
+256x256 image reports legal **GL_LINEAR 0x2601 / non-mip-filter=1**, not missing
+required mip 1. This is not a small Potato effect. Grading and saved/armed state
+are not game texture changes. Pre-route **19,379 draw / 329 transfer callbacks**
+do not prove ownership of an unseen material renderer. See the
+[transfer-routing diagnostic follow-up and exact candidate status](POTATO-TRANSFER-ROUTING-DIAGNOSTICS.md).
+The [PF-driven split-EGL lifecycle repair](POTATO-EGL-LIFECYCLE-ALIASES.md) fixes a
+reproduced public-dispatch defect, but did **not** fix this installed result.
+The [resource-only route repair](POTATO-RESOURCE-ONLY-ROUTES.md),
 [native image links](POTATO-NATIVE-IMAGE-BINDINGS.md) and
 [immutable-mip evidence](POTATO-MIP-QUALIFICATION.md) fix independently reproduced
 gaps, not an established game root cause. See [strength/status semantics](POTATO-STRENGTH.md).
+The new diagnostic build is **`ebdf6c2…` / `gl-transfer-route-ledger-v4`**. Its
+additional **Copy/blit routing ledger** separates the first routing/descriptor
+refusals without adopting foreign resources. Copy it **at 100% before changing
+strength or turning Off**, which resets the interval. The source, exact tested
+downloads and protocol are in the follow-up above; this is not a claimed game fix.
 These generic acceptance steps are for a new reviewed installation, not a
 request to repeat Save/gameplay or lower resolution as a remedy.
 

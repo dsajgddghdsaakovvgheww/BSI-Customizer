@@ -9,9 +9,14 @@ was not called a defect: a separate, authored Windows regression first reproduce
 missing acquisition/presentation/retirement behavior in production hooks.
 
 **This is a real public-dispatch coverage repair, not a diagnosed Free Fire fix.**
-The installed result remains **3,154 frames / 6,297 NoSampler / zero replacements**.
-The installed native-module hash and actual game/provider branch are still not
-proved. No new private offsets, vendor ABI, EGLImage/native-buffer ownership or
+**The subsequent installed test confirms this candidate still does not apply
+Potato:** module `00c1b7c…` / `gl-egl-lifecycle-alias-v3`, **706 frames / 330
+NoSampler / zero replacements**. Pre-route activity is **19,379 draws / 329
+transfers**, but there are still zero qualified transfers or linked producers.
+This supersedes the earlier 3,154/6,297 report without blaming a stale install.
+See the [confirmed failure and transfer-routing diagnostic follow-up](POTATO-TRANSFER-ROUTING-DIAGNOSTICS.md).
+The exact DLL file hash and actual private/provider branch remain unproved.
+No new private offsets, vendor ABI, EGLImage/native-buffer ownership or
 permission to inspect foreign/protected resources is inferred from the archive.
 
 Repair source: `ec75261a9406e269d2769e93e3a6768eb87fc5b6`.
@@ -198,10 +203,13 @@ The subsequent documentation/evidence commit is **not** the package's build
 source. Production, tests, packaging and workflows remain at the candidate
 identified above.
 
-## 4. New verified test downloads
+## 4. Historical verified v3 downloads — superseded for the next test
 
-These artifacts contain the lifecycle-alias repair; historical `b807653` or
-`81509f1` artifacts do not. The version label is still **4.0.1**, so use the
+These artifacts contain the lifecycle-alias repair, **not the new v4 transfer
+ledger**. The user reached this v3 build and reported the negative result above;
+the next diagnostic test uses the [identified v4 package](POTATO-TRANSFER-ROUTING-DIAGNOSTICS.md#3-verified-v4-test-downloads).
+The older artifacts and hashes below are retained as historical evidence, not
+reoffered as a new game fix. The version label is still **4.0.1**, so use the
 **run/source/artifact identity**, not the version number alone.
 
 | Build | Verified artifact | ZIP bytes | ZIP SHA-256 |
@@ -232,15 +240,17 @@ A successful test artifact must be deployed using:
 **Inspect compatibility → 2. Review update → Install native shaders.**
 
 Replacing the Customizer EXE alone does not replace the installed shader DLL.
-Copied native diagnostics must identify the delivered build and capture schema
-**`gl-egl-lifecycle-alias-v3`**. An unknown earlier installed hash does not prove
-that installation was stale. Keep the usual full backup/test-installation and
+The historical v3 check required capture schema **`gl-egl-lifecycle-alias-v3`**;
+the user returned it with source `00c1b7c…`, confirming the candidate was reached.
+An unknown earlier file checksum does not prove that installation was stale.
+Use the [v4 follow-up protocol](POTATO-TRANSFER-ROUTING-DIAGNOSTICS.md#4-next-useful-installed-check)
+for the next test. Keep the usual full backup/test-installation and
 protection/anti-cheat restrictions in [the user test guide](SHADERS-USER-TEST.md).
 
 The relevant comparison is a repeatable **material-texture image with Potato
 Off versus On/Strong**, then Off again returning the native image—not grading,
 status text, a saved slider, counters or a forced sampler on the final RGB
-presentation image. If the same zero-replacement result remains, this public
-alias repair has **not** fixed the user's game. It does not establish which
-private/provider/resource boundary is still missing, nor authorize adopting
-unowned/protected content as a workaround.
+presentation image. The subsequent zero-replacement result confirms that this
+public alias repair has **not** fixed the user's game. It does not establish
+which private/provider/resource boundary is still missing, nor authorize
+adopting unowned/protected content as a workaround.
