@@ -97,20 +97,34 @@ Linux suites **do not execute this Windows repair**. Initial local runs without
 that ICD failed the mandatory loader check (8/9), not a production regression;
 with the ICD configured both suites pass 9/9.
 
-**After-repair Windows execution is tracked on [draft PR121](https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/pull/121).
-Do not infer runtime success from compilation or the intended before failure.**
-No new packaged candidate has been delivered for this repair yet; the previously
-delivered `81509f1` ZIPs do not contain it.
+**After-repair commit `bba981e0f5dc06af5160ee10c066bf8892aec2aa` has completed
+[Windows/software validation 45012097459](https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45012097459):
+all six jobs succeed, including the native API contract step in all three
+Windows configurations.** Exact head/check-run conclusions and all 13
+annotations were independently read back; none is a failure. This is actual
+Windows fixture execution, not just compilation. A complete successful Windows
+CTest transcript could not be retrieved from blob storage, so no retrieved
+28/28 transcript is claimed.
+
+The subsequent [EGL/dispatch/named-copy batch](POTATO-EGL-DISPATCH-AND-NAMED-COPIES.md)
+also reproduces the already-current-presenter case and invokes the same discovery
+at its owned swap. It includes this cached-WGL repair when building the fresh
+candidate. Previously delivered `81509f1` ZIPs contain neither repair; they are
+not current-source packages. Exact new package/CI results belong on
+[draft PR121](https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/pull/121).
 
 ## Still unsupported or unproved
 
-A context that never binds or queries again after bootstrap can still be missed.
+A context that never binds, queries or presents through a known path after
+bootstrap can still be missed.
 A previously cached separate-current alias cannot be discovered from a native
 thread on which no known binding/lookup/presentation path ever executes.
-General EGL procedure caching is not repaired here. General EGLImage backing
-aliases, private copies, external-memory paths, `CopyImageSubData`, another API
-or another process remain distinct leads, not enabled routes or installed-game
-diagnoses. See the [GitHub rendering clues](POTATO-GITHUB-RENDERING-CLUES.md).
+The later [EGL/dispatch/named-copy batch](POTATO-EGL-DISPATCH-AND-NAMED-COPIES.md)
+reproduces EGL cached/late procedures and adds a narrow qualified desktop
+`CopyImageSubData` route; it does not provide general image/backing alias support.
+General EGLImage aliases, other private copies, external-memory paths, another
+API or another process remain distinct leads, not enabled routes or
+installed-game diagnoses. See the [GitHub rendering clues](POTATO-GITHUB-RENDERING-CLUES.md).
 
 In particular, gfxstream's texture-image path can reuse translator global backing
 instead of issuing a visible host copy. Implementing such a route requires exact

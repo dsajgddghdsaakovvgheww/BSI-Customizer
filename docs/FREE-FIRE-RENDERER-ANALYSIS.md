@@ -22,7 +22,12 @@ candidate has not established installed-game acceptance. The
 start in root QML completion and independently reproduces another gap:
 pre-bootstrap cached draw addresses can bypass the lookup handler. All three
 Windows before-repair configurations pass 27 earlier tests and fail the intended
-new assertion; a narrow current-binding discovery repair is being validated.
+new assertion. The narrow cached-WGL repair `bba981e` subsequently passes all six
+jobs, including all three Windows native contract steps, in run 45012097459.
+The [next EGL/named-copy batch](POTATO-EGL-DISPATCH-AND-NAMED-COPIES.md) separately
+reproduces cached/late EGL targets, an already-current WGL presenter and missing
+named image-copy observations. It retains the legal LINEAR consumer and adds
+native-module build identity and raw-versus-qualified hook coverage diagnostics.
 No hooks are moved into `DllMain`, no ownership is inferred from context binding,
 and no general EGLImage/private-transfer route is guessed.
 **Neither source similarity nor an authored regression diagnoses this game's
