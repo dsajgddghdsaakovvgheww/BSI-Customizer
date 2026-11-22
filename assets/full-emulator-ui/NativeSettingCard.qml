@@ -18,7 +18,7 @@ Rectangle {
     Rectangle {
         x:16;y:16;width:30;height:30;radius:8
         color:Qt.rgba(Theme.accent.r,Theme.accent.g,Theme.accent.b,0.08)
-        StudioGlyph {objectName:"voidReferenceSectionIcon";anchors.centerIn:parent;width:19;height:19;kind:card.pIcon;tint:Theme.accent}
+        StudioGlyph {objectName:"voidReferenceSectionIcon";anchors.centerIn:parent;width:24;height:24;kind:card.pIcon;tint:Theme.accent}
     }
     ColumnLayout {
         id:stack

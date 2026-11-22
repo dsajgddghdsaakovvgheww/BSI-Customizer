@@ -115,7 +115,7 @@ Item {
                 Behavior on scale {enabled:Theme.motionEnabled;NumberAnimation {duration:Theme.duration;easing.type:Easing.OutCubic}}
                 Accessible.name:row.entry.pButtonText
                 contentItem:Item {
-                    OutlineIcon {id:tabIcon;objectName:"voidSettingsNavIcon";x:12;anchors.verticalCenter:parent.verticalCenter;width:18;height:18;kind:tab.row.appearance?"palette":shell.iconForEntry(tab.row.entry);tint:tab.selected||tab.hovered?Theme.accent:Theme.muted}
+                    OutlineIcon {id:tabIcon;objectName:"voidSettingsNavIcon";x:12;anchors.verticalCenter:parent.verticalCenter;width:20;height:20;kind:tab.row.appearance?"palette":shell.iconForEntry(tab.row.entry);tint:tab.selected||tab.hovered?Theme.accent:Theme.muted}
                     Text {anchors.left:tabIcon.right;anchors.leftMargin:10;anchors.right:parent.right;anchors.rightMargin:10;anchors.verticalCenter:parent.verticalCenter;visible:!shell.bsiCompact;text:tab.row.entry.pButtonText;elide:Text.ElideRight;color:tab.selected?Theme.text:Theme.muted;font.family:Theme.fontFamily;font.pixelSize:12;font.weight:tab.selected?Font.DemiBold:Font.Normal}
                 }
                 background:Rectangle {

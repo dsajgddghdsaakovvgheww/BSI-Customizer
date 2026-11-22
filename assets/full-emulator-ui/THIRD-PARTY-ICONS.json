@@ -9,11 +9,10 @@
       "source": "https://www.magnific.com/icon/settings_2274355",
       "sourceSha256": "4c5794fdf39ffb76db215ac80390aa8dacc9acfc8a81b04271fe606478b1e017",
       "kinds": [
-        "preferences",
-        "advanced"
+        "preferences"
       ],
-      "outputSha256": "a2658a53afbefdf4cba82a10833e3df2d4bfb5a05866def942efce6e1ceac112",
-      "modifications": "Dark linework retained, cropped, padded, resized to 64px; theme tint applied at runtime."
+      "outputSha256": "d0d2fb5ac3e5a74c791b3d022781d6896ef93794147f86da0959478ff46f1e70",
+      "modifications": "Dark linework retained, cropped, padded, resized to 64px, linework strengthened for small UI sizes; theme tint applied at runtime."
     },
     {
       "source": "https://magnific.com/no/ikon/headphones_1376488",
@@ -22,8 +21,8 @@
         "devices",
         "headphones"
       ],
-      "outputSha256": "3dcd160c5c2f45346c1b7c47d25235de2ad011580d313341abc31c6e9fc007b9",
-      "modifications": "Dark linework retained, cropped, padded, resized to 64px; theme tint applied at runtime."
+      "outputSha256": "74d056d3adb2855947b5c4ee21de413ba46402c8279939bf7249bc388a6ad898",
+      "modifications": "Dark linework retained, cropped, padded, resized to 64px, linework strengthened for small UI sizes; theme tint applied at runtime."
     },
     {
       "source": "https://freepik.com/icon/ram_7934030",
@@ -31,28 +30,17 @@
       "kinds": [
         "memory"
       ],
-      "outputSha256": "457b1465d5fca56a8294edebc742a7dc8cf4d21d929a2fb044193215cf9d1f84",
-      "modifications": "Dark linework retained, cropped, padded, resized to 64px; theme tint applied at runtime."
-    },
-    {
-      "source": "https://de.freepik.com/icon/paletten_4228810",
-      "sourceSha256": "6d24d6d82916badd3970f4caec9455a56a41deb7a94956d7869b0136c7822f80",
-      "kinds": [
-        "palette",
-        "graphics"
-      ],
-      "outputSha256": "21f439503694d4c135a8f689c911a773daba9a3630906d4c14932d2c719ef7ed",
-      "modifications": "Dark linework retained, cropped, padded, resized to 64px; theme tint applied at runtime."
+      "outputSha256": "5ad5618baf8354110bbaebf9c41c245398554763afe36482c0a5ddbfb887691d",
+      "modifications": "Dark linework retained, cropped, padded, resized to 64px, linework strengthened for small UI sizes; theme tint applied at runtime."
     },
     {
       "source": "https://www.freepik.com/icon/processor_2303054",
       "sourceSha256": "da30f04da9bf784660a3d951334e01d229046d27025679e576bd8174a009055f",
       "kinds": [
-        "cpu",
-        "performance"
+        "cpu"
       ],
-      "outputSha256": "6a569bc839148579691591d06f0b2b667ece03bc662eecaf5a0cd88988c8f95f",
-      "modifications": "Dark linework retained, cropped, padded, resized to 64px; theme tint applied at runtime."
+      "outputSha256": "95cd4be7766a7c8aaea67d0cc4c7d50171e42d23f93fb1ea35ef0948558f72d3",
+      "modifications": "Dark linework retained, cropped, padded, resized to 64px, linework strengthened for small UI sizes; theme tint applied at runtime."
     },
     {
       "source": "https://www.freepik.com/icon/hands-keyboard_103677",
@@ -60,8 +48,8 @@
       "kinds": [
         "shortcuts"
       ],
-      "outputSha256": "8f09cdc3838f86d86f605745dd922109bde9bf4261623997e4c1eb720e1b7176",
-      "modifications": "Dark linework retained, cropped, padded, resized to 64px; theme tint applied at runtime."
+      "outputSha256": "71b429be8ceb06dd54aba5d71713242282bf5886129a6f7479592e0412577d06",
+      "modifications": "Dark linework retained, cropped, padded, resized to 64px, linework strengthened for small UI sizes; theme tint applied at runtime."
     }
   ],
   "unchangedKinds": "Other symbols retain the existing project-drawn Studio family; no claim that they are Special Lineal."
