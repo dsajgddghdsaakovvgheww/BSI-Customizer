@@ -2,7 +2,10 @@
 
 ## Installed game is still negative
 
-The two newest installed reports have **1,577 grading frames / 3,145 sampler
+The latest installed report has **1,030 presentation frames / 2,058 NoSampler
+inspections and zero replacements/producers/transfers**; the
+[GitHub follow-up](POTATO-GITHUB-RENDERING-CLUES.md) records the next investigation.
+The preceding reports have **1,577 grading frames / 3,145 sampler
 inspections** and **2,993 grading frames / 856 sampler inspections**. Every
 inspection is **NoSampler**, with **zero prepared draws/private bindings,
 zero linked producer inspections/bindings and zero qualified color transfers**.

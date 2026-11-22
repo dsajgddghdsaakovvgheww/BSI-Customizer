@@ -551,19 +551,35 @@ template<std::size_t N> bool resourceHook(std::array<DrawHook,N> &slots,const st
     }
     return false;
 }
-bool installTransferHooks(unsigned provider,void *user){
+// Register the exact native code address, not one global trampoline per GL
+// name. WGL procedures can differ between pixel formats/contexts. A lookup
+// grants code coverage ONLY: these callbacks still need existing route/resource
+// proof before any GL inspection, and always forward their own original once.
+// Shared bounded slots/lock also serialize lookups against presenter setup.
+bool installGlProcedure(unsigned provider,const char *name,void *target){
+    if(!target||!name)return false;
+    auto &h=hooks();const auto providers=1u<<provider;
+    for(unsigned kind=0;kind<drawKinds;++kind)for(const auto *alias:glDrawNames[kind])
+        if(alias&&std::strcmp(name,alias)==0)return resourceHook(h.draws[kind],drawCallbacks[kind],target,providers);
     static const auto blits=blitCallbacks(std::make_index_sequence<32>{}),copies=copyCallbacks(std::make_index_sequence<32>{});
+    for(const auto *alias:{"glBlitFramebuffer","glBlitFramebufferEXT","glBlitFramebufferANGLE","glBlitFramebufferNV"})
+        if(std::strcmp(name,alias)==0)return resourceHook(h.blits,blits,target,providers);
+    for(const auto *alias:{"glCopyTexSubImage2D","glCopyTexSubImage2DEXT"})
+        if(std::strcmp(name,alias)==0)return resourceHook(h.copies,copies,target,providers);
+    static const auto textures=deleteCallbacks<false>(std::make_index_sequence<12>{}),renderbuffers=deleteCallbacks<true>(std::make_index_sequence<12>{});
+    if(std::strcmp(name,"glDeleteTextures")==0)return resourceHook(h.textureDeletes,textures,target,providers);
+    if(std::strcmp(name,"glDeleteRenderbuffers")==0)return resourceHook(h.renderbufferDeletes,renderbuffers,target,providers);
+    return false;
+}
+bool installTransferHooks(unsigned provider,void *user){
     bool any=false;
-    for(const auto *name:{"glBlitFramebuffer","glBlitFramebufferEXT","glBlitFramebufferANGLE","glBlitFramebufferNV"})
-        any=resourceHook(hooks().blits,blits,resolve(name,user),1u<<provider)||any;
-    for(const auto *name:{"glCopyTexSubImage2D","glCopyTexSubImage2DEXT"})
-        any=resourceHook(hooks().copies,copies,resolve(name,user),1u<<provider)||any;
+    for(const auto *name:{"glBlitFramebuffer","glBlitFramebufferEXT","glBlitFramebufferANGLE","glBlitFramebufferNV","glCopyTexSubImage2D","glCopyTexSubImage2DEXT"})
+        any=installGlProcedure(provider,name,resolve(name,user))||any;
     return any;
 }
 bool installResourceHooks(unsigned provider,void *user){
-    static const auto textures=deleteCallbacks<false>(std::make_index_sequence<12>{}),renderbuffers=deleteCallbacks<true>(std::make_index_sequence<12>{});
-    const bool deletedTextures=resourceHook(hooks().textureDeletes,textures,resolve("glDeleteTextures",user),1u<<provider);
-    const bool deletedRenderbuffers=resourceHook(hooks().renderbufferDeletes,renderbuffers,resolve("glDeleteRenderbuffers",user),1u<<provider);
+    const bool deletedTextures=installGlProcedure(provider,"glDeleteTextures",resolve("glDeleteTextures",user));
+    const bool deletedRenderbuffers=installGlProcedure(provider,"glDeleteRenderbuffers",resolve("glDeleteRenderbuffers",user));
     installTransferHooks(provider,user);if(!provider)installWglPbufferHooks();
     return deletedTextures&&deletedRenderbuffers;
 }
@@ -654,10 +670,11 @@ template<std::size_t... Index> auto attributedCallbacks(std::index_sequence<Inde
     return std::array<void*,sizeof...(Index)>{{reinterpret_cast<void*>(&createAttributedWgl<Index>)...}};
 }
 PROC WINAPI queriedWgl(LPCSTR name){
-    const auto result=hooks().nativeWglProc(name);
+    const auto result=hooks().nativeWglProc(name);const auto nativeError=GetLastError();
     if(result&&name)try{
         const auto value=reinterpret_cast<std::intptr_t>(result);
         if(value!=1&&value!=2&&value!=3&&value!=-1){
+            if(name[0]=='g'&&name[1]=='l')installGlProcedure(0,name,reinterpret_cast<void*>(result));
             if(std::strcmp(name,"wglCreateContextAttribsARB")==0){
                 static const auto callbacks=attributedCallbacks(std::make_index_sequence<16>{});
                 resourceHook(hooks().attributedCreates,callbacks,reinterpret_cast<void*>(result),1);
@@ -666,7 +683,7 @@ PROC WINAPI queriedWgl(LPCSTR name){
                ||std::strncmp(name,"wglDestroyPbuffer",17)==0||std::strcmp(name,"wglBindTexImageARB")==0)installWglPbufferHooks();
         }
     }catch(...){} // a failed optional detour never changes the returned native address
-    return result;
+    SetLastError(nativeError);return result;
 }
 HGLRC WINAPI createdWgl(HDC dc){
     const auto context=hooks().createWgl(dc);contextCreated(0,0,reinterpret_cast<std::uintptr_t>(context),0);return context;
@@ -678,22 +695,9 @@ BOOL WINAPI sharedWgl(HGLRC parent,HGLRC child){
     return result;
 }
 bool installDrawHooks(unsigned provider,void *user){
-    bool any=false;auto &h=hooks();
-    for(unsigned kind=0;kind<drawKinds;++kind){
-        for(const auto *name:glDrawNames[kind]){
-            if(!name)continue;
-            void *target=resolve(name,user);if(!target)continue;
-            for(unsigned slot=0;slot<drawSlots;++slot){
-                auto &d=h.draws[kind][slot];
-                if(d.target==target){d.providers.fetch_or(1u<<provider,std::memory_order_release);any=d.original.load()!=nullptr||any;break;}
-                if(d.target)continue;
-                d.target=target;d.providers.store(1u<<provider,std::memory_order_release);
-                if(installPublished(target,drawCallbacks[kind][slot],nullptr,&d.original))any=true;
-                else {d.providers.store(0);d.target=nullptr;}
-                break;
-            }
-        }
-    }
+    bool any=false;
+    for(const auto &names:glDrawNames)for(const auto *name:names)
+        if(name)any=installGlProcedure(provider,name,resolve(name,user))||any;
     return any;
 }
 void process(unsigned provider,std::uintptr_t context,HWND window,DrawableKey drawable,int width,int height,bool externalProtectionPossible=false){

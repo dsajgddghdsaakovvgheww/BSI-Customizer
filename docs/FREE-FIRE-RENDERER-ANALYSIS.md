@@ -1,8 +1,30 @@
 # Free Fire: host presentation is not scene-texture capture
 
-## Latest installed-player follow-up: legal LINEAR consumer, still zero producers
+## Latest installed-player follow-up: 1,030 frames / 2,058 NoSampler, still zero replacements
 
-The new reports have **1,577 grading frames / 3,145 NoSampler inspections** and
+The newest report has **1,030 presentation frames / 2,058 sampler inspections,
+all NoSampler**, with **zero prepared draws/private bindings, zero linked
+producers and zero captured transfers**. Strength is 100%, policy remains
+`OwnedMipCompatibility`; observed host API is OpenGL, Qt bridge/host are
+5.15.2/5.15.4 and Vulkan has no WSI surface/swapchain/present. The inspected
+mutable RGB 256x256 consumer uses legal **GL_LINEAR (`0x2601`)**, with all 2,058
+inspections rejecting non-mip filtering and other first blockers zero. This is
+not partial Potato success, absent material mips proved by inspection, or a
+reason to force a compositor mip filter.
+
+The [GitHub rendering-clue follow-up](POTATO-GITHUB-RENDERING-CLUES.md) now
+connects an independently reported BlueStacks draw-hook miss with actual
+ReShade/gfxstream lookup code and Microsoft's procedure-address contract. BSI's
+presenter initialization already uses WGL lookup, but its lookup interceptor
+misses newly returned GL targets. A distinct-address Windows regression and
+narrow per-target attachment repair are being validated; executed/pending
+results and the separate EGLImage/private-transfer leads are recorded there.
+**Neither source similarity nor an authored regression diagnoses this game's
+unobserved material path.** Installed-game acceptance remains negative.
+
+## Previous installed-player follow-ups: legal LINEAR consumer, still zero producers
+
+The reports have **1,577 grading frames / 3,145 NoSampler inspections** and
 **2,993 grading frames / 856 NoSampler inspections**. Both have **zero prepared
 draws/private bindings, zero linked producer inspections/bindings and zero
 captured color transfers**, with saved strength 100% and depth-independent

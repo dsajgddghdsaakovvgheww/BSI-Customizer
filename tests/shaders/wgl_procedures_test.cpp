@@ -34,6 +34,7 @@ struct Fixture {
         if(late)function<void(*)(unsigned)>("bsiFixtureLateDraw")(4);
         else function<void(*)(unsigned,unsigned,unsigned)>("bsiFixtureDraw")(static_cast<unsigned>(GlDrawKind::Arrays),0,4);
         require(count("bsiFixtureDrawCalls")==before+1&&count("bsiFixtureArgumentsIntact"),"correct original draw target executes exactly once with every argument intact");
+        if(count("bsiFixtureLastPrivateBindings")!=bindings)std::fprintf(stderr,"%s draw #%ld: expected %ld bindings, got %ld\n",late?"late":"early",before+1,bindings,count("bsiFixtureLastPrivateBindings"));
         require(count("bsiFixtureLastPrivateBindings")==bindings&&count("bsiFixturePrivateDraws")==privateBefore+(bindings?1:0),"expected private desktop bias+floor samplers must exist INSIDE that distinct original");
         require(count("bsiFixtureBindingsRestored")&&!count("bsiFixtureInvalidGl"),"exact source bindings/active unit restored, no illegal GL query");
     }
@@ -58,6 +59,7 @@ int main(int argc,char **argv){
     f.current(dc,presenter);
     require(f.function<BOOL(WINAPI*)(HDC)>("wglSwapBuffers")(dc)!=FALSE,"select presentation through actual native detour");
     const auto early=f.query("glDrawElements");require(early&&originalPresentationFunction(reinterpret_cast<void*>(early)),"presenter-resolved target is hooked");
+    const auto earlyBlit=f.query("glBlitFramebuffer"),earlyCopy=f.query("glCopyTexSubImage2D");
     auto *pb=f.function<void*(*)(HWND)>("bsiFixturePbuffer")(nullptr);require(pb!=nullptr,"authored native pbuffer");
     const auto get=reinterpret_cast<HDC(WINAPI*)(void*)>(f.query("wglGetPbufferDCARB"));require(get!=nullptr,"native pbuffer acquisition entry");
     const auto pbDc=get(pb);require(pbDc&&WindowFromDC(pbDc)==nullptr,"observed exact no-HWND pbuffer DC");
@@ -74,7 +76,8 @@ int main(int argc,char **argv){
     f.current(pbDc,scene);f.resource(4);f.draw(2,true);
     require(runtime.metrics().textureProducerDraws==1&&runtime.metrics().textureDraws==1,"only the proven material producer changes; no compositor replacement");
 
-    const auto lateBlit=f.query("glBlitFramebuffer");require(lateBlit&&originalPresentationFunction(reinterpret_cast<void*>(lateBlit)),"late color-transfer target is also intercepted without presenter reinitialization");
+    f.variant(1|2);
+    const auto lateBlit=f.query("glBlitFramebuffer");require(lateBlit&&lateBlit!=earlyBlit&&originalPresentationFunction(reinterpret_cast<void*>(lateBlit)),"late color-transfer target is also intercepted without presenter reinitialization");
     f.function<void(*)(unsigned,unsigned,unsigned)>("bsiFixtureTransferState")(2,70,50);
     f.function<void(*)()>("bsiFixtureTransferToDefault")();const auto transfers=runtime.metrics().textureTransferCalls;f.lateTransfer(false);
     require(runtime.metrics().textureTransferCalls==transfers+1,"late blit follows the exact named RBO -> linked native default output");
@@ -83,13 +86,32 @@ int main(int argc,char **argv){
     f.current(foreignDc,scene);f.resource(4);f.draw(0,true);
     require(runtime.metrics().textureProducerDraws==2,"the same patched function cannot authorize a foreign window");
 
-    runtime.setTexture({false,true,TextureDrawPolicy::OwnedMipCompatibility});f.current(pbDc,scene);
-    const auto lateCopy=f.query("glCopyTexSubImage2D");require(lateCopy&&originalPresentationFunction(reinterpret_cast<void*>(lateCopy)),"late copy target is captured even when effects are Off");
+    f.current(pbDc,scene);f.variant(1|2|16);
+    const auto deleteRbo=reinterpret_cast<void(WINAPI*)(int,const unsigned*)>(f.query("glDeleteRenderbuffers"));
+    require(deleteRbo&&originalPresentationFunction(reinterpret_cast<void*>(deleteRbo)),"a late deletion target must not leave reusable names trusted");
+    const unsigned rbo=70;const auto deletedRbos=f.count("bsiFixtureLateRenderbufferDeletes");deleteRbo(1,&rbo);
+    require(f.count("bsiFixtureLateRenderbufferDeletes")==deletedRbos+1,"correct distinct renderbuffer-deletion original runs once");
+    f.resource(3,70);f.draw(0,true);
+    require(runtime.metrics().textureProducerDraws==2,"late RBO deletion revokes inherited producer proof before numeric-name reuse");
+    f.current(dc,presenter);f.resource(1);f.draw(0);f.function<void(*)(unsigned)>("bsiFixtureNativeTextureTarget")(50);require(bind(pb,0x2083),"fresh native image link after retirement");
+    f.current(pbDc,scene);f.resource(4);f.draw(2,true);f.variant(1|2|8|16);
+    const auto deleteTexture=reinterpret_cast<void(WINAPI*)(int,const unsigned*)>(f.query("glDeleteTextures"));
+    require(deleteTexture&&originalPresentationFunction(reinterpret_cast<void*>(deleteTexture)),"late texture-deletion target also gets its own original");
+    const unsigned texture=50;const auto deletedTextures=f.count("bsiFixtureLateTextureDeletes");deleteTexture(1,&texture);
+    require(f.count("bsiFixtureLateTextureDeletes")==deletedTextures+1,"correct distinct texture-deletion original runs once");
+    f.draw(0,true);require(runtime.metrics().textureProducerDraws==3,"late consumer deletion revokes its native-image ancestors too");
+
+    runtime.setTexture({false,true,TextureDrawPolicy::OwnedMipCompatibility});f.variant(1|2|4|8|16);
+    const auto lateCopy=f.query("glCopyTexSubImage2D");require(lateCopy&&lateCopy!=earlyCopy&&originalPresentationFunction(reinterpret_cast<void*>(lateCopy)),"late copy target is captured even when effects are Off");
     f.function<void(*)(unsigned,unsigned,unsigned)>("bsiFixtureTransferState")(2,70,50);f.lateTransfer(true);f.resource(4);f.draw(0,true);
     require(!runtime.metrics().textureInspected&&!runtime.metrics().textureTransferCalls,"Off lookup/draw/copy retain exact native behavior and cannot retain evidence");
     require(!f.query("bsiUnsupportedProcedure")&&!f.query(nullptr),"unsupported and null lookup results stay native");
     for(const auto &entry:{std::pair<const char*,std::intptr_t>{"bsiInvalidOne",1},{"bsiInvalidTwo",2},{"bsiInvalidThree",3},{"bsiInvalidMinusOne",-1}}){
         const auto value=f.query(entry.first);require(reinterpret_cast<std::intptr_t>(value)==entry.second&&!originalPresentationFunction(reinterpret_cast<void*>(value)),"WGL failure sentinels are returned unchanged and never detoured");
+    }
+    unsigned failure=0;for(const std::intptr_t sentinel:{1,2,3,-1}){
+        f.variant(31|(++failure<<8));const auto value=f.query("glDrawElements");
+        require(reinterpret_cast<std::intptr_t>(value)==sentinel&&!originalPresentationFunction(reinterpret_cast<void*>(value)),"recognized GL names still return native WGL failure sentinels unchanged");
     }
     f.current(nullptr,nullptr);f.function<BOOL(WINAPI*)(HGLRC)>("wglDeleteContext")(scene);f.function<BOOL(WINAPI*)(HGLRC)>("wglDeleteContext")(presenter);
     const auto destroy=reinterpret_cast<BOOL(WINAPI*)(void*)>(f.query("wglDestroyPbufferARB"));require(destroy&&destroy(pb),"native pbuffer teardown");runtime.stop();

@@ -8,8 +8,10 @@ struct Context {bool live=false;unsigned procedures=0;EglDrawFixture::State gl;}
 struct Pbuffer {bool live=false;HDC dc=nullptr;HWND window=nullptr;unsigned leases=0;} pbuffers[16];
 thread_local Context *currentContext=nullptr;
 thread_local HDC drawDc=nullptr,readDc=nullptr;
-volatile LONG swaps=0,gets=0,releases=0,destroys=0,creates=0,shares=0,imageBinds=0;
+volatile LONG swaps=0,gets=0,releases=0,destroys=0,creates=0,shares=0,imageBinds=0,lateTextureDeletes=0,lateRenderbufferDeletes=0;
 unsigned failures=0;
+void WINAPI lateDeleteTextures(int count,const unsigned*){InterlockedExchangeAdd(&lateTextureDeletes,count);}
+void WINAPI lateDeleteRenderbuffers(int count,const unsigned*){InterlockedExchangeAdd(&lateRenderbufferDeletes,count);}
 Context *newContext(){
     for(auto &context:contexts)if(!context.live){context={};context.live=true;context.gl.desktop=true;context.gl.protectionExtension=false;return &context;}
     return nullptr;
@@ -68,10 +70,17 @@ API PROC WINAPI bsiWglGetProcAddress(LPCSTR name){
     if(!name)return nullptr;
     // The presenter cannot resolve these distinct entry points. A later native
     // lookup on another dispatch table must be observed before its first draw.
-    if(currentContext&&currentContext->procedures){
-        if(std::strcmp(name,"glDrawElements")==0)return reinterpret_cast<PROC>(&EglDrawFixture::drawElements<BsiShaders::glDrawAliases>);
-        if(std::strcmp(name,"glBlitFramebuffer")==0)return reinterpret_cast<PROC>(&EglDrawFixture::blitFramebuffer<4>);
-        if(std::strcmp(name,"glCopyTexSubImage2D")==0)return reinterpret_cast<PROC>(&EglDrawFixture::copyTexSubImage2D<2>);
+    if(currentContext){
+        const auto variant=currentContext->procedures;
+        if(std::strcmp(name,"glDrawElements")==0){
+            static constexpr std::intptr_t invalid[]{1,2,3,-1};const auto failure=variant>>8;
+            if(failure>=1&&failure<=4)return reinterpret_cast<PROC>(invalid[failure-1]);
+            if(variant&1)return reinterpret_cast<PROC>(&EglDrawFixture::drawElements<BsiShaders::glDrawAliases>);
+        }
+        if((variant&2)&&std::strcmp(name,"glBlitFramebuffer")==0)return reinterpret_cast<PROC>(&EglDrawFixture::blitFramebuffer<4>);
+        if((variant&4)&&std::strcmp(name,"glCopyTexSubImage2D")==0)return reinterpret_cast<PROC>(&EglDrawFixture::copyTexSubImage2D<2>);
+        if((variant&8)&&std::strcmp(name,"glDeleteTextures")==0)return reinterpret_cast<PROC>(&lateDeleteTextures);
+        if((variant&16)&&std::strcmp(name,"glDeleteRenderbuffers")==0)return reinterpret_cast<PROC>(&lateDeleteRenderbuffers);
     }
     if(std::strcmp(name,"bsiInvalidOne")==0)return reinterpret_cast<PROC>(std::intptr_t(1));
     if(std::strcmp(name,"bsiInvalidTwo")==0)return reinterpret_cast<PROC>(std::intptr_t(2));
@@ -129,6 +138,8 @@ API void bsiFixtureOnTransfer(void(WINAPI *callback)()){EglDrawFixture::onTransf
 API void bsiFixtureTransferToDefault(){EglDrawFixture::state().framebuffer=0;}
 
 API void bsiFixtureProcedureVariant(unsigned variant){if(currentContext)currentContext->procedures=variant;}
+API LONG bsiFixtureLateTextureDeletes(){return lateTextureDeletes;}
+API LONG bsiFixtureLateRenderbufferDeletes(){return lateRenderbufferDeletes;}
 API void bsiFixtureLateDraw(unsigned mode){
     constexpr unsigned kind=static_cast<unsigned>(BsiShaders::GlDrawKind::Elements),alias=BsiShaders::glDrawAliases;
     constexpr int count=13;constexpr unsigned type=0x1403;const auto *indices=reinterpret_cast<void*>(0x123400);
