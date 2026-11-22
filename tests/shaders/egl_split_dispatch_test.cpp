@@ -176,14 +176,17 @@ int main(int argc,char **argv){
     a.resource(4);a.draw(2);require(runtime.metrics().textureDraws==1,"existing material mips reach private samplers through split provider");
     if(mode=="capacity"){
         std::set<void*> targets;
-        // One normal body + fifteen additional exact targets fill the bounded
-        // operation pool. A sixteenth extra target must remain native, NOT
-        // silently retain ownership while its future retirement could be lost.
-        targets.insert(a.implementation("eglCreateWindowSurface"));
+        // BOTH providers' normal bodies already occupy the global typed pool.
+        // Fourteen extra targets fill its sixteen slots. Further targets must
+        // remain native, NOT retain ownership with uncovered future lifetimes.
+        targets.insert(a.implementation("eglCreateWindowSurface"));targets.insert(b.implementation("eglCreateWindowSurface"));
+        require(targets.size()==2,"two independently discovered normal implementation targets count toward the SAME bounded code pool, not one provider namespace");
         for(unsigned variant=1;variant<=16;++variant){
             a.fn<void(*)(unsigned)>(a.backend,"bsiSplitCreateVariant")(variant);const auto entry=a.query("eglCreateWindowSurface");
             require(entry&&targets.insert(entry).second,"authored unmerged independent lifecycle code targets");
-            require((originalPresentationFunction(entry)!=nullptr)==(variant<16),"bounded typed alias pool fails explicitly at capacity without changing returned address");
+            const bool attached=originalPresentationFunction(entry)!=nullptr;
+            if(attached!=(variant<=14))std::fprintf(stderr,"capacity variant %u: attached=%u; two normal targets already present\n",variant,unsigned(attached));
+            require(attached==(variant<=14),"bounded typed alias pool fails explicitly at capacity without changing returned address");
         }
         runtime.setTexture({false,true,TextureDrawPolicy::OwnedMipCompatibility});runtime.setTexture({true,true,TextureDrawPolicy::OwnedMipCompatibility});
         auto queries=a.count("bsiFixtureGlQueries");a.resource(4);a.draw(0);a.swap(target);
