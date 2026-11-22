@@ -4,6 +4,7 @@
 #include "BsDetector.h"
 #include "PatchFile.h"
 #include "PeUtils.h"
+#include "QtResources.h"
 #include "ZlibUtils.h"
 
 #include <QDir>
@@ -1927,6 +1928,28 @@ ThemeEngine::PatchResult ThemeEngine::applyHexTheme(const QString &exePath, cons
     const QList<Replacement> repls = collectThemeReplacements(data, profile, colors, qmlColors);
     if (repls.isEmpty())
         return { false, QStringLiteral("No changes selected") };
+
+    // Never theme a player whose embedded resources are already broken: a
+    // damaged file cannot be fixed by more rewrites, and never write a color
+    // into compressed payload bytes on any build - that is exactly how a raw
+    // rewrite breaks the player's resource load.
+    const QtResources::ResourceScan scan = QtResources::scanResources(data);
+    if (!scan.error.isEmpty())
+        return { false,
+                 QStringLiteral("HD-Player.exe is already damaged: %1. Restore a clean player "
+                                "first (Backups page -> Restore Backup, or copy HD-Player.exe.bak "
+                                "over HD-Player.exe, or reinstall BlueStacks), then apply again. "
+                                "Nothing was written.").arg(scan.error) };
+    for (const Replacement &r : repls) {
+        for (const auto &span : scan.compressed) {
+            if (r.pos < span.second && span.first < r.pos + r.len)
+                return { false,
+                         QStringLiteral("Refused: a selected color slot at 0x%1 would rewrite "
+                                        "compressed resource bytes on this player build. Nothing "
+                                        "was written - please report this player's version.")
+                             .arg(r.pos, 0, 16) };
+        }
+    }
 
     for (const Replacement &r : repls) {
         if (r.pos >= 0 && r.pos + r.len <= data.size())
