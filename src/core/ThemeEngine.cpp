@@ -1739,12 +1739,24 @@ bool findHexAfter(const QByteArray &data, qint64 namePos, qint64 nameLen, const 
 
     // ---- layout B: string-pool record ----
     // [0000 x k padding][FFFFFFFF][size:u32 in {7,9}][alloc=0][offset=24 x2][flags=0]
-    // then the value as utf-16le.
+    // then the value as utf-16le.  The gap before the header is the tail of
+    // the name's allocation and is always zero padding: binary noise that
+    // merely happens to contain a header-shaped sequence must not be treated
+    // as a pool record (a raw byte rewrite there breaks the player).
     static const QByteArray hdrTail = QByteArray::fromHex("00000000180000001800000000000000");
     for (int k = 0; k <= 4; ++k) {
         const int g = 2 * k;
         if (g + 24 > tail.size())
             break;
+        bool padOk = true;
+        for (int i = 0; i < g; ++i) {
+            if (tail[i] != '\0') {
+                padOk = false;
+                break;
+            }
+        }
+        if (!padOk)
+            continue;
         if (tail[g] != '\xff' || tail[g + 1] != '\xff' || tail[g + 2] != '\xff'
             || tail[g + 3] != '\xff')
             continue;

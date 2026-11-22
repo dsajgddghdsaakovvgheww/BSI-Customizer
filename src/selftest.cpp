@@ -896,6 +896,16 @@ int runSelfTest()
         check(ThemeEngine::findQmlColor(poolNoise, QStringLiteral("notice")).isEmpty(),
               "hex-target: pool record followed by plain text is not a value");
 
+        // Binary noise between the name and the header is not pool padding:
+        // only the zero-filled tail of the name's allocation qualifies, so a
+        // header-shaped sequence in raw bytes can never be rewritten.
+        const QByteArray noisePad =
+            utf16le(QStringLiteral("success"))
+            + QByteArray::fromHex("4242424242424242")
+            + poolRecord(QStringLiteral("#78D626"), QString(QChar(0)).repeated(3));
+        check(ThemeEngine::findQmlColor(noisePad, QStringLiteral("success")).isEmpty(),
+              "hex-target: non-zero gap before the value header is not a pool record");
+
         // A color name inside a longer identifier is not a binding.
         const QByteArray innerName =
             poolPair(QStringLiteral("dangerTransparent"), QString(QChar(0)).repeated(3),
