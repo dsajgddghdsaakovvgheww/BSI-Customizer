@@ -9,6 +9,8 @@ Item {
 
     signal notify(string message)
 
+    Component.onCompleted: page.loadProfileLinks()
+
     // how many removal rows are ticked (drives the Apply button state/label)
     property int checkedCount: 0
     // player layout tweaks with their live applied/supported state
@@ -70,6 +72,8 @@ Item {
     // dynamic rather than treating a generic itemAt() result as a typed row.
     function removalItem(index: int): var { return removalList.itemAtIndex(index); }
     function linkItem(index: int): var { return linkRepeater.itemAt(index); }
+
+    function profileLinkItem(index: int): var { return profileLinkRepeater.itemAt(index); }
 
     function recountChecked() {
         let n = 0;
@@ -206,6 +210,59 @@ Item {
         return out;
     }
 
+    // ---- custom About buttons -------------------------------------------
+    // The rebuild writes these profile links { kind, title, url } to the
+    // player’s About page (up to eight). The same profile drives the gear →
+    // About tab editor and the web UI; this card keeps the editor next to
+    // the rebuild it feeds.
+    property var profileLinks: []
+
+    function loadProfileLinks() {
+        const rows = [];
+        const links = settings.aboutLinks || [];
+        for (let i = 0; i < links.length; ++i) {
+            const l = links[i] || {};
+            rows.push({ kind: l.kind || "custom", title: l.title || "", url: l.url || "" });
+        }
+        page.profileLinks = rows;
+    }
+
+    // Rows are read back when they are saved or applied, exactly like the
+    // stock rows above. When the tab’s delegates are not instantiated the
+    // draft itself is the record, so an invisible tab can never save an
+    // empty button list over the user’s buttons.
+    function collectProfileLinks() {
+        const rows = [];
+        const kinds = ["github", "discord", "youtube", "custom"];
+        for (let i = 0; i < profileLinkRepeater.count; i++) {
+            const row = page.profileLinkItem(i);
+            rows.push({
+                kind: row ? kinds[Math.max(0, row.kindBox.currentIndex)] : (page.profileLinks[i] || {}).kind,
+                title: row ? row.titleInput.text : ((page.profileLinks[i] || {}).title || ""),
+                url: row ? row.urlInput.text : ((page.profileLinks[i] || {}).url || "")
+            });
+        }
+        return rows.length ? rows : page.profileLinks.slice();
+    }
+
+    function addProfileLink() {
+        if (page.profileLinks.length >= 8) {
+            page.notify(qsTr("Up to eight About buttons."));
+            return;
+        }
+        page.profileLinks = page.profileLinks.concat([{ kind: "custom", title: "", url: "" }]);
+    }
+
+    function removeProfileLink(index) {
+        const copy = page.profileLinks.slice();
+        copy.splice(index, 1);
+        page.profileLinks = copy;
+    }
+
+    function saveProfileLinks() {
+        settings.aboutLinks = page.collectProfileLinks();
+    }
+
     // The About card reads the player, so it follows the file: on first show,
     // whenever the path changes, and every time the tab is opened again (the
     // EXE may have been patched or restored from another tab meanwhile).
@@ -332,6 +389,7 @@ Item {
     }
 
     function savePanelIdentity() {
+        page.saveProfileLinks();
         page.savePanelOptions(undefined, panelDeveloperField.text, panelTaglineField.text);
     }
 
@@ -369,6 +427,9 @@ Item {
     // Apply / Restore run the real patcher: it verifies every embedded QML
     // resource, writes a feature-local recovery snapshot, then commits.
     function applyPanel(enabled) {
+        // The rebuild embeds the profile buttons, so the rows as they stand
+        // are saved first: pressing Apply can never write stale buttons.
+        page.saveProfileLinks();
         const result = backend.applySettingsPanelRebuild(enabled);
         page.panelMsg = (result && result.msg) ? result.msg : "";
         page.refreshPanel();
@@ -1989,8 +2050,8 @@ Item {
                             wrapMode: Text.Wrap
                             text: qsTr("This is the About page inside the emulator’s rebuilt Settings "
                                        + "window. The logo and the fields below come from your local "
-                                       + "profile; the links are edited in the About preview & editor "
-                                       + "tab and applied with them.")
+                                       + "profile; the buttons are edited below and written to the "
+                                       + "player when the rebuild is applied.")
                             color: Theme.textDim
                             font.pixelSize: 10
                             font.italic: true
@@ -2108,6 +2169,95 @@ Item {
                                     onEditingFinished: page.savePanelIdentity()
                                 }
                             }
+                        }
+
+                        // ---- custom About buttons -----------------------
+                        Text {
+                            Layout.fillWidth: true
+                            wrapMode: Text.Wrap
+                            text: qsTr("Buttons — up to eight, each with a service icon, your own name and your own link")
+                            color: Theme.text
+                            font.pixelSize: 11
+                            font.weight: Font.DemiBold
+                        }
+                        Text {
+                            Layout.fillWidth: true
+                            wrapMode: Text.Wrap
+                            text: qsTr("Pick a Service and type any label and https link — Custom is a plain link button. "
+                                       + "These buttons are written to the player’s About page when you apply the rebuild below.")
+                            color: Theme.textDim
+                            font.pixelSize: 10
+                            font.italic: true
+                        }
+                        Repeater {
+                            id: profileLinkRepeater
+                            model: page.profileLinks
+                            delegate: RowLayout {
+                                id: profileLinkRow
+                                required property var modelData
+                                required property int index
+                                Layout.fillWidth: true
+                                spacing: 8
+
+                                ComboBox {
+                                    id: profileKindBox
+                                    property var kinds: ["github", "discord", "youtube", "custom"]
+                                    Layout.preferredWidth: 104
+                                    model: [qsTr("GitHub"), qsTr("Discord"), qsTr("YouTube"), qsTr("Custom")]
+                                    currentIndex: Math.max(0, profileKindBox.kinds.indexOf(profileLinkRow.modelData.kind || "custom"))
+                                    font.pixelSize: 10
+                                    contentItem: Text {
+                                        text: profileKindBox.displayText
+                                        color: Theme.text
+                                        font.pixelSize: 10
+                                        verticalAlignment: Text.AlignVCenter
+                                        elide: Text.ElideRight
+                                    }
+                                    background: Rectangle {
+                                        color: Theme.cardLow
+                                        radius: 7
+                                        border.color: Theme.border
+                                    }
+                                }
+                                StudioTextField {
+                                    id: profileTitleField
+                                    Layout.preferredWidth: 205
+                                    Layout.fillWidth: true
+                                    text: profileLinkRow.modelData.title || ""
+                                    placeholderText: qsTr("Button name")
+                                    color: Theme.text
+                                    font.pixelSize: 10
+                                    background: Rectangle { color: Theme.cardLow; radius: 7; border.color: Theme.border }
+                                }
+                                StudioTextField {
+                                    id: profileUrlField
+                                    Layout.fillWidth: true
+                                    text: profileLinkRow.modelData.url || ""
+                                    placeholderText: "https://…"
+                                    color: Theme.text
+                                    font.pixelSize: 10
+                                    background: Rectangle { color: Theme.cardLow; radius: 7; border.color: Theme.border }
+                                }
+                                ActionButton {
+                                    text: "\u2715"
+                                    implicitHeight: 28
+                                    onClicked: page.removeProfileLink(profileLinkRow.index)
+                                }
+                                property alias titleInput: profileTitleField
+                                property alias urlInput: profileUrlField
+                                property alias kindBox: profileKindBox
+                            }
+                        }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 8
+                            ActionButton {
+                                implicitHeight: 28
+                                text: page.profileLinks.length >= 8 ? qsTr("8 buttons max") : qsTr("+ Add button")
+                                enabled: page.profileLinks.length < 8
+                                onClicked: page.addProfileLink()
+                            }
+                            Item { Layout.fillWidth: true }
                         }
 
                         // ---- actions -------------------------------------

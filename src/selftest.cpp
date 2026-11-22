@@ -845,7 +845,226 @@ int runSelfTest()
         check(repls.size() == 1 && repls.first().rep == utf16le(QStringLiteral("#88C0D0")),
               "presets: staged hex color replaces the EXE value");
     }
-        // ------------------------------------------------------------------
+
+    // ------------------------------------------------------------------
+    // 2f) Hex (old) targeting: only true name -> value pairs are rewritten
+    // ------------------------------------------------------------------
+    {
+        std::printf("[hex-target] compiled-pool and text bindings only\n");
+
+        // Compiled string-pool record as found in Qt 5 players: the value is a
+        // separate utf-16le string record right after the name's record
+        // (24-byte QStringData header: FFFFFFFF, size, alloc=0, offset=24 x2).
+        auto poolRecord = [](const QString &s, const QString &pad) {
+            QByteArray rec;
+            rec += QByteArray::fromHex("ffffffff");
+            rec += char(s.size() & 0xFF);
+            rec += char((s.size() >> 8) & 0xFF);
+            rec += QByteArray::fromHex("0000"); // size:u32 high half
+            rec += QByteArray::fromHex("00000000180000001800000000000000");
+            rec += utf16le(s);
+            rec += utf16le(pad);
+            return rec;
+        };
+        // The header of the FOLLOWING record must come with its zero padding,
+        // so build pairs as name-record + pad + value-record.  Both the name
+        // and the value are standalone QStringData records: the name's own
+        // 24-byte header sits right before its text (the name-side check
+        // requires it), and `pad` is the zero gap between the two records.
+        auto poolPair = [&poolRecord](const QString &name, const QString &pad,
+                                      const QString &value, const QString &tailPad) {
+            return poolRecord(name, pad) + poolRecord(value, tailPad);
+        };
+
+        const QByteArray pool =
+            poolPair(QStringLiteral("accentNormal"), QString(QChar(0)).repeated(3),
+                     QStringLiteral("#1A90FF"), QString(QChar(0)).repeated(3))
+            + poolPair(QStringLiteral("white"), QString(QChar(0)).repeated(1),
+                       QStringLiteral("#0B0C0E"), QString(QChar(0)).repeated(3))
+            + poolPair(QStringLiteral("secondaryHover"), QString(QChar(0)).repeated(3),
+                       QStringLiteral("#FFFFFF"), QString(QChar(0)).repeated(3));
+        check(ThemeEngine::findQmlColor(pool, QStringLiteral("accentNormal"))
+                  == QStringLiteral("#1A90FF"),
+              "hex-target: pool record value is found");
+        check(ThemeEngine::findQmlColor(pool, QStringLiteral("white"))
+                  == QStringLiteral("#0B0C0E"),
+              "hex-target: pool record value is found for short names too");
+
+        // The name followed by a NON-value string is not a color binding.
+        const QByteArray poolNoise =
+            poolPair(QStringLiteral("notice"), QString(QChar(0)).repeated(3),
+                     QStringLiteral("error"), QString(QChar(0)).repeated(3));
+        check(ThemeEngine::findQmlColor(poolNoise, QStringLiteral("notice")).isEmpty(),
+              "hex-target: pool record followed by plain text is not a value");
+
+        // Binary noise in the gap between the name and the value header is not
+        // pool padding: only the zero-filled tail of the name's allocation
+        // qualifies, so a header-shaped sequence in raw bytes is never bound.
+        const QByteArray noisePad =
+            poolRecord(QStringLiteral("success"), QString(QChar(0x42)).repeated(4))
+            + poolRecord(QStringLiteral("#78D626"), QString(QChar(0)).repeated(3));
+        check(ThemeEngine::findQmlColor(noisePad, QStringLiteral("success")).isEmpty(),
+              "hex-target: non-zero gap before the value header is not a pool record");
+
+        // A color name inside a longer identifier is not a binding.
+        const QByteArray innerName =
+            poolPair(QStringLiteral("dangerTransparent"), QString(QChar(0)).repeated(3),
+                     QStringLiteral("#33EB553E"), QString(QChar(0)).repeated(3));
+        check(ThemeEngine::findQmlColor(innerName, QStringLiteral("transparent")).isEmpty(),
+              "hex-target: name inside a longer identifier is ignored");
+
+        // SVG attribute VALUES like fill="white" are not color names: the
+        // nearby stroke/fill hex belongs to the icon, not to the theme.
+        const QByteArray svg =
+            "<path d=\"M15.5 17V12\" fill=\"white\" stroke=\"#EB2C43\"/>\n"
+            "<circle cx=\"7\" cy=\"7\" r=\"4\" fill=\"#FF333B\"/>";
+        check(ThemeEngine::findQmlColor(svg, QStringLiteral("white")).isEmpty(),
+              "hex-target: SVG fill=\\\"white\\\" is not a color name binding");
+        HexColorItem whiteRow;
+        whiteRow.name = QStringLiteral("white");
+        whiteRow.color = QStringLiteral("#336699");
+        whiteRow.enabled = true;
+        check(ThemeEngine::collectThemeReplacements(svg, QStringLiteral("NXT"), {},
+                                                    QList<HexColorItem> { whiteRow })
+                  .isEmpty(),
+              "hex-target: no replacement is produced for an SVG-only name");
+        check(ThemeEngine::findQmlColor(svg, QStringLiteral("circle")).isEmpty()
+                  && ThemeEngine::findQmlColor(svg, QStringLiteral("path")).isEmpty(),
+              "hex-target: unrelated SVG text never yields values");
+
+        // ---- Bug 1: a name USAGE inside a bigger record binds nothing ----
+        // (MSI 5.12 "primary80": the usage text lives inside one record; the
+        // record that follows it carries a DIFFERENT color, #000000.)
+        const QString z3 = QString(QChar(0)).repeated(3);
+        const QByteArray usageBindsNothing =
+            poolRecord(QStringLiteral("primary80 is a ui token"), z3)
+            + poolRecord(QStringLiteral("#000000"), z3)
+            + poolPair(QStringLiteral("primary80"), z3, QStringLiteral("#21242C"), z3)
+            + poolPair(QStringLiteral("primary70"), z3, QStringLiteral("#2B2E4C"), z3)
+            + poolPair(QStringLiteral("primary60"), z3, QStringLiteral("#373A58"), z3)
+            + poolPair(QStringLiteral("primary50"), z3, QStringLiteral("#434664"), z3);
+        check(ThemeEngine::findQmlColor(usageBindsNothing, QStringLiteral("primary80"))
+                  == QStringLiteral("#21242C"),
+              "hex-verify: name usage binds nothing; the declaration (#21242C) wins over the "
+              "neighbouring record (#000000)");
+        const QByteArray memberAccess =
+            utf16le(QStringLiteral("color: UiTheme.colors.primary80"));
+        check(ThemeEngine::findQmlColor(memberAccess, QStringLiteral("primary80")).isEmpty(),
+              "hex-verify: member-access usage (colors.primary80) is never a declaration");
+
+        // ---- Bug 2: nearest value wins; the longer form wins at one spot ----
+        const QByteArray twoNear =
+            utf16le(QStringLiteral("accentNormal: \"#AABBCC\", later: \"#11223344\""));
+        check(ThemeEngine::findQmlColor(twoNear, QStringLiteral("accentNormal"))
+                  == QStringLiteral("#AABBCC"),
+              "hex-verify: nearest 6-digit literal beats a farther 8-digit one");
+        const QByteArray nineOnly =
+            utf16le(QStringLiteral("accentNormal: \"#11223344\""));
+        check(ThemeEngine::findQmlColor(nineOnly, QStringLiteral("accentNormal"))
+                  == QStringLiteral("#11223344"),
+              "hex-verify: the 8-digit literal at the binding site beats its 6-digit prefix");
+
+        // ---- Bug 4: no Settings Window anchor -> never patch blindly ----
+        {
+            QTemporaryDir tmp;
+            const QString p = tmp.filePath(QStringLiteral("player.bin"));
+            {
+                QFile f(p);
+                f.open(QIODevice::WriteOnly);
+                f.write(QByteArray(64, 'X'));
+                f.write(utf16le(QStringLiteral("#000000")));
+                f.write(QByteArray(32, 'Y'));
+            }
+            HexColorItem sidebar;
+            sidebar.name = QStringLiteral("Sidebar (#000000)");
+            sidebar.currentHex = QStringLiteral("#000000");
+            sidebar.color = QStringLiteral("#123456");
+            sidebar.enabled = true;
+            const auto res =
+                ThemeEngine::applyHexTheme(p, QStringLiteral("MSI5"), { sidebar }, {});
+            check(!res.ok,
+                  "hex-verify: sidebar without a Settings Window anchor is refused, not patched");
+            QFile f(p);
+            f.open(QIODevice::ReadOnly);
+            const QByteArray after = f.readAll();
+            check(after.contains(utf16le(QStringLiteral("#000000")))
+                      && !after.contains(utf16le(QStringLiteral("#123456"))),
+                  "hex-verify: nothing was written without the anchor");
+        }
+
+        // ---- Bug 5: size-mismatched value -> skipped, never truncated ----
+        {
+            QTemporaryDir tmp;
+            const QString p = tmp.filePath(QStringLiteral("player.bin"));
+            {
+                QFile f(p);
+                f.open(QIODevice::WriteOnly);
+                f.write(utf16le(QStringLiteral("#00000000")));
+                f.write(QByteArray(32, 'X'));
+            }
+            HexColorItem wide;
+            wide.name = QStringLiteral("Wide Slot");
+            wide.currentHex = QStringLiteral("#00000000");
+            wide.color = QStringLiteral("#80FF33");
+            wide.enabled = true;
+            const auto res =
+                ThemeEngine::applyHexTheme(p, QStringLiteral("NXT"), { wide }, {});
+            check(!res.ok,
+                  "hex-verify: size-mismatched replacement is refused, not truncated");
+            QFile f(p);
+            f.open(QIODevice::ReadOnly);
+            check(f.readAll().startsWith(utf16le(QStringLiteral("#00000000"))),
+                  "hex-verify: the 9-char slot stayed intact");
+        }
+
+        // QML binding text (plain and utf-16le) is a value.
+        const QByteArray textBind = "property color dangerNormal: \"#ED1C24\";";
+        check(ThemeEngine::findQmlColor(textBind, QStringLiteral("dangerNormal"))
+                  == QStringLiteral("#ED1C24"),
+              "hex-target: QML text binding value is found");
+        check(ThemeEngine::findQmlColor(
+                  utf16le(QStringLiteral("accentNormal: \"#1A90FF\",") ),
+                  QStringLiteral("accentNormal")) == QStringLiteral("#1A90FF"),
+              "hex-target: utf-16 QML text binding value is found");
+
+        // A longer hex run is not a value ("#123456789A" is not "#12345678").
+        check(ThemeEngine::findQmlColor(
+                  QByteArray("dangerNormal: \"#123456789A\";"),
+                  QStringLiteral("dangerNormal")).isEmpty(),
+              "hex-target: head of a longer hex run is not a value");
+
+        // End to end: applying a pool color rewrites the value record only.
+        {
+            QByteArray pe = pool;
+            pe += svg;
+            const QString exePath = tmp.path() + QStringLiteral("/hextarget.exe");
+            {
+                QFile f(exePath);
+                f.open(QIODevice::WriteOnly);
+                f.write(pe);
+            }
+            HexColorItem poolRow;
+            poolRow.name = QStringLiteral("accentNormal");
+            poolRow.currentHex = QStringLiteral("#1A90FF");
+            poolRow.color = QStringLiteral("#336699");
+            poolRow.enabled = true;
+            const auto r = ThemeEngine::applyHexTheme(
+                exePath, QStringLiteral("NXT"), {}, QList<HexColorItem> { poolRow });
+            check(r.ok, "hex-target: applyHexTheme rewrites the pool value");
+
+            QFile f(exePath);
+            f.open(QIODevice::ReadOnly);
+            const QByteArray after = f.readAll();
+            f.close();
+            check(after.size() == pe.size(), "hex-target: file size unchanged");
+            check(after.contains(utf16le(QStringLiteral("#336699"))),
+                  "hex-target: new pool value written");
+            check(after.mid(pool.size()) == svg,
+                  "hex-target: SVG data is untouched by the rewrite");
+        }
+    }
+
+    // ------------------------------------------------------------------
     // 2g) Toggle SVG recolor (PatchToggleSvgs): length-safe, knob preserved
     // ------------------------------------------------------------------
     {

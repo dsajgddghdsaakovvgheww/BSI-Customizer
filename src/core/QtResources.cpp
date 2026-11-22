@@ -517,6 +517,37 @@ QByteArray readFile(const QByteArray &data, const File &file, qint64 limit)
     return bytes.size() == expected ? bytes : QByteArray();
 }
 
+ResourceScan scanResources(const QByteArray &data)
+{
+    ResourceScan scan;
+    for (const File &file : registeredFiles(data)) {
+        if (!inRange(data, file.entryOff, 4))
+            continue;
+        const quint32 size = be32(data, file.entryOff);
+        if (!inRange(data, file.entryOff + 4, size))
+            continue;
+        if (file.flags == 0)
+            continue; // raw payload: a byte rewrite inside it keeps the resource readable
+        // Anything else is compressed in some encoding, so its payload bytes
+        // are off-limits to raw rewrites whatever codec the build used.
+        scan.compressed << qMakePair(file.entryOff + 4, file.entryOff + 4 + qint64(size));
+        if (file.flags != 1)
+            continue; // unknown codec: protected, but only zlib can be health-checked here
+        const QString label = file.path.isEmpty() ? file.name : file.path;
+        if (size < 6) {
+            if (scan.error.isEmpty())
+                scan.error = QStringLiteral("%1 is recorded as compressed but its record is "
+                                            "truncated").arg(label);
+            continue;
+        }
+        const quint32 expected = be32(data, file.entryOff + 4);
+        const QByteArray bytes = qUncompress(data.mid(file.entryOff + 4, size));
+        if (bytes.size() != qsizetype(expected) && scan.error.isEmpty())
+            scan.error = QStringLiteral("%1 does not decompress to its recorded size").arg(label);
+    }
+    return scan;
+}
+
 bool refreshTimestamp(QByteArray &data, const Link &link)
 {
     if (!link.found || link.ambiguous || link.nodeSize != 22)

@@ -61,6 +61,17 @@ QList<File> filesInPool(const QByteArray &data, const Link &pool);
 QList<File> registeredFiles(const QByteArray &data);
 QByteArray readFile(const QByteArray &data, const File &file, qint64 limit = 5000000);
 
+// Health + layout introspection for raw-byte patchers. Every zlib payload
+// must still decompress to exactly its recorded size (a player whose
+// resources are already broken must be restored, not themed), and no raw
+// byte rewrite may ever land inside a compressed payload.
+struct ResourceScan
+{
+    QString error;                            // first damaged resource, empty when healthy
+    QList<QPair<qint64, qint64>> compressed;  // [start,end) of every compressed payload's bytes
+};
+ResourceScan scanResources(const QByteArray &data);
+
 // Changes the source timestamp, making Qt reject .qmlc files cached by an
 // earlier HD-Player run. Does nothing to v1 trees (Qt uses the EXE timestamp).
 bool refreshTimestamp(QByteArray &data, const Link &link);
