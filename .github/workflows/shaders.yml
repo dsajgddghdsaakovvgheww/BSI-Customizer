@@ -223,6 +223,19 @@ jobs:
           python3 tests/shaders/run_ci_tests.py --command python3 tests/shaders_gpu_test.py
           BSI_TEST_TEXTURE_QUALITY=1 BSI_SHADERS_EGL_CLIENT_VERSION=3 python3 tests/shaders/run_ci_tests.py --command python3 tests/shaders_gpu_test.py
           BSI_TEST_TEXTURE_QUALITY=1 BSI_SHADERS_EGL_API=opengl python3 tests/shaders/run_ci_tests.py --command python3 tests/shaders_gpu_test.py
+      - name: Actual nonsharing native EGL pbuffer image pixels (mandatory ANGLE software)
+        # Mesa 25.2.8 surfaceless software exports transparent black on the RAW
+        # native-bind round trip, even without BSI. Keep the Mesa controls above
+        # and require this independent actual driver, including a pre-BSI raw
+        # pixel assertion. No runtime-dependent skip, driver copy or fake pass.
+        env:
+          BSI_TEXTURE_PIXEL_ARTIFACT_DIR: ${{ runner.temp }}/authored-texture-pixels/angle
+          BSI_TEST_TEXTURE_QUALITY: '1'
+          BSI_TEST_NATIVE_IMAGE_BINDING: '1'
+          BSI_SHADERS_EGL_LIBRARY: ${{ runner.temp }}/shader-icd/libEGL.so
+          BSI_SHADERS_EGL_PLATFORM: angle-swiftshader
+          BSI_SHADERS_EGL_CLIENT_VERSION: '3'
+        run: python3 tests/shaders/run_ci_tests.py --command python3 tests/shaders_gpu_test.py
       - name: Retain authored native/Strong/Off texture images and measured mip evidence
         if: always()
         uses: actions/upload-artifact@v4

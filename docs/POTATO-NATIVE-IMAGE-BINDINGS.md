@@ -57,8 +57,12 @@ No render mutex, session pointer, private sampler or GL-state lease spans it.
   no GL/EGL error queue is consumed.
 - Publish only after the original and only if selected source/settings revision,
   current context/drawable and the **drained lifecycle serial** still match.
-  Failure, unknown metadata, contention, deletion, source replacement, binding
-  change or revision change cannot create a stale resource link.
+  Capture the native source generation **and its epoch together under the
+  surface lock**; require that exact epoch after draining. A retired generation
+  cannot be paired with a newer stable serial. Native driver queries execute
+  outside that surface lock. Failure, unknown metadata, contention, deletion,
+  source replacement, binding change or revision change cannot create a stale
+  resource link.
 - GL texture/RBO names still require the same or observed-successfully-shared
   namespace. A **native pbuffer lifetime and exact color buffer** is not a GL
   object name. A positive recent binding/copy link can therefore reach that
@@ -66,7 +70,12 @@ No render mutex, session pointer, private sampler or GL-state lease spans it.
   the contexts' GL namespaces: inherited material texture names stay local to
   the producer. Pbuffer existence, sharing or equal texture numbers alone never
   authorize a draw. WGL FRONT/BACK/LEFT/RIGHT aspects remain distinct; a copy's
-  actual READ aspect and a draw's actual DRAW aspect are preserved too.
+  actual READ aspect and a draw's actual DRAW aspect are preserved too. An
+  upstream blit **to default DRAW** also carries its destination aspect through
+  native-output qualification, rather than silently dropping that dependency.
+  A new unit assertion reproduced that omission before the repair; the Windows
+  WGL fixture additionally follows native binding -> default-DRAW blit -> RBO
+  material producer, with separate GL namespaces.
 - Native release makes the buffer available for the next render; it is not
   pbuffer retirement. Evidence is a previous successful submitted image link,
   not a permanent alias table. It inherits the selected consumer's **two-frame
@@ -91,7 +100,9 @@ Local execution for this change:
   unrelated provider/display/generation rejection, TTL/revision and retirement.
 - **Actual ANGLE/SwiftShader GLES 3.1**, two genuinely **nonsharing EGL contexts**,
   a real texture-capable RGBA pbuffer and real `eglBindTexImage`/release calls.
-  The new production metadata/provenance/private samplers reach the upstream
+  First, an **unmodified raw native-image round trip**, before initializing
+  either production inspector, must reproduce the entire source frame exactly.
+  Then the new production metadata/provenance/private samplers reach the upstream
   material: **0/50/100%** produce **(255,0,0,173)** / **(0,128,128,173)** /
   **(255,255,0,173)** in both texture-object and existing-sampler source modes.
   The unchanged one-level compositor has **0** replacements. The **entire Off
@@ -110,6 +121,37 @@ Local execution for this change:
   target/revision/retirement changes inside originals, exact Off and expiry.
   **Compilation is not Windows execution**; exact-head CI conclusions and the
   Windows package's uploaded-ZIP checks belong on draft PR121.
+
+### Explicit graphics-driver matrix, not a skipped assertion
+
+The first Windows matrix at `572ea30` passed all three native hook/Qt jobs,
+Linux Qt, inventory, Chromium and Windows package/uploaded-ZIP checks. Its
+Mesa job **failed** at the native-image pixels; that run is not a shader-matrix
+pass. The existing five-strength, immutable/view, source-restoration, transfer
+and material controls had passed before that failure.
+
+The same failure was then reproduced on a locally built **Mesa 25.2.8 softpipe**.
+A separate raw EGL/GLES program, **without loading any BSI code**, gets a
+successful `eglBindTexImage`, a defined 64x64 RGBA image and **transparent black
+(0,0,0,0)** instead of its red **(255,0,0,173)** source. Fresh independent runs
+with application `glFlush`, `glFinish`, `eglWaitClient` and `eglSwapBuffers` all
+fail the same raw full-frame comparison. This is not a production ownership or
+sampler refusal, and no extra wait/copy is added to the deployed hooks for it.
+
+CI therefore keeps **all existing Mesa GLES/desktop pixel assertions** and adds
+a separate **mandatory ANGLE/SwiftShader native-image step**, using the pinned
+runtime already installed for the independent sanitizer ICD. Enable that
+specific fixture with `BSI_TEST_NATIVE_IMAGE_BINDING=1`,
+`BSI_TEST_TEXTURE_QUALITY=1`, `BSI_SHADERS_EGL_CLIENT_VERSION=3` and
+`BSI_SHADERS_EGL_PLATFORM=angle-swiftshader`, with `BSI_SHADERS_EGL_LIBRARY`
+pointing to that runtime's `libEGL.so`. Requesting the fixture on desktop GL,
+GLES 2 or without texture-quality tests fails rather than silently bypassing it.
+There is **no driver-name conditional, runtime-dependent skip or relaxed
+pixel/Off/error assertion**. Explicitly requesting it on Mesa still fails at
+the raw comparison **before production observation**. Mesa and ANGLE artifacts
+remain in separate folders, and the native-image report names its actual
+renderer/version and raw baseline. **This does not claim Mesa native-pbuffer
+export support or physical-driver certification.**
 
 This independently executed native route is **not established as the game's
 root cause**. EGLImage/private/external-memory aliases, unobserved native

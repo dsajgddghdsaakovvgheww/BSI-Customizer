@@ -43,6 +43,10 @@ def main():
     desktop = os.environ.get("BSI_SHADERS_EGL_API") == "opengl"
     client_version = int(os.environ.get("BSI_SHADERS_EGL_CLIENT_VERSION", "2"))
     assert client_version in (2, 3), "The fixture supports GLES 2 or GLES 3 contexts"
+    native_images = os.environ.get("BSI_TEST_NATIVE_IMAGE_BINDING", "0")
+    assert native_images in ("0", "1"), "Native image pixels must be explicitly enabled or disabled"
+    native_images = native_images == "1"
+    assert not native_images or (not desktop and client_version == 3 and os.environ.get("BSI_TEST_TEXTURE_QUALITY")), "Requested native image matrix requires GLES 3 and texture-quality tests, never a silently skipped pass"
     assert native("eglBindAPI", U, U)(0x30A2 if desktop else 0x30A0)
     renderable = 8 if desktop else (0x40 if client_version == 3 else 4)
     attributes = [0x3033, 1, 0x3040, renderable, 0x3024, 8, 0x3023, 8, 0x3022, 8, 0x3021, 8, 0x3031, 0, 0x3032, 0]
@@ -182,7 +186,7 @@ def main():
             from shaders.texture_quality_gl_pixels import exercise
             exercise(gl, core, desktop, SIZE, resolver)
             assert get_error() == 0
-            if not desktop:
+            if native_images:
                 from shaders.native_texture_binding_gl_pixels import exercise as native_image_pixels
                 native_image_pixels(gl, core, resolver, native, display, context, surface, make_current, SIZE)
                 assert get_error() == 0

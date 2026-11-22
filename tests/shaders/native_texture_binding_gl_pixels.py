@@ -109,9 +109,33 @@ def exercise(gl, policy, resolver, egl, display, consumer, consumer_surface, mak
 
     current(producer, pbuffer)
     source_objects = resources(True)
-    assert policy.bsi_test_native_producer_initialize(resolver, None)
     current(consumer, consumer_surface)
     consumer_objects = resources(False)
+
+    # First require an actual RAW driver round trip, BEFORE either production
+    # inspector is initialized or any provenance/override call is made. Mesa
+    # 25.2.8's surfaceless software loader returns success + a defined image but
+    # exports transparent black even without BSI (also with Finish/WaitClient).
+    # The mandatory CI native-image matrix uses ANGLE, not a skipped assertion
+    # or a production copy/wait workaround for that independent driver path.
+    current(producer, pbuffer)
+    draw(4, 0, 3)
+    raw_material = image()
+    gl("glFlush", None)()
+    current(consumer, consumer_surface)
+    active(0x84C0)
+    assert bind_image(display, pbuffer, 0x3084), "RAW native driver image binding must succeed before production is initialized"
+    active(0x84C3)
+    draw(4, 0, 3)
+    raw_presented = image()
+    assert raw_presented == raw_material and tuple(raw_material[:4]) == colors[0], (
+        "RAW native driver image pixels differ BEFORE production observation/overrides",
+        list(raw_material[:4]), list(raw_presented[:4]),
+        sum(a != b for a, b in zip(raw_material, raw_presented)))
+    assert release_image(display, pbuffer, 0x3084)
+    current(producer, pbuffer)
+    assert policy.bsi_test_native_producer_initialize(resolver, None)
+    current(consumer, consumer_surface)
     message = C.create_string_buffer(2048)
     assert policy.bsi_test_quality_initialize(resolver, None, message, len(message)), message.value.decode()
 
@@ -219,6 +243,9 @@ def exercise(gl, policy, resolver, egl, display, consumer, consumer_surface, mak
     assert egl("eglDestroyContext", U, P, P)(display, producer)
     assert egl("eglDestroySurface", U, P, P)(display, pbuffer)
     evidence = {"api": "gles", "path": "actual-eglBindTexImage", "nonsharingContexts": True,
+                "version": gl("glGetString", C.c_char_p, U)(0x1F02).decode(),
+                "renderer": gl("glGetString", C.c_char_p, U)(0x1F01).decode(),
+                "rawNativeBindingExactBeforeProduction": True,
                 "strength": [0, 50, 100], "rgba": [list(rgba[:4]) for rgba in results],
                 "sourceModes": 2, "producerBindings": 1, "compositorBindings": 0,
                 "offFullFrameExact": True, "sourceAndPendingErrorsExact": True, "revisionAndExpiry": True,
