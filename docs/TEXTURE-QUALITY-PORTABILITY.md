@@ -20,12 +20,13 @@ transplanted instruction bytes or recovered proxy source. See the
 | Ten presentation effects | Independent processing; their pixel tests are not proof of Potato texture reduction |
 | Render resolution | Independent native Display configuration, requiring Save and restart |
 
-The UI switch uses a minimum-LOD floor of **3.0**, clamped to existing exposed
-mips and the original sampler's maximum LOD. Qualified **desktop GL** now also
-uses private additive bias, bounded by that floor and the queried
+The saved [Potato strength slider](POTATO-STRENGTH.md) uses **0–100%** with a
+requested minimum-LOD floor of **`3 * strength / 100`**, clamped to existing
+exposed mips and the original sampler's maximum LOD. Default/legacy On stays at
+100% (3.0); 50% gives 1.5 and 0% is native. Qualified **desktop GL** also uses
+private additive bias, bounded by that floor and the queried
 `GL_MAX_TEXTURE_LOD_BIAS`; GLES remains floor-only and never queries that enum.
-The shared policy also supports **1.5** for tests/future callers; there is no
-second texture-strength selector. Positive bias/floors select existing mips.
+Positive bias/floors select existing mips.
 They do not shrink allocated textures, create mipmaps, remove geometry, change
 the game's draw distance, change DPI/FPS caps or guarantee an FPS improvement.
 `texelFetch` and other samplerless accesses may ignore this policy.
@@ -59,11 +60,19 @@ A qualified **presentation must happen first**. A second current scene context
 can then be armed on that **exact same provider/display/drawable/game HWND**,
 without having to swap itself or stealing the presentation claim. The previous
 same-context-only gate missed this arrangement. A draw cannot claim a source.
-Unknown, offscreen, pbuffer, share-group-only and other-window/drawable contexts
-remain native: a presented compositor image does not prove ownership of its
-producer's scene resources. These are repaired interception gaps, **not proof
-that either was the cause in the user's game**; installed-player evidence is
-still required.
+No offscreen/pbuffer/share-group route becomes owned merely from its existence
+or equal GL names: a compositor image does not identify its producer by itself.
+[Resource provenance](POTATO-RESOURCE-PRODUCERS.md),
+[copy/resolve links](POTATO-COLOR-TRANSFERS.md) and
+[exact native image bindings](POTATO-NATIVE-IMAGE-BINDINGS.md) additionally reach
+recent exact upstream outputs. The [resource-only route repair](POTATO-RESOURCE-ONLY-ROUTES.md)
+allows named FBO/RBO proof on current no-HWND WGL DCs or truly surfaceless EGL
+contexts without inventing a native default image. Foreign windows, unmapped
+non-null EGL surfaces, unobserved sharing and unproven outputs stay native.
+These repair independently reproduced gaps, **not a proven game root cause**.
+The newest installed reports still have **3,145 and 856 NoSampler inspections /
+zero prepared bindings**, and legal **GL_LINEAR** on the inspected consumer;
+installed-game texture/Off acceptance remains negative.
 
 ### Nested translator draws and the active-gameplay failure
 

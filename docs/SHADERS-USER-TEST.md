@@ -126,18 +126,18 @@ requires explicit review of existing driver LOD/AA overrides, and currently has
 a GL 3.3/GLES 3.1 draw-time path only. No supplied DLL is installed. See
 [exact coverage and resource-provenance limits](TEXTURE-QUALITY-PORTABILITY.md).
 
-**Latest reported result remains not working:** 2,107 OpenGL grading frames;
-1,456 NoSampler inspections, zero resource-linked producers inspected/prepared,
-zero private bindings and zero captured transfers, with saved strength 100%.
-The inspected mutable RGB 256x256 image first fails level 1; the
-[native image binding follow-up](POTATO-NATIVE-IMAGE-BINDINGS.md) distinguishes
-a legal non-mip filter and adds a separately tested native pbuffer output route. This is
-not a small Potato effect. Grading activity and saved/armed state are not game
-texture changes. See the [producer and immutable-mip repair evidence](POTATO-MIP-QUALIFICATION.md)
-and [strength/status semantics](POTATO-STRENGTH.md). The reproduced immutable
-eligibility bug is repaired independently; it is not established as this game's
-root cause. These generic acceptance steps are for a new reviewed installation,
-not a request to repeat Save/gameplay or lower resolution as a remedy.
+**Latest reported result remains not working:** 1,577 OpenGL grading frames /
+3,145 NoSampler inspections and 2,993 frames / 856 NoSampler inspections, both
+with zero linked producers, prepared draws/private bindings or captured
+transfers, saved strength 100%. The inspected mutable RGB 256x256 image now
+specifically reports legal **GL_LINEAR 0x2601 / non-mip-filter=1**, not missing
+required mip 1. This is not a small Potato effect. Grading and saved/armed state
+are not game texture changes. The [resource-only route repair](POTATO-RESOURCE-ONLY-ROUTES.md),
+[native image links](POTATO-NATIVE-IMAGE-BINDINGS.md) and
+[immutable-mip evidence](POTATO-MIP-QUALIFICATION.md) fix independently reproduced
+gaps, not an established game root cause. See [strength/status semantics](POTATO-STRENGTH.md).
+These generic acceptance steps are for a new reviewed installation, not a
+request to repeat Save/gameplay or lower resolution as a remedy.
 
 1. Record the actual observed host API, player/game versions, GPU/driver, native
    size, current driver profile and a repeatable scene. Configuration is only a
@@ -160,7 +160,7 @@ not a request to repeat Save/gameplay or lower resolution as a remedy.
    writes and attachment are not prerequisites and must not be altered by the
    feature. Opaque mipmapped HUD or RGB-packed data/normal maps on this owned
    draw may change too; separate Qt/Chrome surfaces, blended draws, protected
-   resources and foreign/offscreen/share-group-only producers remain excluded.
+   resources and foreign/unproven-offscreen/share-group-only producers remain excluded.
    Compatibility counters must not be called proof of eligible 3D scene draws.
    Conservative first-depth-blocker and nested-call details are retained for
    separate callers/debugging, not as a requirement to change game depth state

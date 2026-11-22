@@ -1,6 +1,33 @@
 # Free Fire: host presentation is not scene-texture capture
 
-## Latest installed-player follow-up: mutable RGB level 1 refusal, zero producers
+## Latest installed-player follow-up: legal LINEAR consumer, still zero producers
+
+The new reports have **1,577 grading frames / 3,145 NoSampler inspections** and
+**2,993 grading frames / 856 NoSampler inspections**. Both have **zero prepared
+draws/private bindings, zero linked producer inspections/bindings and zero
+captured color transfers**, with saved strength 100% and depth-independent
+compatibility. Observed API is OpenGL, Qt bridge/host 5.15.2/5.15.4; Vulkan has
+one loader/instance/device but no WSI surface/swapchain/present.
+
+The inspected mutable RGB 256x256 sampler now definitively reports **MIN_FILTER
+`GL_LINEAR` (`0x2601`), `non-mip-filter=1`**, with all other first blockers zero.
+Stored/effective BASE/MAX are 0/1000, storage/view -1/-1, failed level -1. This
+is legal base-image-only sampling, **not missing required mip 1**. It does not
+identify the unseen material renderer or establish that its textures lack mips.
+Presentation grading and saved strength are not texture reduction.
+
+The [resource-only route repair](POTATO-RESOURCE-ONLY-ROUTES.md) independently
+reproduces and fixes a different production capture gap: a named FBO/RBO output
+needs exact recent namespace-qualified resource proof, **not a native default
+pbuffer identity**. Current no-HWND WGL DCs and truly surfaceless unprotected EGL
+contexts can now reach that proof; foreign windows, unmapped non-null EGL
+surfaces and unknown default images remain excluded. A before-repair actual
+surfaceless pixel test fails at the intended 50% material assertion; the repair
+passes on Mesa desktop/GLES and ANGLE with zero compositor replacements and
+full-frame exact Off. **This does not diagnose the game's route or change its
+still-negative acceptance.**
+
+## Previous installed-player follow-up: ambiguous mutable RGB level 1 refusal
 
 The saved-strength candidate reports **2,107 grading frames, 1,456 sampler
 inspections/all NoSampler and 1,456 presentation-input draws/bindings**, with

@@ -1,6 +1,7 @@
 #include "GlPipeline.h"
 #include "GlTextureQuality.h"
 #include "GlTextureOverride.h"
+#include "GlProducerRoute.h"
 #include <cstring>
 #include <memory>
 
@@ -17,14 +18,20 @@ constexpr BsiShaders::GlContextIdentity authoredContext{1,1,1};
 constexpr auto authoredPbuffer=BsiShaders::GlColorResource::pbuffer(1000001);
 BsiShaders::GlTextureUsage pendingTransfer;
 bool transferCaptured=false;
-unsigned producerBegin(int mode,bool pbuffer){
+unsigned producerBegin(int mode,bool pbuffer,bool namedOnly=false,int strength=100){
+    // Python verifies the actual current EGL context/display and BOTH null
+    // surfaces before requesting namedOnly. This fixture-only bridge supplies
+    // the native fact, never the final resource proof or a fake pbuffer ID.
+    const auto route=BsiShaders::glProducerRoute(false,false,false,false,namedOnly);
+    if(namedOnly&&route==BsiShaders::GlProducerRoute::Refuse)return 0;
     BsiShaders::GlTextureUsage usage;
     if(!quality->usage(&usage))return 0;
+    if(namedOnly&&!BsiShaders::qualifyGlProducerOutput(route,0,usage))return 0;
     if(pbuffer&&usage.defaultFramebuffer){usage.writes[0]=authoredPbuffer;usage.writeCount=1;}
     if(!dependencies.producer(authoredContext,usage))return 0;
     dependencies.observe(authoredContext,usage,false);std::string detail;
     return quality->begin(static_cast<BsiShaders::TextureQuality>(mode),true,4,&detail,nullptr,nullptr,
-                          BsiShaders::TextureDrawPolicy::OwnedMipCompatibility);
+                          BsiShaders::TextureDrawPolicy::OwnedMipCompatibility,strength);
 }
 }
 extern "C" {
@@ -88,6 +95,7 @@ unsigned bsi_test_dependency_consumer(){
 }
 unsigned bsi_test_dependency_producer_begin(int mode){return producerBegin(mode,false);}
 unsigned bsi_test_dependency_pbuffer_begin(int mode){return producerBegin(mode,true);}
+unsigned bsi_test_dependency_resource_only_begin(int mode,int strength){return producerBegin(mode,false,true,strength);}
 // Authored native-pbuffer qualification, not a Windows lifecycle assertion.
 // Python invokes the real GL original BETWEEN capture and complete.
 unsigned bsi_test_dependency_transfer_capture(int copy,int qualifyNativeRead){

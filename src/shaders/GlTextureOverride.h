@@ -10,8 +10,11 @@ namespace BsiShaders {
 // must first prove the CURRENT drawable belongs to the selected owned game
 // presentation, OR prove the current color-FBO/known-native-pbuffer output is a
 // recent presentation dependency (possibly via an observed copy/resolve) in
-// the same/explicitly shared object namespace, or its exact native pbuffer
-// lifetime/color buffer is linked by a successful native image binding/copy.
+// the same/explicitly shared object namespace. A named FBO attachment needs no
+// native DEFAULT-image identity, even on a no-HWND DC/surfaceless context;
+// unknown DEFAULT outputs and foreign window routes remain excluded.
+// Alternatively, prove its exact native pbuffer lifetime/color buffer is
+// linked by a successful native image binding/copy.
 // That native output does not merge GL object namespaces.
 // Sharing, a loaded provider or equal numeric texture names alone never prove
 // ownership. Foreign window routes remain excluded. No source object is edited.

@@ -443,6 +443,29 @@ int main(int argc,char **argv){
     b.current(readPbuffer,isolated);b.resource(4);b.draw(GlDrawKind::Arrays,0,0);
     require(runtime.metrics().textureProducerDraws==1,"native image links inherit the consumer TTL and cannot keep a nonsharing producer authorized forever");
 
+    // A named FBO/RBO producer does not need a native default image at all.
+    // Exercise the REAL detours on a surfaceless shared context, rather than
+    // disguising an ordinary pbuffer draw as an EGL_NO_SURFACE reproduction.
+    b.function<void(*)(int)>("bsiFixtureExtensions")(1);
+    nativeConsume();b.current(nullptr,shared);b.resource(2);b.draw();
+    require(runtime.metrics().textureProducerDraws==1&&runtime.metrics().textureProducerBindings==2,
+            "an actually surfaceless context reaches the exact consumed FBO in an observed shared namespace, without claiming presentation");
+    b.resource(2,51);b.draw(GlDrawKind::Arrays,0,0);
+    b.resource(4);b.draw(GlDrawKind::Arrays,0,0);
+    b.current(nullptr,isolated);b.resource(2);b.draw(GlDrawKind::Arrays,0,0);
+    const auto surfacelessInspected=runtime.metrics().textureInspected;
+    const auto queriesBeforeSurfacelessProtection=b.count("bsiFixtureGlQueries");
+    b.current(nullptr,sharedProtected);b.resource(2);b.draw(GlDrawKind::Arrays,0,0);
+    b.current(nullptr,shared,offscreen);b.resource(2);b.draw(GlDrawKind::Arrays,0,0);
+    require(runtime.metrics().textureInspected==surfacelessInspected&&b.count("bsiFixtureGlQueries")==queriesBeforeSurfacelessProtection
+            &&!b.count("bsiFixtureIllegalQueries"),
+            "surfaceless still rejects protected contexts BEFORE GL, mismatched null DRAW/non-null READ, isolated names, unrelated FBOs and all unknown default images; NEVER query EGL_NO_SURFACE");
+    b.current(nullptr,shared);b.resource(3,70);b.draw(GlDrawKind::Arrays,0,0);
+    b.transferState(2,70);b.transfer(false);b.resource(3,70);b.draw();
+    b.transferState(0,0);b.transfer(true);
+    require(runtime.metrics().textureProducerDraws==2&&runtime.metrics().textureTransferCalls==1,
+            "surfaceless named-RBO resolve follows the exact same resource proof; a copy from an unknown default READ image remains excluded");
+
     // Percentage must traverse Runtime -> route snapshot -> REAL draw detour
     // -> bound private sampler. The original independently expects these floors.
     b.current(secondTarget,second);b.resource(0);b.scene(0);
@@ -468,6 +491,6 @@ int main(int argc,char **argv){
     b.removeContext(second);a.removeContext(uiContext);a.removeSurface(uiTarget);
     require(!runtime.metrics().observed&&!runtime.metrics().textureDraws&&!a.count("bsiFixtureInvalidGl")&&!b.count("bsiFixtureInvalidGl"),"teardown and dispatch fixtures leave no stale presentation/texture success or invalid GL state");
     runtime.setTexture({});runtime.stop();DestroyWindow(ui);DestroyWindow(game);DestroyWindow(root);UnregisterClassW(cls.lpszClassName,cls.hInstance);
-    std::printf("PASS: production EGL/MinHook lifecycle plus %u draw signature/alias detours; exact arguments/once-only native draws, private samplers DURING base-vertex/multi/indirect/instanced draws, zero-binding wrapper -> nested scene versus live-override guards, precise first depth blockers, exact owned drawable plus proven same/explicit-share FBO/default-pbuffer producers via native copy/resolve detours, separate READ pbuffer identity, no pre-original publication, revision/resource-serial changes inside originals, deletion overflow recovery without lost native sharing, unrelated/UI/protected/unmapped routes excluded, expiry, Off/source reset and teardown\n",variants);
+    std::printf("PASS: production EGL/MinHook lifecycle plus %u draw signature/alias detours; exact arguments/once-only native draws, private samplers DURING base-vertex/multi/indirect/instanced draws, zero-binding wrapper -> nested scene versus live-override guards, precise first depth blockers, exact owned drawable plus proven same/explicit-share FBO/default-pbuffer producers via native copy/resolve detours, separate READ pbuffer identity, no pre-original publication, revision/resource-serial changes inside originals, deletion overflow recovery without lost native sharing, named-only surfaceless FBO/RBO producers with no null-surface query or unknown default adoption, unrelated/UI/protected/unmapped non-null EGL routes excluded, expiry, Off/source reset and teardown\n",variants);
     std::puts("LIMIT: authored EGL/GL state doubles only, no GL driver/game pixels, protected GPU memory or physical GPU/player certification");
 }

@@ -59,7 +59,8 @@ API unsigned WINAPI eglDestroyContext(void*,void *value){
     InterlockedExchangeAdd(&housekeeping,5);if(currentContext==value){currentContext=nullptr;currentSurface=currentReadSurface=nullptr;}return value!=nullptr;
 }
 API unsigned WINAPI eglQuerySurface(void*,void *value,int name,int *out){
-    if(!value||!out)return 0;const auto &surface=*static_cast<Surface*>(value);
+    if(!value){InterlockedIncrement(&illegalQueries);return 0;} // EGL_NO_SURFACE is NEVER queryable
+    if(!out)return 0;const auto &surface=*static_cast<Surface*>(value);
     if(name==0x32c0){InterlockedIncrement(&protectionQueries);if(!extensions)InterlockedIncrement(&illegalQueries);*out=surface.protectedContent;return 1;}
     if(!surface.window){
         if(bindingFailures&2)return 0;

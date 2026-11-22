@@ -1,6 +1,23 @@
 # Potato: follow successful native pbuffer image bindings
 
-## Latest installed result is still negative, now with a specific inspected image
+## Newest installed result: LINEAR confirmed, native route did not activate
+
+The delivered native-image candidate still has **zero prepared bindings/draws,
+zero linked producer inspections and zero transfers** in both new reports:
+**1,577 grading frames / 3,145 NoSampler** and **2,993 frames / 856 NoSampler**.
+The effective filter is now specifically **`GL_LINEAR` (`0x2601`)** on the
+mutable RGB 256x256 image: `non-mip-filter=1`, failed level -1, all other first
+blockers zero. That legal base-only consumer is not proof of missing material
+mips. Strength 100%, grading activity and a passing authored native-image test
+are not a partial Potato effect or installed-game success.
+
+The [resource-only route follow-up](POTATO-RESOURCE-ONLY-ROUTES.md) repairs an
+independently reproduced native prefilter error for exact named FBO/RBO outputs
+on current no-HWND WGL DCs or truly surfaceless EGL contexts. It does not guess
+unknown default images/sharing or establish the game uses that path. The native
+binding implementation/evidence below remains valid but game-unconfirmed.
+
+## Previous installed result and the effective-filter diagnostic repair
 
 The slider/mip-storage candidate's installed report is **2,107 OpenGL grading
 frames, 1,456 sampler inspections/all NoSampler, 1,456 presentation inputs,

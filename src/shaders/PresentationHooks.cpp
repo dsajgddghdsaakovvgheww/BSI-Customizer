@@ -4,6 +4,7 @@
 #include "GlTextureOverride.h"
 #include "GlDrawCalls.h"
 #include "GlDrawScope.h"
+#include "GlProducerRoute.h"
 #include "WglPbufferRegistry.h"
 #include "PresentationHooks.h"
 #ifndef WIN32_LEAN_AND_MEAN
@@ -225,15 +226,19 @@ Renderer rendererFor(unsigned provider){
 }
 bool unprotectedEgl(EglProvider &p,DrawableKey drawable,std::uintptr_t context,bool *externalProtectionPossible,bool read=false){
     const auto display=reinterpret_cast<void*>(drawable.first),surface=reinterpret_cast<void*>(drawable.second);
-    if(p.currentDisplay()!=display||p.currentSurface(read?0x305a:0x3059)!=surface
+    if(!display||!context||p.currentDisplay()!=display||p.currentSurface(read?0x305a:0x3059)!=surface
        ||reinterpret_cast<std::uintptr_t>(p.current())!=context)return false;
+    // A real surfaceless current context has NEITHER native drawable. Never
+    // call eglQuerySurface(EGL_NO_SURFACE, ...): it is not a queryable image.
+    // The context/protection check still precedes every optional GL call.
+    if(!surface&&p.currentSurface(read?0x3059:0x305a))return false;
     const char *extensions=p.strings(display,0x3055); // EGL_EXTENSIONS
     if(!extensions)return false;
     const bool content=extension(extensions,"EGL_EXT_protected_content");
     const bool surfaces=content||extension(extensions,"EGL_EXT_protected_surface");
     int protectedSurface=0,protectedContext=0;
     if(externalProtectionPossible)*externalProtectionPossible=surfaces;
-    return (!surfaces||(p.query(display,surface,0x32c0,&protectedSurface)&&!protectedSurface))
+    return (!surface||!surfaces||(p.query(display,surface,0x32c0,&protectedSurface)&&!protectedSurface))
         &&(!content||(p.queryContext(display,reinterpret_cast<void*>(context),0x32c0,&protectedContext)&&!protectedContext));
 }
 // Shared native routing for draw AND color-transfer observations. Merely
@@ -247,6 +252,7 @@ struct GameCandidate {
     EglProvider *egl=nullptr;
     GameContext *session=nullptr;
     bool exact=false,protectionPossible=false;
+    GlProducerRoute producerRoute=GlProducerRoute::Refuse;
     bool find(unsigned index,const TextureRoute &route){
         provider=index;auto &h=hooks();auto &runtime=Runtime::instance();
         context=contextFor(provider);if(!context)return false;
@@ -258,10 +264,15 @@ struct GameCandidate {
         const auto window=drawableFor(provider,&drawable);
         exact=source->window==window&&source->drawable==drawable;
         identity={provider,drawable.first,context};pbuffer=pbufferFor(provider,drawable);
+        // WGL needs a current non-window DC; EGL needs an actually surfaceless
+        // current context/display. An UNMAPPED non-null EGL surface is not
+        // inferred to be offscreen from its config or from equal GL names.
+        const bool resourceOnlyDrawable=provider?(drawable.first&&!drawable.second):(!window&&drawable.second);
+        producerRoute=glProducerRoute(exact,pbuffer!=0,window!=nullptr,window==source->window,resourceOnlyDrawable);
         const auto &quality=route.configuration;
         if(!exact&&(quality.drawPolicy!=TextureDrawPolicy::OwnedMipCompatibility||!quality.externalOverridesReviewed
            ||!source->resourceHooks||(!h.provenance.hasDependencies(identity)&&!h.provenance.hasNativePbuffer(identity,pbuffer))
-           ||(!pbuffer&&(!window||window!=source->window))))return false;
+           ||producerRoute==GlProducerRoute::Refuse))return false;
         egl=provider?&h.egl[provider-1]:nullptr;
         if(egl&&!unprotectedEgl(*egl,drawable,context,&protectionPossible))return false;
         const ContextKey key{provider,drawable.first,context};auto found=h.contexts.find(key);
@@ -281,10 +292,7 @@ struct GameCandidate {
         return session->drawHooks;
     }
     bool qualifyOutput(GlTextureUsage &usage)const{
-        if(!usage.defaultFramebuffer)return true;
-        if(pbuffer){usage.writes[0]=GlColorResource::pbuffer(pbuffer,usage.nativeColorBuffer);usage.writeCount=1;return true;}
-        if(exact){usage.writeCount=0;return true;} // selected default output can seed a root, not a pbuffer identity
-        return false;
+        return qualifyGlProducerOutput(producerRoute,pbuffer,usage);
     }
     bool qualifyTransferInput(GlTextureUsage &usage)const{
         for(std::size_t i=0;i<usage.readCount;++i)if(usage.reads[i].kind==GlColorResource::Pbuffer){

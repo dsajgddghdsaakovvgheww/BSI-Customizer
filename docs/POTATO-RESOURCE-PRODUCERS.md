@@ -1,15 +1,20 @@
 # Potato: resource-linked color-FBO producers
 
-## Newest installed result and native-image follow-up
+## Newest installed result and resource-only route follow-up
 
-The saved-strength candidate still has **2,107 grading frames / 1,456 NoSampler /
-zero prepared bindings, linked producer inspections or captured transfers**.
-Its inspected image is mutable RGB 256x256, first refused at level 1; the prior
-immutable repair is not its diagnosis. The [native image binding follow-up](POTATO-NATIVE-IMAGE-BINDINGS.md)
-corrects effective-filter reporting and adds actual successful render-to-texture
-links without a GL copy/blit. Native lifetime/color links can cross nonsharing
-contexts without merging their GL object names. The older evidence/limits below
-remain historical, not a claim that the new game result worked.
+Both new game reports remain **all NoSampler**: **1,577 grading frames / 3,145
+inspections** and **2,993 frames / 856 inspections**, with zero prepared bindings,
+linked producer inspections or transfers, saved strength 100%. The inspected
+mutable RGB 256x256 image specifically uses legal **GL_LINEAR 0x2601**;
+`non-mip-filter=1`, not an incomplete required mip chain.
+
+The [resource-only route repair](POTATO-RESOURCE-ONLY-ROUTES.md) removes an
+independently reproduced native prefilter error: exact named FBO/RBO outputs
+need no default pbuffer image identity on current no-HWND WGL DCs or genuinely
+surfaceless EGL contexts. Recent typed same/observed-share resource proof,
+protection and foreign/unknown-default exclusions remain mandatory. The earlier
+[native image links](POTATO-NATIVE-IMAGE-BINDINGS.md) are also game-unconfirmed;
+none of these authored tests establishes a working installed-game effect.
 
 ## Latest result and follow-up
 
@@ -89,9 +94,12 @@ preference key, driver profile, resolution write or restart is introduced.
    recognizes exact successful WGL pbuffer DC acquisitions (including driver
    hidden-window DCs) and typed renderbuffer/default-pbuffer dependencies reached
    through an actual submitted color copy/resolve. None can seed its own
-   ownership. Unknown window/DC/surfaceless routes, other APIs/processes and
-   unobserved sharing remain native. Protection is queried legally before
-   optional GL initialization; protected textures never seed roots. Unqueryable
+   ownership. The [resource-only follow-up](POTATO-RESOURCE-ONLY-ROUTES.md) lets
+   current no-HWND WGL DCs and truly surfaceless EGL contexts reach ONLY exact
+   named-resource proof, never an unknown default image. Foreign windows,
+   unmapped non-null EGL surfaces, other APIs/processes and unobserved sharing
+   remain native. Protection is queried legally before optional GL
+   initialization; protected textures never seed roots. Unqueryable
    attachment protection fails closed for transfers. Other MRT outputs are not
    authorized using buffer zero's write mask.
 5. **Apply at the material draw, not the compositor.** A proven producer uses

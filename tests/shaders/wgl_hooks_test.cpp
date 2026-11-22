@@ -92,9 +92,14 @@ int main(int argc,char **argv){
     require(originalPresentationFunction(reinterpret_cast<void*>(GetProcAddress(f.module,"wglSwapBuffers")))!=nullptr,"actual WGL swap/lifecycle hooks attached");
     f.current(gameDc,presenter);f.swap(gameDc);f.resource(1);f.draw(0);
     require(runtime.metrics().textureConsumerInputs==1&&!runtime.metrics().textureDraws,"single-level selected desktop compositor is NoSampler, not Potato texture success");
-    f.current(pbDc,presenter);f.resource(2);f.draw(0);
-    f.current(foreignDc,presenter);f.draw(0);f.current(uiDc,presenter);f.draw(0);
-    require(!runtime.metrics().textureProducerInspected,"unknown DC, foreign HWND and Qt route do not become owned from equal output names");
+    f.current(pbDc,presenter);f.resource(4);f.draw(0);
+    require(!runtime.metrics().textureProducerInspected,"an unobserved pbuffer DC still cannot identify its default color output");
+    f.resource(2);f.draw(2);f.resource(2,51);f.draw(0);
+    f.current(foreignDc,presenter);f.resource(2);f.draw(0);f.current(uiDc,presenter);f.draw(0);
+    require(runtime.metrics().textureProducerInspected==1&&runtime.metrics().textureProducerDraws==1,
+            "a current no-HWND DC needs no pbuffer identity for an EXACT consumed SAME-context FBO output; unrelated outputs, foreign HWNDs and Qt stay native");
+    runtime.setTexture({false,true,TextureDrawPolicy::OwnedMipCompatibility});runtime.setTexture({true,true,TextureDrawPolicy::OwnedMipCompatibility});
+    f.current(gameDc,presenter);f.resource(1);f.draw(0);
     require(f.get(pb)==pbDc,"successful native get can prove an existing pbuffer's EXACT current DC");
     f.current(pbDc,presenter);f.resource(2);f.draw(2);f.resource(2,51);f.draw(0);
     require(runtime.metrics().textureProducerDraws==1,"known pbuffer still requires the exact recently consumed FBO output, not merely the context");
@@ -137,6 +142,11 @@ int main(int argc,char **argv){
     f.current(pbDc,scene,readPbufferDc);f.transferState(0,0);f.transfer(true);
     f.current(pbDc,scene);f.resource(4);f.draw(0);f.current(readPbufferDc,scene);f.resource(4);f.draw(2);
     require(runtime.metrics().textureProducerDraws==1,"wglGetCurrentReadDCARB identifies the actual read pbuffer, not the draw DC");
+    consume();f.current(unknownReadDc,scene);f.resource(3,70);f.draw(0);
+    f.transferState(2,70);f.transfer(false);f.resource(3,70);f.draw(2);
+    f.resource(4);f.draw(0);
+    require(runtime.metrics().textureTransferCalls==1&&runtime.metrics().textureProducerDraws==1,
+            "unmapped no-HWND DC can resolve an exact named RBO into a consumed texture in an OBSERVED shared namespace, but never authorize its unknown default image");
     consume();f.current(pbDc,scene);f.resource(3,70);f.draw(0);
     for(unsigned alias=0;alias<4;++alias){f.transferState(2,70);f.transfer(false,alias);}
     f.resource(3,70);f.draw(2);
@@ -177,6 +187,6 @@ int main(int argc,char **argv){
     runtime.setTexture({});runtime.stop();
     require(!f.count("bsiFixtureInvalidGl"),"no optional GL query/state failure in WGL fixture");
     ReleaseDC(game,gameDc);ReleaseDC(foreign,foreignDc);ReleaseDC(ui,uiDc);DestroyWindow(ui);DestroyWindow(foreign);DestroyWindow(game);DestroyWindow(root);UnregisterClassW(cls.lpszClassName,cls.hInstance);
-    std::puts("PASS: actual WGL MinHook/Win32 contracts, observed exact pbuffer DCs including driver-like hidden HWNDs; unknown/Qt/foreign/failed-share exclusion; native leases/failure returns/refresh/destroy/reuse; default-read copy and RBO blit provenance, desktop bias+floor samplers INSIDE originals, once-only exact arguments, distinct READ DC, expiry, Off and source teardown");
+    std::puts("PASS: actual WGL MinHook/Win32 contracts, observed exact pbuffer DCs including driver-like hidden HWNDs; named-only FBO/RBO producers on current no-HWND DCs without default-image guesses; unknown-default/Qt/foreign/failed-share exclusion; native leases/failure returns/refresh/destroy/reuse; default-read copy and RBO blit provenance, desktop bias+floor samplers INSIDE originals, once-only exact arguments, distinct READ DC, expiry, Off and source teardown");
     std::puts("LIMIT: authored WGL/GL dispatch doubles, not a system proxy, real GL driver/game pixels or physical GPU certification");
 }

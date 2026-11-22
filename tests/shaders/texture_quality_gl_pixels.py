@@ -26,7 +26,7 @@ def save_rgba(path, rgba, size):
     path.write_bytes(png + chunk(b"IDAT", zlib.compress(rows)) + chunk(b"IEND", b""))
 
 
-def exercise(gl, policy, desktop, size, resolver):
+def exercise(gl, policy, desktop, size, resolver, resource_current):
     version = gl("glGetString", C.c_char_p, U)(0x1F02).decode()
     match = re.search(r"(\d+)\.(\d+)", version)
     assert match, version
@@ -558,6 +558,114 @@ def exercise(gl, policy, desktop, size, resolver):
                          "presentedOffExact": root_off == root_native, "revisionExpiryMaskBypass": True,
                          "nativeSha256": hashlib.sha256(root_native).hexdigest(),
                          "strongSha256": hashlib.sha256(root_strong).hexdigest()}
+
+    # Actual surfaceless producer: an FBO attachment is a GL named resource,
+    # NOT the native drawable's default image. Requiring an observed pbuffer
+    # lifetime here misses valid producers even with exact SAME-context proof.
+    # The callback asserts the REAL current EGL context/display and both null
+    # surfaces; the bridge uses production route/output/provenance/samplers.
+    policy.bsi_test_dependency_resource_only_begin.argtypes = [I, I]
+    policy.bsi_test_dependency_resource_only_begin.restype = U
+    bind_input(color_target)
+    active(0x84C0)
+    texture_i(0x0DE1, 0x2801, 0x2601)  # legal base-only LINEAR, like the reported consumer
+    active(0x84C3)
+    assert get_error() == 0
+    resource_evidence = []
+
+    def resource_composite():
+        bind_framebuffer(0x8D40, 0)
+        bind_input(color_target)
+        bind_sampler(0, 0)
+        count = policy.bsi_test_quality_begin_strength(2, 1, 4, 1, 100, message, len(message))
+        assert count == 0 and b"non-mip-filter=1" in message.value, "the legal LINEAR compositor must stay native; do not manufacture material mips"
+        draw(4, 0, 3)
+        policy.bsi_test_quality_end()
+        return root_pixels()
+
+    def resource_draw(mode, strength=100, pending_error=False):
+        bind_framebuffer(0x8D40, color_fbo)
+        bind_input(texture)
+        bind_sampler(0, native_binding)
+        if pending_error:
+            gl("glEnable", None, U)(0xDEADBEEF)
+        count = policy.bsi_test_dependency_resource_only_begin(mode, strength)
+        current, sampler = I(), I()
+        get_int(0x84E0, C.byref(current))
+        get_binding(sampler)
+        assert current.value == 0x84C3 and (sampler.value != native_binding) == bool(count)
+        if count:
+            floor = F()
+            get_sampler(sampler.value, 0x813A, C.byref(floor))
+            assert floor.value == 3 * strength / 100
+        draw(4, 0, 3)
+        policy.bsi_test_quality_end()
+        get_binding(sampler)
+        assert sampler.value == native_binding, "surfaceless producer restores the exact original binding before returning"
+        if pending_error:
+            assert get_error() == 0x0500, "resource-only inspection must not consume the application's pending error"
+        image = root_pixels()
+        assert source_lods() == saved_source_lods and get_error() == 0
+        return count, image
+
+    for source_index, native_binding in enumerate((samplers[0], 0)):
+        policy.bsi_test_dependency_reset(500 + source_index)
+        resource_current(True)
+        count, image = resource_draw(2)
+        assert count == 0 and tuple(image[:4]) == native, "a surfaceless current context/FBO alone is NOT ownership"
+        resource_current(False)
+        resource_native = resource_composite()
+        assert policy.bsi_test_dependency_consumer() == 1
+        resource_current(True)
+        bind_framebuffer(0x8D40, 0)
+        assert policy.bsi_test_dependency_resource_only_begin(2, 100) == 0 and get_error() == 0, "a surfaceless default framebuffer is never invented or sampled as a material output"
+        observed_strength = []
+        for percent, expected in ((0, native), (50, (0, 128, 128, 173)), (100, colors[3])):
+            count, image = resource_draw(2, percent, pending_error=True)
+            assert count == int(percent > 0) and all(abs(a - b) <= 2 for a, b in zip(image[:4], expected)), ("resource-only material mip strength", percent, count, tuple(image[:4]))
+            observed_strength.append(list(image[:4]))
+        resource_current(False)
+        resource_strong = resource_composite()
+        assert tuple(resource_strong[:4]) == colors[3] and resource_strong != resource_native, "real producer pixels must pass through the unchanged base-only compositor at the SAME resolution"
+        resource_current(True)
+        count, _ = resource_draw(0)
+        assert count == 0
+        resource_current(False)
+        resource_off = resource_composite()
+        assert resource_off == resource_native, "the entire presented resource-only Off image must exactly match native"
+        for _ in range(3):
+            policy.bsi_test_dependency_frame()
+        resource_current(True)
+        assert resource_draw(2)[0] == 0, "surfaceless producers cannot refresh their own consumer TTL"
+        resource_current(False)
+        resource_composite()
+        assert policy.bsi_test_dependency_consumer() == 1
+        policy.bsi_test_dependency_reset(600 + source_index)
+        resource_current(True)
+        assert resource_draw(2)[0] == 0, "source/settings revisions revoke resource-only proofs"
+        resource_current(False)
+        label = "sampler" if native_binding else "texture"
+        resource_evidence.append({"source": label, "strengthRGBA": observed_strength, "producerBindings": 1,
+                                  "compositorBindings": 0, "offExact": resource_off == resource_native})
+        artifacts = os.environ.get("BSI_TEXTURE_PIXEL_ARTIFACT_DIR")
+        if artifacts:
+            folder = Path(artifacts) / ("desktop" if desktop else "gles")
+            for tag, rgba in (("native", resource_native), ("strong", resource_strong), ("off", resource_off)):
+                save_rgba(folder / ("surfaceless-" + label + "-" + tag + ".png"), rgba, size)
+    native_binding = samplers[0]
+    bind_sampler(0, native_binding)
+    bind_input(texture)
+    resource_report = {"api": "desktop" if desktop else "gles", "version": version,
+                       "actualNullDrawAndReadSurface": True, "sourceModes": resource_evidence,
+                       "sourceStatePendingErrorRevisionTTL": True,
+                       "limit": "actual software EGL/GL resources, not Win32 route or game certification"}
+    report = json.dumps(resource_report, separators=(",", ":"))
+    print("Resource-only producer pixel evidence:", report)
+    if os.environ.get("BSI_TEXTURE_PIXEL_ARTIFACT_DIR"):
+        (folder / "resource-only-evidence.json").write_text(json.dumps(resource_report, indent=2) + "\n")
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        assert len(report.encode()) < 2500
+        print("::notice title=Actual surfaceless material producer pixels (software)::" + report)
 
     # New independent missing-path reproductions. No material draw writes the
     # consumed texture directly: its output is a renderbuffer resolved by blit,

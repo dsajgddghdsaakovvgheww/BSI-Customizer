@@ -184,7 +184,15 @@ def main():
         assert get_error() == 0
         if os.environ.get("BSI_TEST_TEXTURE_QUALITY"):
             from shaders.texture_quality_gl_pixels import exercise
-            exercise(gl, core, desktop, SIZE, resolver)
+
+            def resource_current(surfaceless):
+                target = None if surfaceless else surface
+                assert make_current(display, target, target, context), "The mandatory resource-only producer test needs a real surfaceless current context"
+                assert native("eglGetCurrentContext", P)() == context and native("eglGetCurrentDisplay", P)() == display
+                get_surface = native("eglGetCurrentSurface", P, I)
+                assert get_surface(0x3059) == target and get_surface(0x305A) == target, "Never label an ordinary pbuffer draw as surfaceless proof"
+
+            exercise(gl, core, desktop, SIZE, resolver, resource_current)
             assert get_error() == 0
             if native_images:
                 from shaders.native_texture_binding_gl_pixels import exercise as native_image_pixels
