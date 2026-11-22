@@ -41,7 +41,8 @@ Image {property string asset:"BlueStacksLogo";property int pImageWidth:20;proper
 ''')
     (temp/'UiImageButton.qml').write_text('''import QtQuick 2.15
 import QtQuick.Controls 2.15
-Button {property string asset:"TitlebarClose";width:32;height:32;contentItem:Rectangle {color:"#ff00ff"};background:Rectangle {color:"transparent"}}
+Button {property string asset:"TitlebarClose";width:32;height:32;contentItem:Rectangle {color:"#ff00ff"}
+background:Rectangle {color:"transparent"}}
 ''')
     source='''import QtQuick 2.15
 import QtQuick.Window 2.15
