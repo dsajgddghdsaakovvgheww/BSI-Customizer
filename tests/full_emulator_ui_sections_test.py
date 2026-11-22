@@ -185,6 +185,10 @@ Window {
         button=visual(root,'fixtureNativeSave')
         assert button.property('pColor').property('normal').property('textColor').name()==preset['palette']['background']
     window.setProperty('requested','oled');QMetaObject.invokeMethod(window,'choose');settle()
+    badge=visual(native_slider,'voidReferenceFpsValue');before=native_slider.property('value')
+    badge_point=badge.mapToScene(QPointF(badge.width()/2,badge.height()/2))
+    QTest.mouseClick(window,Qt.LeftButton,Qt.NoModifier,QPoint(round(badge_point.x()),round(badge_point.y())));settle()
+    assert native_slider.property('value')==before,'read-only value badge changed native FPS'
     button=visual(root,'fixtureNativeSave');p=button.mapToScene(QPointF(button.width()/2,button.height()/2))
     QTest.mouseClick(window,Qt.LeftButton,Qt.NoModifier,QPoint(round(p.x()),round(p.y())));settle()
     assert page.property('saved')==1,'native Save callback lost under primary visuals'

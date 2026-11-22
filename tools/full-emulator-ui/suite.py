@@ -488,7 +488,7 @@ def native_section_sources(module, desired, url):
                         inline_fps=scopes[children[0]]['type']=='UiSlider' and identity(scopes[children[0]])=='iFrameRateSlider'
                         if inline_fps and n==0:
                             layout='property bool pVoidInlineSlider:true\nrightPadding:54\nLayout.minimumWidth:180\nLayout.row:'+card_id+'.pInline?0:2\nLayout.column:'+card_id+'.pInline?1:0\nLayout.rowSpan:'+card_id+'.pInline?2:1\nLayout.columnSpan:'+card_id+'.pInline?1:2\n'
-                            layout+='Rectangle {objectName:"voidReferenceFpsValue";anchors.right:parent.right;anchors.verticalCenter:parent.verticalCenter;width:44;height:30;radius:Math.min(VoidLiveTheme.Theme.corner,8);color:VoidLiveTheme.Theme.background;border.width:1;border.color:VoidLiveTheme.Theme.border;Text {anchors.centerIn:parent;text:Math.round(iFrameRateSlider.value);color:VoidLiveTheme.Theme.text;font.family:VoidLiveTheme.Theme.fontFamily;font.pixelSize:12}}\n'
+                            layout+='Rectangle {objectName:"voidReferenceFpsValue";anchors.right:parent.right;anchors.verticalCenter:parent.verticalCenter;width:44;height:30;radius:Math.min(VoidLiveTheme.Theme.corner,8);color:VoidLiveTheme.Theme.background;border.width:1;border.color:VoidLiveTheme.Theme.border;Text {anchors.centerIn:parent;text:Math.round(iFrameRateSlider.value);color:VoidLiveTheme.Theme.text;font.family:VoidLiveTheme.Theme.fontFamily;font.pixelSize:12}MouseArea {anchors.fill:parent;onPressed:function(mouse){mouse.accepted=true}}}\n'
                         else:layout='Layout.row:'+('('+card_id+'.pInline?1:2)+'+str(n) if inline_fps else str(n))+'\nLayout.column:0\nLayout.columnSpan:2\n'
 
                     elif n==0 or (n==1 and has_description):
