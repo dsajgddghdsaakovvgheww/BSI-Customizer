@@ -1,5 +1,6 @@
 #pragma once
 #include "GlDeferredCopyAudit.h"
+#include "GlTransferAudit.h"
 #include <algorithm>
 #include <array>
 #include <cstddef>
@@ -71,6 +72,7 @@ class GlTextureProvenance {
 public:
     static constexpr std::size_t contextCapacity=64,textureCapacity=128,pendingCopyCapacity=32;
     static constexpr unsigned maximumHops=8;
+    static constexpr std::size_t edgeCapacity=4;
     static constexpr std::uint64_t frameLifetime=2;
     void synchronize(std::uintptr_t source,std::uint64_t revision){
         if(source_==source&&revision_==revision)return;
@@ -177,6 +179,28 @@ public:
     void discardPendingDrawWrites(GlContextIdentity key,const GlDrawWrites *writes,GlDeferredDiscardSite site=GlDeferredDiscardSite::Unspecified){
         discardPendingColorWrites(key,writes?&writes->writes:nullptr,writes?writes->writeCount:0,writes&&writes->nativeColorWrite,site);
     }
+    // Option-2 invalidation: distinguish a genuinely attempted but unavailable
+    // footprint from an intentional caller gate skip. Known writes supersede
+    // only matching graph resources; unknown writes kill this observed namespace's edges.
+    void invalidateNamespace(GlContextIdentity key){
+        const auto id=knownSpace(key);if(!id)return;
+        for(auto &item:textures_)if(item.space==id)++item.epoch;
+        for(auto &item:textures_)for(auto &edge:item.edges)if(edge.used&&edge.space==id)edge.captured=0;
+    }
+    void invalidateWrites(GlContextIdentity key,const GlDrawWrites *writes){
+        if(!writes){invalidateNamespace(key);return;}
+        if(writes->nativeColorWrite){invalidateNamespace(key);return;}
+        const auto id=knownSpace(key);if(!id)return;
+        GlTextureUsage usage;usage.writes=writes->writes;usage.writeCount=writes->writeCount;
+        supersede(key,id,usage);
+    }
+    void invalidateProviderNamespaces(unsigned provider){
+        std::array<std::uint64_t,contextCapacity> spaces{};std::size_t count=0;
+        for(const auto &context:contexts_)if(context.space&&context.key.provider==provider
+            &&std::find(spaces.begin(),spaces.begin()+count,context.space)==spaces.begin()+count)spaces[count++]=context.space;
+        for(std::size_t n=0;n<count;++n)for(const auto &context:contexts_)
+            if(context.space==spaces[n]&&context.key.provider==provider){invalidateNamespace(context.key);break;}
+    }
     // Called only AFTER a native CopyTexSubImage2D returns with its existing
     // descriptor/current/route/resource checks intact. A queued edge cannot
     // seed a namespace, authorize a producer or refresh any dependency. The
@@ -214,36 +238,60 @@ public:
         return false;
     }
     // Returns the number of consumed color bindings observed, not pixels/FPS.
-    unsigned observe(GlContextIdentity key,const GlTextureUsage &usage,bool selectedDrawable,GlDeferredCopyResolution *resolved=nullptr){
+    // replacesWrites: the caller is a native color TRANSFER (copy/blit/image copy). Like the
+    // deferred-copy policy ("keep only the latest copy into an output") it supersedes every
+    // earlier recorded link INTO its destination. Draws accumulate and never set it.
+    unsigned observe(GlContextIdentity key,const GlTextureUsage &usage,bool selectedDrawable,GlDeferredCopyResolution *resolved=nullptr,bool replacesWrites=false,GlObserveStop *stop=nullptr){
         if(resolved)*resolved={};
+        if(stop)*stop=GlObserveStop::InvalidUsage;
         if(!source_||usage.readCount>usage.capacity||usage.writeCount>usage.capacity)return 0;
+        if(stop)*stop=GlObserveStop::UnknownNamespace;
         discardPendingWrites(key,&usage);
         bool nativeOutput=false;
         for(std::size_t i=0;i<usage.writeCount;++i)nativeOutput=nativeOutput||hasNativeOutput(key,usage.writes[i]);
         const auto id=space(key,selectedDrawable||nativeOutput);if(!id)return 0;
+        if(stop)*stop=GlObserveStop::NoRootedProducer;
+        const bool root=selectedDrawable&&usage.defaultFramebuffer;
+        if(replacesWrites&&!root)supersede(key,id,usage);
         unsigned hops=0;std::uint64_t expires=0;
-        if(selectedDrawable&&usage.defaultFramebuffer){
+        std::array<std::size_t,GlTextureUsage::capacity> parents{};std::size_t parentCount=0;
+        if(root){
             noteConsumer(id,usage);expires=deadline();
         }else{
             hops=maximumHops;
-            for(const auto &item:textures_)if((live(item,id)||nativeMatch(item,key,item.texture))&&contains(usage.writes,usage.writeCount,item.texture)){
-                if(item.expires>expires){expires=item.expires;hops=item.hops+1;}
-                else if(item.expires==expires)hops=(std::min)(hops,item.hops+1);
+            for(std::size_t p=0;p<textures_.size();++p){
+                const auto &item=textures_[p];
+                if((live(item,id)||nativeMatch(item,key,item.texture))&&contains(usage.writes,usage.writeCount,item.texture)){
+                    if(parentCount<parents.size())parents[parentCount++]=p;
+                    if(item.expires>expires){expires=item.expires;hops=item.hops+1;}
+                    else if(item.expires==expires)hops=(std::min)(hops,item.hops+1);
+                }
             }
-            if(!expires||hops>=maximumHops)return 0;
+            if(!expires)return 0;
+            if(hops>=maximumHops){if(stop)*stop=GlObserveStop::HopLimit;return 0;}
         }
-        unsigned count=0;
+        unsigned count=0;bool blockedByCapacity=false;
         for(std::size_t i=0;i<usage.readCount;++i){
             const auto texture=usage.reads[i];
             if(!texture||contains(usage.writes,usage.writeCount,texture))continue;
-            if(note(key,id,texture,expires,hops))++count;
+            if(Texture *child=noteItem(key,id,texture,expires,hops)){
+                ++count;
+                // A root mark comes ONLY from real selected-presentation consumption.
+                if(root)child->rootUntil=(std::max)(child->rootUntil,expires);
+                else for(std::size_t p=0;p<parentCount;++p)link(*child,parents[p],deadline(),id);
+            }
             else if(pendingCount_)for(const auto &copy:pending_)if(copy.output==texture&&copy.space==id){
-                ++audit_.resourceBlocked;auditChanged();break; // matching consumer could not store its proof
+                ++audit_.resourceBlocked;auditChanged();blockedByCapacity=true;break; // matching consumer could not store its proof
             }
         }
+        if(stop)*stop=count?GlObserveStop::Observed:blockedByCapacity?GlObserveStop::ResourceCapacity:GlObserveStop::NoUsableInputs;
         if(count)resolvePending(resolved);
+        if(count&&root)refreshFromRoots();
         return count;
     }
+    // Links dropped because a resource already had edgeCapacity distinct live consumers.
+    // Dropping only withholds renewal; it never grants proof.
+    std::uint64_t edgeDrops()const{return edgeDrops_;}
 private:
     void discardPendingColorWrites(GlContextIdentity key,const std::array<GlColorResource,GlTextureUsage::capacity> *writes,
                                    std::size_t count,bool nativeWrite,GlDeferredDiscardSite site){
@@ -260,7 +308,13 @@ private:
     }
     struct Context {GlContextIdentity key{};std::uint64_t space=0;};
     struct PendingCopy {GlContextIdentity key{};GlColorResource input{},output{};std::uint64_t space=0,expires=0;};
-    struct Texture {unsigned provider=0;GlColorResource texture{};unsigned hops=0;std::uint64_t space=0,expires=0;std::uintptr_t display=0;};
+    // A recorded consumer link child->parent ("child's color flowed into parent"). It names the
+    // parent by slot AND unique serial AND write epoch, so a reused fixed-array slot or an
+    // overwritten destination can never be reconnected by index alone. `captured` is the
+    // capture deadline of the OBSERVATION that created it; walking never extends it.
+    struct Edge {bool used=false;std::size_t parent=0;std::uint64_t parentSerial=0,parentEpoch=0,captured=0,space=0;};
+    struct Texture {unsigned provider=0;GlColorResource texture{};unsigned hops=0;std::uint64_t space=0,expires=0;std::uintptr_t display=0;
+        std::uint64_t serial=0,epoch=0,rootUntil=0;std::array<Edge,edgeCapacity> edges{};};
     std::array<Context,contextCapacity> contexts_{};
     std::array<Texture,textureCapacity> textures_{};
     std::array<PendingCopy,pendingCopyCapacity> pending_{};
@@ -268,7 +322,7 @@ private:
     GlDeferredCopyAudit audit_{};
     bool auditDirty_=false;
     std::uintptr_t source_=0;
-    std::uint64_t revision_=0,frame_=1,nextSpace_=1,pendingEpoch_=1;
+    std::uint64_t revision_=0,frame_=1,nextSpace_=1,pendingEpoch_=1,nextSerial_=1,edgeDrops_=0;
     void advancePendingEpoch(){if(pendingEpoch_)++pendingEpoch_;} // wrap disables new deferred captures, never aliases an old token
     std::uint64_t deadline()const{
         return frame_>std::numeric_limits<std::uint64_t>::max()-frameLifetime
@@ -313,14 +367,21 @@ private:
                     erase(copy,copy.expires<frame_?GlDeferredCopyExit::Expired:GlDeferredCopyExit::NamespaceLost);continue;
                 }
                 unsigned hops=maximumHops;std::uint64_t expires=0;
-                for(const auto &item:textures_)if(live(item,copy.space)&&item.texture==copy.output){
+                std::array<std::size_t,4> parents{};std::size_t parentCount=0;
+                for(std::size_t p=0;p<textures_.size();++p){
+                    const auto &item=textures_[p];
+                    if(!(live(item,copy.space)&&item.texture==copy.output))continue;
+                    if(parentCount<parents.size())parents[parentCount++]=p;
                     const auto until=(std::min)(item.expires,copy.expires);
                     if(until>expires){expires=until;hops=item.hops+1;}
                     else if(until==expires)hops=(std::min)(hops,item.hops+1);
                 }
                 if(!expires)continue;
                 if(hops>=maximumHops){++audit_.hopBlocked;auditChanged();continue;}
-                if(!note(copy.key,copy.space,copy.input,expires,hops)){++audit_.resourceBlocked;auditChanged();continue;}
+                Texture *child=noteItem(copy.key,copy.space,copy.input,expires,hops);
+                if(!child){++audit_.resourceBlocked;auditChanged();continue;}
+                // Later consumption never extends the capture: the edge keeps copy.expires.
+                for(std::size_t p=0;p<parentCount;++p)link(*child,parents[p],copy.expires,copy.space);
                 if(resolved){++resolved->copies;++resolved->inputs;}
                 erase(copy,GlDeferredCopyExit::Reconciled);progress=true;
             }
@@ -346,14 +407,92 @@ private:
         return key.context&&output.kind==GlColorResource::Pbuffer&&output&&item.texture==output
             &&item.provider==key.provider&&item.display==key.display&&item.expires>=frame_;
     }
-    bool note(GlContextIdentity key,std::uint64_t id,GlColorResource name,std::uint64_t expires,unsigned hops){
+    Texture *noteItem(GlContextIdentity key,std::uint64_t id,GlColorResource name,std::uint64_t expires,unsigned hops){
         for(auto &item:textures_)if((item.space==id&&item.texture==name)||nativeMatch(item,key,name)){
             if(expires>item.expires){item.expires=expires;item.hops=hops;}
             else if(expires==item.expires)item.hops=(std::min)(item.hops,hops);
-            return true;
+            return &item;
         }
-        for(auto &item:textures_)if(!item.texture||item.expires<frame_){item={key.provider,name,hops,id,expires,key.display};return true;}
-        return false;
+        for(auto &item:textures_)if(!item.texture||item.expires<frame_){
+            item={key.provider,name,hops,id,expires,key.display};
+            item.serial=nextSerial_++;if(!nextSerial_)nextSerial_=1;
+            return &item;
+        }
+        return nullptr;
+    }
+    bool note(GlContextIdentity key,std::uint64_t id,GlColorResource name,std::uint64_t expires,unsigned hops){
+        return noteItem(key,id,name,expires,hops)!=nullptr;
+    }
+    // The parent a still-valid edge names, or null. Slot index alone is never trusted: serial
+    // (slot reuse), epoch (destination superseded by a later transfer) and the same
+    // typed-namespace rule used at observation time (the observing GL namespace recorded in the
+    // edge, or the same native provider/display for a Pbuffer parent) must all still hold. A
+    // native child item is shared across namespaces, so its own `space` is NOT the rule.
+    const Texture *parentOf(const Texture &child,const Edge &edge)const{
+        if(!edge.used||edge.parent>=textures_.size())return nullptr;
+        const auto &parent=textures_[edge.parent];
+        if(&parent==&child||!parent.texture||parent.serial!=edge.parentSerial||parent.epoch!=edge.parentEpoch)return nullptr;
+        if(parent.texture.kind==GlColorResource::Pbuffer){
+            if(parent.provider!=child.provider||parent.display!=child.display)return nullptr;
+        }else if(!edge.space||parent.space!=edge.space)return nullptr; // the OBSERVING namespace, not the child's first-seen one
+        return &parent;
+    }
+    void link(Texture &child,std::size_t parentIndex,std::uint64_t captured,std::uint64_t space){
+        const auto &parent=textures_[parentIndex];
+        if(&parent==&child||!parent.texture)return;
+        Edge *free=nullptr,*weakest=nullptr;
+        for(auto &edge:child.edges){
+            if(edge.used&&edge.parent==parentIndex&&edge.parentSerial==parent.serial&&edge.space==space){
+                // Same observed epoch: a re-observation can only lengthen the capture. A new epoch
+                // replaces the invalid old capture instead of inheriting its deadline.
+                edge.captured=edge.parentEpoch==parent.epoch?(std::max)(edge.captured,captured):captured;
+                edge.parentEpoch=parent.epoch;return;
+            }
+            if(!edge.used||edge.captured<frame_||!parentOf(child,edge)){if(!free)free=&edge;}
+            else if(!weakest||edge.captured<weakest->captured)weakest=&edge;
+        }
+        Edge *target=free;
+        if(!target&&weakest&&weakest->captured<captured)target=weakest;
+        if(!target){++edgeDrops_;return;}
+        *target={true,parentIndex,parent.serial,parent.epoch,captured,space};
+    }
+    void supersede(GlContextIdentity key,std::uint64_t id,const GlTextureUsage &usage){
+        for(auto &item:textures_)
+            if((live(item,id)||nativeMatch(item,key,item.texture))&&contains(usage.writes,usage.writeCount,item.texture))++item.epoch;
+    }
+    // Producer-first order means a producer only ever saw its consumer's PREVIOUS-frame expiry.
+    // After a REAL selected consumption, recompute each linked item's proof as the best bounded
+    // walk (at most maximumHops-1 edges) from a live root where EVERY edge is still valid and the
+    // proof never exceeds min(root deadline, each edge's own capture deadline). It only raises
+    // an item that is still live, with the hop count of the walk that justifies it, and uses the
+    // same "later expiry wins, equal expiry keeps fewer hops" rule as direct observation.
+    void refreshFromRoots(){
+        std::array<std::uint64_t,textureCapacity> previous{},current{},best{};
+        std::array<unsigned,textureCapacity> bestHops{};
+        bool any=false;
+        for(std::size_t i=0;i<textures_.size();++i)
+            if(textures_[i].texture&&textures_[i].rootUntil>=frame_&&textures_[i].expires>=frame_)previous[i]=(std::min)(textures_[i].rootUntil,textures_[i].expires);
+        for(unsigned depth=1;depth<maximumHops;++depth){
+            current.fill(0);bool progress=false;
+            for(std::size_t i=0;i<textures_.size();++i){
+                const auto &child=textures_[i];if(!child.texture)continue;
+                for(const auto &edge:child.edges){
+                    const auto *parent=parentOf(child,edge);if(!parent)continue;
+                    const auto proof=previous[static_cast<std::size_t>(parent-textures_.data())];
+                    const auto until=(std::min)(proof,edge.captured);
+                    if(until>=frame_&&until>current[i]){current[i]=until;progress=true;}
+                }
+            }
+            if(!progress)break;
+            for(std::size_t i=0;i<textures_.size();++i)if(current[i]>best[i]){best[i]=current[i];bestHops[i]=depth;any=true;}
+            previous=current;
+        }
+        if(!any)return;
+        for(std::size_t i=0;i<textures_.size();++i){
+            auto &item=textures_[i];if(!best[i]||!item.texture||item.expires<frame_)continue;
+            if(best[i]>item.expires){item.expires=best[i];item.hops=bestHops[i];}
+            else if(best[i]==item.expires)item.hops=(std::min)(item.hops,bestHops[i]);
+        }
     }
 };
 } // namespace BsiShaders

@@ -93,7 +93,7 @@ QVariantMap ShaderBridge::bridgeInfo()const{
     return {{"moduleQtVersion",QString::fromLatin1(QT_VERSION_STR)},
             {"runtimeQtVersion",QString::fromLatin1(qVersion())},{"publicQtApi",true},
             {"moduleBuildRevision",QStringLiteral(BSI_SHADERS_BUILD_REVISION)},
-            {"moduleCaptureVersion",QStringLiteral("gl-draw-write-footprint-v7")}};
+            {"moduleCaptureVersion",QStringLiteral("gl-draw-write-footprint-v7-edge2")}};
 }
 QVariantList ShaderBridge::controlList()const{
     QVariantList out;
@@ -142,6 +142,9 @@ QVariantMap ShaderBridge::metrics()const{
             {"textureHookImageCopyCalls",number(m.textureHookImageCopyCalls)},{"textureHookNativeImageCalls",number(m.textureHookNativeImageCalls)},
             {"textureTransferApis",auditCounters(glTransferApiLabels,m.textureTransferAudit.calls)},
             {"textureTransferStops",auditCounters(glTransferLabels,m.textureTransferAudit.stops)},
+            {"textureTransferObserveStops",auditCounters(glObserveLabels,m.textureTransferAudit.observeStops)},
+            {"textureTransferObserveReached",static_cast<qint64>(m.textureTransferAudit.observeReached)},
+            {"textureTransferHandlerEntries",static_cast<qint64>(m.textureTransferAudit.outerHandlerEntries)},
             {"textureTransferCandidates",auditCounters(glCandidateLabels,m.textureTransferAudit.candidates)},
             {"textureTransferDescriptors",auditCounters(glDescriptorLabels,m.textureTransferAudit.descriptors)},
             {"textureTransferCodeProviders",auditCounters(std::array<const char*,3>{{"wgl-only","egl-only","mixed-or-unattributed"}},m.textureTransferAudit.codeProviders)},

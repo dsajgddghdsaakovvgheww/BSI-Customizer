@@ -173,7 +173,10 @@ void drainResources(){
     for(unsigned provider=0;provider<=maximumEglProviders;++provider){
         if(reset&(1u<<provider))h.provenance.forgetProvider(provider);
         else if(invalidate&(1u<<provider))h.provenance.invalidate(provider);
-        if(pendingInvalidate&(1u<<provider))h.provenance.discardPendingProvider(provider);
+        if(pendingInvalidate&(1u<<provider)){
+            h.provenance.invalidateProviderNamespaces(provider);
+            h.provenance.discardPendingProvider(provider);
+        }
     }
     for(unsigned i=0;i<count;++i){const auto &event=pending[i];
         if(event.providers&reset)continue;
@@ -384,9 +387,17 @@ struct GameDraw {
                     // the namespace, and ALL writes revoke in-flight captures.
                     // With no queued destination to match, revoke a possible
                     // in-flight capture directly instead of querying more GL.
-                    const bool writeCapture=session.resourceHooks&&h.provenance.hasPendingCopies()&&session.potato.drawWrites(&writes)
+                    enum class WriteCaptureState {Skipped,Known,AttemptFailed};
+                    const bool writeAttempted=h.provenance.hasPendingCopies();
+                    const bool capturedWrites=writeAttempted&&session.resourceHooks&&session.potato.drawWrites(&writes)
                         &&qualifyGlDrawWrites(candidate.producerRoute,candidate.pbuffer,writes)&&serial==h.resourceSerial.load();
-                    h.provenance.discardPendingDrawWrites(identity,writeCapture?&writes:nullptr,GlDeferredDiscardSite::DrawWrites);
+                    const auto writeState=!writeAttempted?WriteCaptureState::Skipped
+                        :capturedWrites?WriteCaptureState::Known:WriteCaptureState::AttemptFailed;
+                    if(writeState==WriteCaptureState::Known)h.provenance.invalidateWrites(identity,&writes);
+                    else if(writeState==WriteCaptureState::AttemptFailed)h.provenance.invalidateNamespace(identity);
+                    // Still revoke a possibly in-flight copy token on every draw;
+                    // Skipped is NOT reinterpreted as unknown graph evidence.
+                    h.provenance.discardPendingDrawWrites(identity,writeState==WriteCaptureState::Known?&writes:nullptr,GlDeferredDiscardSite::DrawWrites);
                     GlTextureUsage usage;
                     const bool captured=session.resourceHooks&&(primitive==4||primitive==5||primitive==6)&&session.potato.usage(&usage)
                         &&candidate.qualifyOutput(usage)&&serial==h.resourceSerial.load();
@@ -446,7 +457,7 @@ struct GameTransfer {
     bool captured=false,exact=false,mayDefer=false;
     GameTransfer(unsigned providers,const GlColorTransfer &call)noexcept
         :scope(hooks().renderMutex,presenting),outer(++depth==1){
-        audit.api=call.kind;audit.providers=providers;
+        audit.api=call.kind;audit.providers=providers;audit.outermost=outer;
         try{
             auto &h=hooks();auto &runtime=Runtime::instance();
             if(h.stopping.load()||presenting||!runtime.textureHookEntry(call.kind==GlColorTransfer::CopyImage?TextureHookKind::NamedImageCopy:TextureHookKind::ColorTransfer,&audit.revision))return;
@@ -476,7 +487,10 @@ struct GameTransfer {
                     audit.stop=GlTransferStop::ResourceHooks;
                     if(!session.resourceHooks){h.provenance.discardPendingWrites(candidate.identity,nullptr,GlDeferredDiscardSite::TransferInspector);return;}
                     audit.stop=GlTransferStop::Descriptor;
-                    if(!session.potato.transfer(call,&usage,&audit.descriptor)){h.provenance.discardPendingWrites(candidate.identity,nullptr,GlDeferredDiscardSite::TransferDescriptor);return;}
+                    if(!session.potato.transfer(call,&usage,&audit.descriptor)){
+                        h.provenance.discardPendingWrites(candidate.identity,nullptr,GlDeferredDiscardSite::TransferDescriptor);
+                        h.provenance.invalidateNamespace(candidate.identity);return;
+                    }
                     h.provenance.discardPendingWrites(candidate.identity,&usage);
                     audit.stop=GlTransferStop::Output;if(!candidate.qualifyOutput(usage))return;
                     audit.stop=GlTransferStop::Input;if(!candidate.qualifyTransferInput(usage))return;
@@ -520,8 +534,10 @@ struct GameTransfer {
                     :queued==GlDeferredCopyResult::Capacity?GlTransferStop::DeferredCapacity:GlTransferStop::UnlinkedOutput;
                 return; // A queued callback is NOT a qualified transfer/link.
             }
-            GlDeferredCopyResolution resolved;
-            const auto inputs=h.provenance.observe(identity,usage,exact,&resolved);
+            GlDeferredCopyResolution resolved;GlObserveStop observeStop=GlObserveStop::NotObserved;
+            audit.observeReached=true;
+            const auto inputs=h.provenance.observe(identity,usage,exact,&resolved,true,&observeStop);
+            audit.observeStop=observeStop;
             if(resolved.copies)runtime.textureDeferredCopyReport(resolved.copies,resolved.inputs,revision);
             runtime.textureTransferReport(inputs,revision);
             audit.stop=inputs?GlTransferStop::RecordedInputs:GlTransferStop::RecordedNoInputs;

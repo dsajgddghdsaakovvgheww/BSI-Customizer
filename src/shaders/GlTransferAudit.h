@@ -9,6 +9,8 @@ namespace BsiShaders {
 // permission to inspect a route. A shared code target may try several providers.
 enum class GlCandidateStop { Qualified, Lifecycle, NoContext, Renderer, Source, Policy, ResourceHooks,
     Drawable, Dependency, Protection, Capacity, Count };
+enum class GlObserveStop : unsigned { NotObserved, InvalidUsage, UnknownNamespace, NoRootedProducer,
+    HopLimit, NoUsableInputs, ResourceCapacity, Observed, Count };
 enum class GlTransferStop { Exception, Nested, Guarded, Busy, Policy, ResourceChanged, NoCandidate,
     Initialize, ResourceHooks, Descriptor, Output, Input, UnlinkedOutput, NativePending,
     RouteChanged, CurrentChanged, RecordedNoInputs, RecordedInputs, DeferredOutput, DeferredCapacity, Count };
@@ -18,6 +20,9 @@ inline constexpr std::array<const char*,static_cast<std::size_t>(GlCandidateStop
     "qualified", "lifecycle-not-ready-or-faulted", "no-current-context", "renderer-mismatch",
     "no-selected-source-for-provider", "policy", "source-retirement-hooks-unavailable",
     "foreign-or-unknown-drawable", "no-recent-resource-dependency", "protection-unproved", "context-budget"}};
+inline constexpr std::array<const char*,static_cast<std::size_t>(GlObserveStop::Count)> glObserveLabels{{
+    "not-observed", "invalid-or-over-capacity-usage", "unknown-resource-namespace", "no-rooted-producer-proof",
+    "hop-bound", "no-usable-input-resources", "tracked-resource-capacity", "inputs-recorded"}};
 inline constexpr std::array<const char*,static_cast<std::size_t>(GlTransferStop::Count)> glTransferLabels{{
     "exception", "nested-copy-alias", "inspection-guard", "render-lock-busy", "policy-or-source",
     "resource-epoch-changed", "no-qualified-candidate", "inspector-unavailable", "retirement-hooks-unavailable",
@@ -33,6 +38,8 @@ struct GlTransferAttempt {
     // Validated diagnostic index, not a possibly out-of-range native enum.
     unsigned api=GlColorTransfer::BlitFramebuffer;
     GlTransferStop stop=GlTransferStop::Exception;
+    GlObserveStop observeStop=GlObserveStop::NotObserved;
+    bool outermost=false,observeReached=false;
     GlTransferDescriptor descriptor=GlTransferDescriptor::None;
     std::array<unsigned,glCandidateLabels.size()> candidates{};
     unsigned providers=0;
@@ -41,15 +48,22 @@ struct GlTransferAttempt {
 struct GlTransferAudit {
     std::array<std::uint64_t,glTransferApiLabels.size()> calls{};
     std::array<std::uint64_t,glTransferLabels.size()> stops{};
+    std::array<std::uint64_t,glObserveLabels.size()> observeStops{};
+    std::uint64_t outerHandlerEntries=0,observeReached=0;
     std::array<std::uint64_t,glCandidateLabels.size()> candidates{};
     std::array<std::uint64_t,glDescriptorLabels.size()> descriptors{};
     // CODE attribution only: WGL-only, EGL-only, shared WGL+EGL/unknown mask.
     std::array<std::uint64_t,3> codeProviders{};
     void note(const GlTransferAttempt &attempt){
         const auto api=static_cast<std::size_t>(attempt.api),stop=static_cast<std::size_t>(attempt.stop);
-        const auto descriptor=static_cast<std::size_t>(attempt.descriptor);
-        if(api>=calls.size()||stop>=stops.size()||descriptor>=descriptors.size())return;
+        const auto descriptor=static_cast<std::size_t>(attempt.descriptor),observe=static_cast<std::size_t>(attempt.observeStop);
+        if(api>=calls.size()||stop>=stops.size()||descriptor>=descriptors.size()||observe>=observeStops.size())return;
         ++calls[api];++stops[stop];
+        if(attempt.outermost){
+            ++observeStops[observe];
+            ++outerHandlerEntries;
+            if(attempt.observeReached)++observeReached;
+        }
         for(std::size_t i=0;i<candidates.size();++i)candidates[i]+=attempt.candidates[i];
         if(attempt.stop==GlTransferStop::Descriptor)++descriptors[descriptor];
         ++codeProviders[attempt.providers==1?0:attempt.providers&&!(attempt.providers&1)?1:2];
