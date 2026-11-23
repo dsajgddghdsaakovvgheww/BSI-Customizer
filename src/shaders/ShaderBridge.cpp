@@ -177,6 +177,9 @@ QString ShaderBridge::diagnostics()const{
              .arg(auditLine(m.value("textureTransferApis")),auditLine(m.value("textureTransferStops")),
                   auditLine(m.value("textureTransferCandidates")),auditLine(m.value("textureTransferDescriptors")),
                   auditLine(m.value("textureTransferCodeProviders")))
+        +QStringLiteral("\nObserve-call diagnostics (outermost callbacks): stop reasons: %1\nHandler entries: %2; reached observe: %3; not reached = entries minus reached. The not-observed stop is a caller-side category, not an observe refusal.")
+             .arg(auditLine(m.value("textureTransferObserveStops")),
+                  m.value("textureTransferHandlerEntries").toString(),m.value("textureTransferObserveReached").toString())
         +QStringLiteral("\nDeferred copy-subimage reconciliation: edges=%1; linked inputs=%2. Awaiting-exact-consumer callbacks are NOT ownership or qualified links. Only later exact consumption in the same/observed-share namespace can reconcile submitted metadata, within the ORIGINAL two-frame capture deadline and eight-hop bound. Reconciliation is separate from native call totals and NOT proof of driver success, private bindings or game pixels.")
              .arg(m.value("textureDeferredCopies").toString(),m.value("textureDeferredInputs").toString())
         +QStringLiteral("\nPending-copy lifetime ledger (same source/settings interval): queued=%1; pending=%2; peak=%3; balanced=%4.\nPending retirements (one reason per removed queued edge): %5\nSelected default-FBO consumer checks: %6\nUncaptured-output retirement sites: %7\nQueued copy source kinds: %8")
