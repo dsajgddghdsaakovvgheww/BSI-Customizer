@@ -1,6 +1,17 @@
-# Potato: copy-before-consumer repair — game acceptance still required
+# Potato: copy-before-consumer repair — installed v5 still not working
 
-## 1. Latest installed game result: v4 is not working
+> **Installed v5 result supersedes this candidate:** `91f4efb…` /
+> `gl-copy-consumer-order-v5`, 268 processed frames, 162 NoSampler inspections,
+> zero bindings/producers/immediate transfers/deferred reconciliations. The 160
+> `awaiting-exact-copy-consumer` outcomes count queued callbacks, not distinct,
+> still-live or successful copies. Their fate is unknown. See the
+> [installed-v5 negative and bounded v6 pending-copy diagnostics](POTATO-PENDING-COPY-LEDGER.md).
+> This page preserves the independent repairs and their validated v5 package;
+> its installation instructions are historical, **not a request to reinstall
+> unchanged v5 or play longer**. Authored Windows/software success did not fix
+> the reported game path.
+
+## 1. Earlier installed game result: v4 is not working
 
 The user tested **`ebdf6c219864c5f7352a1b0bb3fc1ea0ad0ca486`** /
 **`gl-transfer-route-ledger-v4`**. This is a second confirmed negative, not an

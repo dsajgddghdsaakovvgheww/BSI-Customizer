@@ -6,7 +6,9 @@
 > failing exact recent-output matching. This page preserves the v3 report,
 > v4 ABI/diagnostic validation and old package identities; its downloads and
 > "next check" below are historical, not a request to repeat that failed build.
-> See the [latest result, separately reproduced copy-order defect and v5 status](POTATO-COPY-CONSUMER-ORDER.md).
+> The later installed v5 also has zero bindings/reconciliations despite 160
+> queued callback outcomes. See the [latest negative and v6 pending-copy lifetime diagnostics](POTATO-PENDING-COPY-LEDGER.md),
+> and the [separately reproduced copy-order repair and v5 validation](POTATO-COPY-CONSUMER-ORDER.md).
 
 ## Installed v3 result that motivated v4: not working
 

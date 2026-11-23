@@ -130,33 +130,38 @@ a GL 3.3/GLES 3.1 draw-time path only. No supplied DLL is installed. See
 [exact coverage and resource-provenance limits](TEXTURE-QUALITY-PORTABILITY.md).
 
 **Latest installed result remains not working:** the header identifies
-**`ebdf6c2…` / `gl-transfer-route-ledger-v4`**, with **1,392 frames / 186 NoSampler
-inspections** and zero material bindings, linked producers or qualified transfers
-at 100% strength. This second negative is not a stale installation. The earlier
-`00c1b7c…` / v3 negative is retained in the
-[historical transfer-routing report](POTATO-TRANSFER-ROUTING-DIAGNOSTICS.md).
-The mutable RGB 256x256 input uses legal **GL_LINEAR 0x2601 / non-mip-filter=1**;
-forcing it to use mips is not a repair. Grading, saved/armed state and raw
-**10,708 draw / 185 copy-subimage callbacks** do not prove material ownership.
-The v4 ledger narrows the refusal: **184/185** copies pass candidate/descriptor
-checks but fail exact recent-output matching. WGL-only code attribution is not
-ownership, and no report proves those destinations are later material consumers.
+**`91f4efb…` / `gl-copy-consumer-order-v5`**, with **268 frames / 162 NoSampler
+inspections** at 100%, zero material bindings, linked producers, immediate
+qualified transfers or deferred reconciliations. This is the third genuine
+installed negative, not a stale installation. Raw activity is **10,624 draws /
+162 copy-subimage callbacks**. The 160 `awaiting-exact-copy-consumer` outcomes
+mean queued metadata callbacks, **not 160 distinct/live/successful copies**.
+No existing report distinguishes expiry, overwrites/revocation, lifecycle or
+namespace changes from an unobserved exact consumer. WGL-only code attribution
+is not resource ownership. The second Off snapshot resets interval counters;
+it does not invalidate the On failure or prove restored material pixels.
 
-The [copy-before-consumer regression and bounded v5 repair](POTATO-COPY-CONSUMER-ORDER.md)
-independently reproduce a supported ordering defect. The candidate is
-**`91f4efb…` / `gl-copy-consumer-order-v5`**; only later exact consumption may
-reconcile pending submitted metadata, with the original deadline and retirement
-checks intact. This is **not an established game root cause or accepted effect**.
-Do not repeat the old v4 build expecting this repair. Use only the newly
-identified/verified package and the native installation protocol in that report.
+The [bounded v6 pending-copy lifetime ledger](POTATO-PENDING-COPY-LEDGER.md),
+**`gl-pending-copy-ledger-v6`**, adds metadata-only retirement/matching diagnostics
+without changing sampling, routes or TTL. It is **not a diagnosed game fix**.
+Use the newly validated diagnostic package identified in that report
+(source `2e5e6a0…`, package run `45097774113`); do not repeat unchanged v5 or
+request more gameplay as a remedy. The mutable RGB
+256x256 presentation input uses legal **GL_LINEAR 0x2601 / non-mip-filter=1**;
+forcing mips is not a repair. Grading, saved/armed state and queued counters do
+not prove a material effect. The
+[copy-order repair/v5 validation](POTATO-COPY-CONSUMER-ORDER.md) and
+[older v3/v4 negatives](POTATO-TRANSFER-ROUTING-DIAGNOSTICS.md) remain historical
+supported-path evidence, not the game's established resource graph.
 The [PF-driven lifecycle](POTATO-EGL-LIFECYCLE-ALIASES.md),
 [resource-only](POTATO-RESOURCE-ONLY-ROUTES.md),
 [native image](POTATO-NATIVE-IMAGE-BINDINGS.md) and
 [immutable-mip](POTATO-MIP-QUALIFICATION.md) repairs likewise fix separately
 reproduced defects, not proof of game material change.
 See [strength/status semantics](POTATO-STRENGTH.md).
-Copy the complete ledger **and** deferred-reconciliation line **at 100% before
-changing strength or turning Off**, which resets the interval. Actual acceptance
+Copy the complete routing ledger, deferred-reconciliation line **and all
+pending-copy lifetime/matching/retirement lines at 100% before changing strength
+or turning Off**, which resets the interval. Actual acceptance
 still requires same-scene material **Off → Strong → Off** with native restoration.
 These generic acceptance steps are for a new reviewed installation, not a
 request to repeat Save/gameplay or lower resolution as a remedy.

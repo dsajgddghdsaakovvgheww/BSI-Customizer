@@ -2,9 +2,11 @@
 
 ## Status and scope
 
-> The later v4 installed test also remains **not working**: `ebdf6c2…`,
-> 1,392 frames, 186 NoSampler inspections, zero material bindings. See the
-> [latest negative, independent copy-order regression and v5 candidate](POTATO-COPY-CONSUMER-ORDER.md).
+> The later v4 and v5 installed tests also remain **not working**. Latest v5:
+> `91f4efb…`, 268 frames, 162 NoSampler inspections, zero material bindings or
+> deferred reconciliations despite 160 queued callback outcomes. See the
+> [latest negative and v6 pending-copy diagnostics](POTATO-PENDING-COPY-LEDGER.md)
+> and [independent copy-order repair/v5 validation](POTATO-COPY-CONSUMER-ORDER.md).
 > The v3/v4 package references below are historical, not the newest candidate.
 
 This work follows the [verified PF archive inspection](POTATO-PLAYER-PF-AUDIT.md).
