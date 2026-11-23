@@ -46,6 +46,10 @@ jobs:
           $status = $LASTEXITCODE
           Write-Output "::notice title=GL transfer ABI and routing ledger result::Transfer CTest exit=$status source=${{ github.sha }}"
           if ($status) { $failed = $true }
+          python tests/shaders/run_ci_tests.py --test-dir build-egl-contracts -C Release -R '^shader-gl-copy-consumer-order-contract$' --output-on-failure --timeout 60
+          $status = $LASTEXITCODE
+          Write-Output "::notice title=GL copy consumer-order result::Copy-order CTest exit=$status source=${{ github.sha }}"
+          if ($status) { $failed = $true }
           python tests/shaders/run_ci_tests.py --test-dir build-egl-contracts -C Release -E '^shader-egl-split-' --output-on-failure --timeout 60
           $status = $LASTEXITCODE
           Write-Output "::notice title=Existing native contract result::Non-split CTest exit=$status source=${{ github.sha }}"
