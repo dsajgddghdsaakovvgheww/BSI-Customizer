@@ -2,6 +2,11 @@
 
 ## Status and scope
 
+> The later v4 installed test also remains **not working**: `ebdf6c2…`,
+> 1,392 frames, 186 NoSampler inspections, zero material bindings. See the
+> [latest negative, independent copy-order regression and v5 candidate](POTATO-COPY-CONSUMER-ORDER.md).
+> The v3/v4 package references below are historical, not the newest candidate.
+
 This work follows the [verified PF archive inspection](POTATO-PLAYER-PF-AUDIT.md).
 The PF files were inspected as data, **not loaded or executed**. Their public
 EGL shim and resolver returned different code addresses. That observation alone

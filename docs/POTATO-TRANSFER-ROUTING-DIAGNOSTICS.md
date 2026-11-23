@@ -1,6 +1,14 @@
-# Potato: confirmed lifecycle candidate still fails — trace transfer refusals
+# Potato: v4 transfer-routing diagnostics and native ABI repair (historical)
 
-## Latest installed result: not working
+> **Superseded by an installed v4 negative:** `ebdf6c2…` /
+> `gl-transfer-route-ledger-v4` produced zero material bindings in 1,392 frames.
+> Its ledger reports 184/185 copies passing candidate/descriptor checks but
+> failing exact recent-output matching. This page preserves the v3 report,
+> v4 ABI/diagnostic validation and old package identities; its downloads and
+> "next check" below are historical, not a request to repeat that failed build.
+> See the [latest result, separately reproduced copy-order defect and v5 status](POTATO-COPY-CONSUMER-ORDER.md).
+
+## Installed v3 result that motivated v4: not working
 
 The user tested module build **`00c1b7c1d4caf5ce1ac7e0ddaf08494f0aa6c45d`**,
 capture **`gl-egl-lifecycle-alias-v3`**. The copied module identity confirms that

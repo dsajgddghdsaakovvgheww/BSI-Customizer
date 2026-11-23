@@ -129,27 +129,35 @@ requires explicit review of existing driver LOD/AA overrides, and currently has
 a GL 3.3/GLES 3.1 draw-time path only. No supplied DLL is installed. See
 [exact coverage and resource-provenance limits](TEXTURE-QUALITY-PORTABILITY.md).
 
-**Latest reported result remains not working:** the copied header identifies
-module **`00c1b7c…` / `gl-egl-lifecycle-alias-v3`**, with **706 presentation frames /
-330 NoSampler inspections** and zero replacements, linked producers or qualified
-transfers at saved strength 100%. The update was reached; do not dismiss this as
-a stale installation or request more play time. The inspected mutable RGB
-256x256 image reports legal **GL_LINEAR 0x2601 / non-mip-filter=1**, not missing
-required mip 1. This is not a small Potato effect. Grading and saved/armed state
-are not game texture changes. Pre-route **19,379 draw / 329 transfer callbacks**
-do not prove ownership of an unseen material renderer. See the
-[transfer-routing diagnostic follow-up and exact candidate status](POTATO-TRANSFER-ROUTING-DIAGNOSTICS.md).
-The [PF-driven split-EGL lifecycle repair](POTATO-EGL-LIFECYCLE-ALIASES.md) fixes a
-reproduced public-dispatch defect, but did **not** fix this installed result.
-The [resource-only route repair](POTATO-RESOURCE-ONLY-ROUTES.md),
-[native image links](POTATO-NATIVE-IMAGE-BINDINGS.md) and
-[immutable-mip evidence](POTATO-MIP-QUALIFICATION.md) fix independently reproduced
-gaps, not an established game root cause. See [strength/status semantics](POTATO-STRENGTH.md).
-The new diagnostic build is **`ebdf6c2…` / `gl-transfer-route-ledger-v4`**. Its
-additional **Copy/blit routing ledger** separates the first routing/descriptor
-refusals without adopting foreign resources. Copy it **at 100% before changing
-strength or turning Off**, which resets the interval. The source, exact tested
-downloads and protocol are in the follow-up above; this is not a claimed game fix.
+**Latest installed result remains not working:** the header identifies
+**`ebdf6c2…` / `gl-transfer-route-ledger-v4`**, with **1,392 frames / 186 NoSampler
+inspections** and zero material bindings, linked producers or qualified transfers
+at 100% strength. This second negative is not a stale installation. The earlier
+`00c1b7c…` / v3 negative is retained in the
+[historical transfer-routing report](POTATO-TRANSFER-ROUTING-DIAGNOSTICS.md).
+The mutable RGB 256x256 input uses legal **GL_LINEAR 0x2601 / non-mip-filter=1**;
+forcing it to use mips is not a repair. Grading, saved/armed state and raw
+**10,708 draw / 185 copy-subimage callbacks** do not prove material ownership.
+The v4 ledger narrows the refusal: **184/185** copies pass candidate/descriptor
+checks but fail exact recent-output matching. WGL-only code attribution is not
+ownership, and no report proves those destinations are later material consumers.
+
+The [copy-before-consumer regression and bounded v5 repair](POTATO-COPY-CONSUMER-ORDER.md)
+independently reproduce a supported ordering defect. The candidate is
+**`91f4efb…` / `gl-copy-consumer-order-v5`**; only later exact consumption may
+reconcile pending submitted metadata, with the original deadline and retirement
+checks intact. This is **not an established game root cause or accepted effect**.
+Do not repeat the old v4 build expecting this repair. Use only the newly
+identified/verified package and the native installation protocol in that report.
+The [PF-driven lifecycle](POTATO-EGL-LIFECYCLE-ALIASES.md),
+[resource-only](POTATO-RESOURCE-ONLY-ROUTES.md),
+[native image](POTATO-NATIVE-IMAGE-BINDINGS.md) and
+[immutable-mip](POTATO-MIP-QUALIFICATION.md) repairs likewise fix separately
+reproduced defects, not proof of game material change.
+See [strength/status semantics](POTATO-STRENGTH.md).
+Copy the complete ledger **and** deferred-reconciliation line **at 100% before
+changing strength or turning Off**, which resets the interval. Actual acceptance
+still requires same-scene material **Off → Strong → Off** with native restoration.
 These generic acceptance steps are for a new reviewed installation, not a
 request to repeat Save/gameplay or lower resolution as a remedy.
 
