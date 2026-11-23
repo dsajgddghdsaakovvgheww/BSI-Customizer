@@ -8,6 +8,7 @@
 #include <windows.h>
 #include <cstdio>
 #include <cstdlib>
+#include <thread>
 using namespace BsiShaders;
 namespace {
 void require(bool yes,const char *message){if(!yes){std::fprintf(stderr,"FAIL: %s\n",message);std::exit(1);}}
@@ -34,6 +35,10 @@ struct Fixture {
         require(count("bsiFixtureTransferCalls")==calls+1&&count("bsiFixtureTransferArgumentsIntact")&&count("bsiFixtureBindingsRestored")&&!count("bsiFixtureInvalidGl"),"exact once-only copy original and untouched native arguments/state");
     }
 };
+void WINAPI resetInOriginal(){
+    std::thread worker([]{auto &r=Runtime::instance();r.setTexture({false,true,TextureDrawPolicy::OwnedMipCompatibility});r.setTexture({true,true,TextureDrawPolicy::OwnedMipCompatibility});});
+    worker.join();
+}
 }
 int main(int argc,char **argv){
     require(argc==2,"pass explicitly named authored WGL fixture, never PF/system DLLs");Fixture f;f.module=LoadLibraryA(argv[1]);require(f.module!=nullptr,"load authored fixture");
@@ -46,7 +51,7 @@ int main(int argc,char **argv){
     auto &runtime=Runtime::instance();runtime.setTexture({true,true,TextureDrawPolicy::OwnedMipCompatibility});runtime.start(reinterpret_cast<std::uintptr_t>(root));
     f.current(dc,context);require(f.fn<BOOL(WINAPI*)(HDC)>("wglSwapBuffers")(dc)!=FALSE,"selected owned presentation");
     auto *pbuffer=f.fn<void*(*)(HWND)>("bsiFixturePbuffer")(nullptr);require(pbuffer!=nullptr,"create authored pbuffer");
-    const auto pbDc=f.proc<HDC(WINAPI*)(void*)>("wglGetPbufferDCARB")(pbuffer);require(pbDc&&!WindowFromDC(pbDc),"observe actual native pbuffer lifetime/DC");
+    auto pbDc=f.proc<HDC(WINAPI*)(void*)>("wglGetPbufferDCARB")(pbuffer);require(pbDc&&!WindowFromDC(pbDc),"observe actual native pbuffer lifetime/DC");
     f.fn<void(*)(int)>("bsiFixtureTransferErrorProbe")(1);
     const auto reset=[&]{runtime.setTexture({false,true,TextureDrawPolicy::OwnedMipCompatibility});runtime.setTexture({true,true,TextureDrawPolicy::OwnedMipCompatibility});};
     const auto consumer=[&](unsigned output){f.current(dc,context);f.resource(1,output);f.draw(0,"legal LINEAR presentation consumer never receives private samplers");};
@@ -61,13 +66,47 @@ int main(int argc,char **argv){
     // Unconsumed sibling outputs must NEVER grant upstream ownership.
     reset();consumer(50);producer(0,"fresh settings revoke the old native copy proof");f.copy(51);
     producer(0,"unconsumed sibling copy output must stay native");
-    require(!runtime.metrics().textureTransferCalls&&!runtime.metrics().textureBindings,"unlinked copy metadata is not a qualified transfer or private sampler");
+    require(!runtime.metrics().textureTransferCalls&&!runtime.metrics().textureBindings&&!runtime.metrics().textureDeferredCopies,"unlinked copy metadata is not a qualified transfer or private sampler");
     std::puts("PASS negative: a submitted copy into an unconsumed sibling is not ownership");
+    const auto isolated=f.fn<HGLRC(WINAPI*)(HDC)>("wglCreateContext")(dc);require(isolated!=nullptr,"independent namespace, never guessed sharing");
+    f.current(dc,isolated);f.resource(1,51);f.draw(0,"another namespace's equal name stays a native LINEAR input");
+    producer(0,"equal-name consumption in an isolated namespace cannot reconcile this copy");
+    require(!runtime.metrics().textureDeferredCopies,"unshared namespace names cannot manufacture asynchronous links");
 
     // NEW missing case: this very output is sampled AFTER the native copy.
     consumer(51);
     producer(2,"a LATER exact selected consumer must reconcile the earlier native copy before inspecting its pbuffer material producer");
-    require(runtime.metrics().textureProducerDraws==1&&runtime.metrics().textureProducerBindings==2,"late actual consumption reaches only its resource-linked material producer");
+    require(runtime.metrics().textureProducerDraws==1&&runtime.metrics().textureProducerBindings==2
+            &&runtime.metrics().textureDeferredCopies==1&&runtime.metrics().textureDeferredInputs==1
+            &&!runtime.metrics().textureTransferCalls,"late actual consumption reaches only its resource-linked material producer, separately from native call totals");
+
+    reset();consumer(50);producer(0,"overwritten pending output control begins native");f.copy(56);
+    f.resource(2,56);f.draw(0,"another unqualified FBO draw writes the pending destination without gaining ownership");
+    consumer(56);producer(0,"a later destination overwrite must cancel the obsolete copy predecessor");
+    require(!runtime.metrics().textureDeferredCopies,"actual draw capture revokes an overwritten pending destination");
+
+    reset();consumer(50);producer(0,"new interval starts native");
+    f.fn<void(*)(void(WINAPI*)())>("bsiFixtureOnTransfer")(resetInOriginal);f.copy(52);
+    f.fn<void(*)(void(WINAPI*)())>("bsiFixtureOnTransfer")(nullptr);
+    consumer(52);producer(0,"a settings change on a JOINED native worker revokes the old captured copy without a lock/deadlock");
+    require(!runtime.metrics().textureDeferredCopies&&!runtime.metrics().textureTransferCalls,"stale native completion cannot queue an old-epoch edge");
+
+    reset();consumer(50);producer(0,"copy expiry control begins native");f.copy(53);
+    for(unsigned i=0;i<3;++i){f.current(dc,context);require(f.fn<BOOL(WINAPI*)(HDC)>("wglSwapBuffers")(dc)!=FALSE,"advance real hooked presentation frames");}
+    consumer(53);producer(0,"an expired unconsumed copy cannot authorize a producer after delayed consumption");
+    require(!runtime.metrics().textureDeferredCopies,"expired pending metadata is never replayed");
+
+    reset();consumer(50);producer(0,"deletion control begins native");f.copy(54);
+    const unsigned deleted=54;f.proc<void(WINAPI*)(int,const unsigned*)>("glDeleteTextures")(1,&deleted);
+    consumer(54);producer(0,"deleting an unconsumed destination before numeric-name reuse revokes pending metadata");
+    require(!runtime.metrics().textureDeferredCopies,"pending output deletion is covered by actual resource detours");
+
+    reset();consumer(50);producer(0,"native generation control begins native");f.copy(55);
+    f.current(dc,context);require(f.proc<BOOL(WINAPI*)(void*)>("wglDestroyPbufferARB")(pbuffer)!=FALSE,"retire pending native source BEFORE consumption");
+    pbuffer=f.fn<void*(*)(HWND)>("bsiFixturePbuffer")(nullptr);require(pbuffer!=nullptr,"recreate native fixture handle with a new lifetime");
+    pbDc=f.proc<HDC(WINAPI*)(void*)>("wglGetPbufferDCARB")(pbuffer);require(pbDc!=nullptr,"observe replacement native pbuffer DC");
+    consumer(55);producer(0,"a reused native pbuffer handle/DC cannot inherit the retired pending source");
+    require(!runtime.metrics().textureDeferredCopies,"pending native-generation retirement is covered by actual lifecycle detours");
 
     // No permanent adoption after an ordering repair.
     reset();producer(0,"Off/review/settings revision revokes the reconciled path");
@@ -76,6 +115,7 @@ int main(int argc,char **argv){
     const auto queries=f.count("bsiFixtureGlQueries");f.copy(51);f.resource(4);f.draw(0,"Off preserves native samplers");
     require(f.count("bsiFixtureGlQueries")==queries&&!runtime.metrics().textureHookTransferCalls&&!runtime.metrics().textureProducerDraws,"Off makes no optional inspection and clears evidence");
     f.current(nullptr,nullptr);require(f.proc<BOOL(WINAPI*)(void*)>("wglDestroyPbufferARB")(pbuffer)!=FALSE,"retire authored pbuffer");
+    require(f.fn<BOOL(WINAPI*)(HGLRC)>("wglDeleteContext")(isolated)!=FALSE,"retire independent namespace");
     require(f.fn<BOOL(WINAPI*)(HGLRC)>("wglDeleteContext")(context)!=FALSE,"retire authored context");runtime.stop();
     ReleaseDC(child,dc);DestroyWindow(child);DestroyWindow(root);
     std::puts("PASS: actual copy-before-consumer ordering, no pre-consumption adoption, material bindings inside original only after exact late consumption, native arguments/LastError/state, reset and Off");

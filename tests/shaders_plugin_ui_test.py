@@ -372,13 +372,15 @@ Window {
 
         info = json.loads(evaluate("JSON.stringify(Engine.bridgeInfo)", window))
         assert info["runtimeQtVersion"] == qVersion() and info["publicQtApi"] is True, info
-        assert info["moduleCaptureVersion"] == "gl-transfer-route-ledger-v4", info
+        assert info["moduleCaptureVersion"] == "gl-copy-consumer-order-v5", info
         assert re.fullmatch(r"[0-9a-f]{40}(?:-modified)?|unversioned", info["moduleBuildRevision"]), info
         copied = evaluate("Engine.diagnostics()", window)
         assert info["moduleBuildRevision"] in copied and "Pre-route GL hook coverage" in copied, copied
         assert "Copy/blit routing ledger" in copied and "Provider-candidate checks:" in copied and "Descriptor refusals:" in copied, copied
         assert "NOT resource ownership" in copied and "NOT driver success" in copied, copied
+        assert "Deferred copy-subimage reconciliation" in copied and "ORIGINAL two-frame capture deadline" in copied, copied
         ledger = json.loads(evaluate("JSON.stringify(Engine.metrics)", window))
+        assert ledger["textureDeferredCopies"] == ledger["textureDeferredInputs"] == 0, ledger
         for key in ("textureTransferApis", "textureTransferStops", "textureTransferCandidates", "textureTransferDescriptors", "textureTransferCodeProviders"):
             assert isinstance(ledger[key], dict) and ledger[key] and not any(ledger[key].values()), (key, ledger)
         built = tuple(map(int, info["moduleQtVersion"].split(".")))

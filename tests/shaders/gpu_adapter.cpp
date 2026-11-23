@@ -17,7 +17,8 @@ BsiShaders::GlTextureProvenance dependencies;
 constexpr BsiShaders::GlContextIdentity authoredContext{1,1,1};
 constexpr auto authoredPbuffer=BsiShaders::GlColorResource::pbuffer(1000001);
 BsiShaders::GlTextureUsage pendingTransfer;
-bool transferCaptured=false;
+BsiShaders::GlDeferredCopyResolution lastDeferred;
+bool transferCaptured=false,transferIsSubimage=false;
 unsigned producerBegin(int mode,bool pbuffer,bool namedOnly=false,int strength=100){
     // Python verifies the actual current EGL context/display and BOTH null
     // surfaces before requesting namedOnly. This fixture-only bridge supplies
@@ -87,19 +88,20 @@ unsigned bsi_test_quality_begin_strength(int mode,int reviewed,unsigned primitiv
 }
 // Actual API observations + production dependency policy. The caller owns this
 // fixture context; these exports are NEVER part of the deployed module.
-void bsi_test_dependency_reset(unsigned revision){dependencies.synchronize(1,revision);transferCaptured=false;}
+void bsi_test_dependency_reset(unsigned revision){dependencies.synchronize(1,revision);transferCaptured=false;lastDeferred={};}
 void bsi_test_dependency_frame(){dependencies.nextFrame();}
 unsigned bsi_test_dependency_consumer(){
-    BsiShaders::GlTextureUsage usage;
-    return quality->usage(&usage)&&usage.defaultFramebuffer?dependencies.observe(authoredContext,usage,true):0;
+    BsiShaders::GlTextureUsage usage;lastDeferred={};
+    return quality->usage(&usage)&&usage.defaultFramebuffer?dependencies.observe(authoredContext,usage,true,&lastDeferred):0;
 }
+unsigned bsi_test_dependency_deferred_resolved(){return lastDeferred.copies;}
 unsigned bsi_test_dependency_producer_begin(int mode){return producerBegin(mode,false);}
 unsigned bsi_test_dependency_pbuffer_begin(int mode){return producerBegin(mode,true);}
 unsigned bsi_test_dependency_resource_only_begin(int mode,int strength){return producerBegin(mode,false,true,strength);}
 // Authored native-pbuffer qualification, not a Windows lifecycle assertion.
 // Python invokes the real GL original BETWEEN capture and complete.
 unsigned bsi_test_dependency_transfer_capture(int copy,int qualifyNativeRead){
-    using namespace BsiShaders;transferCaptured=false;
+    using namespace BsiShaders;transferCaptured=false;transferIsSubimage=copy!=0;
     const auto call=copy?GlColorTransfer::copy(0x0de1,0,0,0,0,0,64,64)
                         :GlColorTransfer::blit(0,0,64,64,0,0,64,64,0x4000,0x2600);
     if(!quality->transfer(call,&pendingTransfer))return 0;
@@ -111,7 +113,7 @@ unsigned bsi_test_dependency_transfer_capture(int copy,int qualifyNativeRead){
     transferCaptured=true;return 1;
 }
 unsigned bsi_test_dependency_image_capture(unsigned source,unsigned sourceTarget,unsigned destination,unsigned destinationTarget,int width,int height,unsigned apis){
-    using namespace BsiShaders;transferCaptured=false;
+    using namespace BsiShaders;transferCaptured=false;transferIsSubimage=false;
     auto call=GlColorTransfer::image(source,sourceTarget,0,0,0,0,destination,destinationTarget,0,0,0,0,width,height,1);call.imageApis=apis;
     if(!quality->transfer(call,&pendingTransfer))return 0;
     transferCaptured=true;return 1;
@@ -119,6 +121,11 @@ unsigned bsi_test_dependency_image_capture(unsigned source,unsigned sourceTarget
 unsigned bsi_test_dependency_transfer_complete(){
     if(!transferCaptured)return 0;
     transferCaptured=false;return dependencies.observe(authoredContext,pendingTransfer,pendingTransfer.defaultFramebuffer);
+}
+unsigned bsi_test_dependency_transfer_defer(){
+    if(!transferCaptured||!transferIsSubimage)return 0;
+    transferCaptured=false;
+    return dependencies.deferCopy(authoredContext,pendingTransfer)==BsiShaders::GlDeferredCopyResult::Queued;
 }
 // The real EGL fixture creates a NONSHARING producer context and a native
 // texture-capable pbuffer, calls the actual native bind between these exports,

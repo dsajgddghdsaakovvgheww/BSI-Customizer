@@ -20,6 +20,7 @@ void Runtime::resetTextureEvidence(){
     state.textureConsumerDraws=state.textureConsumerInputs=0;
     state.textureProducerInspected=state.textureProducerDraws=state.textureProducerBindings=0;
     state.textureTransferCalls=state.textureTransferInputs=0;
+    state.textureDeferredCopies=state.textureDeferredInputs=0;
     state.textureHookDrawCalls=state.textureHookTransferCalls=state.textureHookImageCopyCalls=state.textureHookNativeImageCalls=0;
     state.textureTransferAudit={};
     state.textureLastBypass.clear();state.textureProducerStatus.clear();
@@ -156,6 +157,11 @@ void Runtime::textureTransferReport(unsigned inputs,std::uint64_t revision){
     std::lock_guard<std::mutex> lock(mutex);
     if(revision!=textureRevision||!currentTexture.active()||!state.observed||family(state.renderer)!=RendererFamily::OpenGL)return;
     ++state.textureTransferCalls;state.textureTransferInputs+=inputs;
+}
+void Runtime::textureDeferredCopyReport(unsigned copies,unsigned inputs,std::uint64_t revision){
+    std::lock_guard<std::mutex> lock(mutex);
+    if(!revision||revision!=textureRevision||!currentTexture.active()||!state.observed||family(state.renderer)!=RendererFamily::OpenGL)return;
+    state.textureDeferredCopies+=copies;state.textureDeferredInputs+=inputs;
 }
 void Runtime::textureReport(unsigned bindings,const std::string &detail,bool supported,TextureDrawReason reason,TextureDepthFailure depthFailure,bool nested,bool producer,std::uint64_t revision){
     std::lock_guard<std::mutex> lock(mutex);

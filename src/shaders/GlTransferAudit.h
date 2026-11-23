@@ -11,7 +11,7 @@ enum class GlCandidateStop { Qualified, Lifecycle, NoContext, Renderer, Source, 
     Drawable, Dependency, Protection, Capacity, Count };
 enum class GlTransferStop { Exception, Nested, Guarded, Busy, Policy, ResourceChanged, NoCandidate,
     Initialize, ResourceHooks, Descriptor, Output, Input, UnlinkedOutput, NativePending,
-    RouteChanged, CurrentChanged, RecordedNoInputs, RecordedInputs, Count };
+    RouteChanged, CurrentChanged, RecordedNoInputs, RecordedInputs, DeferredOutput, DeferredCapacity, Count };
 enum class GlTransferDescriptor { None, NotReady, Api, Arguments, MissingQuery, Framebuffer,
     ColorBuffer, Protection, Attachment, ColorFormat, Destination, NamedImage, Feedback, Count };
 inline constexpr std::array<const char*,static_cast<std::size_t>(GlCandidateStop::Count)> glCandidateLabels{{
@@ -22,7 +22,8 @@ inline constexpr std::array<const char*,static_cast<std::size_t>(GlTransferStop:
     "exception", "nested-copy-alias", "inspection-guard", "render-lock-busy", "policy-or-source",
     "resource-epoch-changed", "no-qualified-candidate", "inspector-unavailable", "retirement-hooks-unavailable",
     "descriptor-refused", "output-unqualified", "read-pbuffer-or-feedback-unqualified", "output-not-recently-consumed",
-    "native-completion-not-recorded", "route-revision-changed", "native-current-changed", "recorded-zero-inputs", "recorded-inputs"}};
+    "native-completion-not-recorded", "route-revision-changed", "native-current-changed", "recorded-zero-inputs", "recorded-inputs",
+    "awaiting-exact-copy-consumer", "pending-copy-budget"}};
 inline constexpr std::array<const char*,static_cast<std::size_t>(GlTransferDescriptor::Count)> glDescriptorLabels{{
     "none", "not-initialized", "unsupported-api-or-protection", "unsupported-arguments", "missing-completeness-query",
     "incomplete-framebuffer", "unsupported-color-buffer", "protection-unproved", "unsupported-attachment",

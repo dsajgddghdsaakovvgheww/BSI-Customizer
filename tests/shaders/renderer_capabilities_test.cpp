@@ -170,6 +170,11 @@ int main(){
             &&audit.candidates[static_cast<std::size_t>(GlCandidateStop::Qualified)]==1&&audit.codeProviders[0]==1
             &&!runtime.metrics().textureInspected&&!runtime.metrics().textureTransferCalls&&!runtime.metrics().textureProducerDraws,
             "transfer rejection diagnostics never count as qualified ownership, inspected draws or successful copies");
+    runtime.textureDeferredCopyReport(1,1,route.revision);
+    runtime.textureDeferredCopyReport(100,100,0);
+    require(runtime.metrics().textureDeferredCopies==1&&runtime.metrics().textureDeferredInputs==1
+            &&!runtime.metrics().textureTransferCalls&&!runtime.metrics().textureProducerDraws&&!runtime.metrics().textureBindings,
+            "late submitted-copy reconciliation is separate from native calls, ownership/private binding counts and invalid epochs");
     attempt.api=999;runtime.textureTransferAuditReport(attempt);
     require(runtime.metrics().textureTransferAudit.calls==audit.calls,"unrecognized transfer audit enums are bounded before indexing");
     attempt.api=GlColorTransfer::CopyTexSubImage2D;attempt.providers=2;attempt.stop=GlTransferStop::NoCandidate;attempt.candidates={};
@@ -181,10 +186,12 @@ int main(){
             &&audit.candidates[static_cast<std::size_t>(GlCandidateStop::Dependency)]==1,
             "retain each shared-code provider candidate's refusal separately, not a misleading arbitrary last candidate");
     attempt.api=GlColorTransfer::CopyImage;attempt.providers=3;attempt.stop=GlTransferStop::Busy;attempt.candidates={};
-    std::thread diagnosticA([&]{for(unsigned i=0;i<100;++i)runtime.textureTransferAuditReport(attempt);});
-    std::thread diagnosticB([&]{for(unsigned i=0;i<100;++i)runtime.textureTransferAuditReport(attempt);});
+    const auto report=[&]{for(unsigned i=0;i<100;++i){runtime.textureTransferAuditReport(attempt);runtime.textureDeferredCopyReport(1,1,route.revision);}};
+    std::thread diagnosticA(report);
+    std::thread diagnosticB(report);
     diagnosticA.join();diagnosticB.join();audit=runtime.metrics().textureTransferAudit;
-    require(audit.calls[2]==200&&audit.codeProviders[2]==200&&audit.stops[static_cast<std::size_t>(GlTransferStop::Busy)]==200,
+    require(audit.calls[2]==200&&audit.codeProviders[2]==200&&audit.stops[static_cast<std::size_t>(GlTransferStop::Busy)]==200
+            &&runtime.metrics().textureDeferredCopies==201&&runtime.metrics().textureDeferredInputs==201,
             "concurrent diagnostic aggregation remains mutex-consistent without claiming a captured transfer");
     for(const auto *label:glTransferLabels)require(label&&*label,"all terminal diagnostic categories have stable labels");
     for(const auto *label:glCandidateLabels)require(label&&*label,"all candidate diagnostic categories have stable labels");
@@ -210,9 +217,10 @@ int main(){
             "retain the real producer's precise refusal separately; a later compositor must not overwrite it with a misleading no-mip diagnosis");
     runtime.setTexture({true,true,TextureDrawPolicy::OwnedMipCompatibility,50});
     const auto halfRoute=runtime.textureRoute();m=runtime.metrics();
-    runtime.textureTransferAuditReport(attempt);
+    runtime.textureTransferAuditReport(attempt);runtime.textureDeferredCopyReport(50,50,route.revision);
     require(runtime.metrics().textureTransferAudit.calls==decltype(audit.calls){}
-            &&runtime.metrics().textureTransferAudit.stops==decltype(audit.stops){},
+            &&runtime.metrics().textureTransferAudit.stops==decltype(audit.stops){}
+            &&!runtime.metrics().textureDeferredCopies&&!runtime.metrics().textureDeferredInputs,
             "strength/source resets clear the full routing ledger and reject late old-epoch diagnostic reports");
     std::uint64_t hookRevision=0;
     require(runtime.textureHookEntry(TextureHookKind::Draw,&hookRevision)&&hookRevision==halfRoute.revision,
@@ -230,10 +238,11 @@ int main(){
     const auto zeroRevision=runtime.textureRoute().revision;
     require(!runtime.textureHookEntry(TextureHookKind::Draw)&&!runtime.textureHookEntry(TextureHookKind::NamedImageCopy)
             &&!runtime.metrics().textureHookDrawCalls&&!runtime.metrics().textureHookTransferCalls,"zero strength cannot collect active raw capture counters");
-    runtime.textureConsumerReport(1,zeroRevision);runtime.textureTransferReport(1,zeroRevision);
+    runtime.textureConsumerReport(1,zeroRevision);runtime.textureTransferReport(1,zeroRevision);runtime.textureDeferredCopyReport(1,1,zeroRevision);
     runtime.textureReport(2,"zero is not a weak preparation",true,TextureDrawReason::Prepared,TextureDepthFailure::None,false,true,zeroRevision);
     require(!runtime.texture().active()&&!runtime.metrics().textureInspected&&!runtime.metrics().textureConsumerDraws
-            &&!runtime.metrics().textureTransferCalls&&runtime.metrics().textureStatus.find("0%")!=std::string::npos,"zero strength is explicit native sampling, not an unconfirmed small effect");
+            &&!runtime.metrics().textureTransferCalls&&!runtime.metrics().textureDeferredCopies&&!runtime.metrics().textureDeferredInputs
+            &&runtime.metrics().textureStatus.find("0%")!=std::string::npos,"zero strength is explicit native sampling, not an unconfirmed small effect");
     runtime.setTexture({true,true,TextureDrawPolicy::OwnedMipCompatibility,101});
     require(runtime.texture().strength==0&&runtime.textureRoute().revision==zeroRevision,"invalid runtime percentages cannot alter the current setting or evidence revision");
     runtime.setTexture({false,true,TextureDrawPolicy::OwnedMipCompatibility});

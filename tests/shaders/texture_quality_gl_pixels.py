@@ -749,6 +749,118 @@ def exercise(gl, policy, desktop, size, resolver, resource_current):
             folder = Path(artifacts) / ("desktop" if desktop else "gles")
             for tag, rgba in (("native", transfer_native), ("strong", transfer_strong), ("off", transfer_off)):
                 save_rgba(folder / (label + "-" + tag + ".png"), rgba, size)
+    # Ordering regression on ACTUAL GL resources: a real copy into a NEW
+    # single-level LINEAR destination precedes its first selected consumption.
+    # Retain only submitted metadata; no producer sampler may change until that
+    # exact later consumer. Windows hook/current/lifetime gates are separate.
+    policy.bsi_test_dependency_transfer_defer.restype = U
+    policy.bsi_test_dependency_deferred_resolved.restype = U
+    late_target = U()
+    active(0x84C0)
+    gl("glGenTextures", None, I, C.POINTER(U))(1, C.byref(late_target))
+    gl("glBindTexture", None, U, U)(0x0DE1, late_target)
+    upload(0x0DE1, 0, 0x8058, size, size, 0, 0x1908, 0x1401, None)
+    for key, value in ((0x2801, 0x2601), (0x2800, 0x2601), (0x813D, 0)):
+        texture_i(0x0DE1, key, value)
+    active(0x84C3)
+    copy_order_evidence = []
+
+    def late_source(mode):
+        bind_sampler(0, native_binding)
+        return linked_producer(mode, stage_fbo)
+
+    def late_present(target):
+        bind_framebuffer(0x8D40, 0)
+        bind_input(target)
+        bind_sampler(0, 0)
+        count = policy.bsi_test_quality_begin_strength(2, 1, 4, 1, 100, message, len(message))
+        assert count == 0 and b"non-mip-filter=1" in message.value, "copy ordering must not force mips on either legal LINEAR compositor input"
+        draw(4, 0, 3)
+        policy.bsi_test_quality_end()
+        return root_pixels()
+
+    def late_copy(deferred):
+        bind_framebuffer(0x8CA8, stage_fbo)
+        bind_input(late_target)
+        active(0x84C0)
+        gl("glEnable", None, U)(0xDEADBEEF)
+        assert policy.bsi_test_dependency_transfer_capture(1, 0) == 1
+        before_active, before_texture, before_sampler = I(), I(), I()
+        get_int(0x84E0, C.byref(before_active))
+        get_int(0x8069, C.byref(before_texture))
+        get_int(0x8919, C.byref(before_sampler))
+        assert before_active.value == 0x84C0 and before_texture.value == late_target.value
+        copy_subimage(0x0DE1, 0, 0, 0, 0, 0, size, size)
+        if deferred:
+            assert policy.bsi_test_dependency_transfer_defer() == 1, "native completion can queue an unconsumed base-2D copy, NOT qualify it"
+        else:
+            assert policy.bsi_test_dependency_transfer_complete() == 1
+        after_active, after_texture, after_sampler = I(), I(), I()
+        get_int(0x84E0, C.byref(after_active))
+        get_int(0x8069, C.byref(after_texture))
+        get_int(0x8919, C.byref(after_sampler))
+        assert (before_active.value, before_texture.value, before_sampler.value) == (after_active.value, after_texture.value, after_sampler.value)
+        assert get_error() == 0x0500 and get_error() == 0, "deferred capture/reconciliation must not consume or add to the application's error"
+        active(0x84C3)
+
+    for source_index, native_binding in enumerate((samplers[0], 0)):
+        policy.bsi_test_dependency_reset(700 + source_index)
+        assert late_source(2) == (0, native)
+        # Establish only an unrelated consumer in this known namespace first;
+        # this is a prefilter, not ownership of the NEW copy's output.
+        bind_framebuffer(0x8CA8, stage_fbo)
+        bind_framebuffer(0x8CA9, color_fbo)
+        blit(0, 0, size, size, 0, 0, size, size, 0x4000, 0x2600)
+        late_present(color_target)
+        assert policy.bsi_test_dependency_consumer() == 1
+        assert late_source(2) == (0, native)
+        late_copy(True)
+        assert late_source(2) == (0, native), "queued metadata alone NEVER adopts a material producer"
+        late_present(color_target)
+        assert policy.bsi_test_dependency_consumer() == 1 and policy.bsi_test_dependency_deferred_resolved() == 0, "an unrelated presented image cannot consume the pending edge"
+        late_native = late_present(late_target)
+        assert tuple(late_native[:4]) == native
+        assert policy.bsi_test_dependency_consumer() == 1 and policy.bsi_test_dependency_deferred_resolved() == 1, "only the exact LATER actual destination consumption reconciles this earlier submitted copy"
+        assert late_source(2) == (1, colors[3]), "ordering repair must reach real upstream material mips, not modify the compositor"
+        late_copy(False)
+        late_strong = late_present(late_target)
+        assert tuple(late_strong[:4]) == colors[3] and late_strong != late_native
+        assert late_source(0) == (0, native)
+        late_copy(False)
+        late_off = late_present(late_target)
+        assert late_off == late_native, "copy-before-consumer Off must restore the ENTIRE presented image exactly"
+        for _ in range(3):
+            policy.bsi_test_dependency_frame()
+        assert late_source(2) == (0, native), "reconciled copies cannot refresh their own original TTL"
+        policy.bsi_test_dependency_reset(800 + source_index)
+        assert late_source(2) == (0, native), "source/settings epochs revoke reconciled copy-order evidence"
+        label = "sampler" if native_binding else "texture"
+        copy_order_evidence.append({"source": label, "queuedBeforeConsumption": 1, "resolvedAfterExactConsumption": 1,
+                                    "producerBindings": 1, "compositorBindings": 0,
+                                    "nativeRGBA": list(late_native[:4]), "strongRGBA": list(late_strong[:4]),
+                                    "offExact": late_off == late_native})
+        if os.environ.get("BSI_TEXTURE_PIXEL_ARTIFACT_DIR"):
+            folder = Path(os.environ["BSI_TEXTURE_PIXEL_ARTIFACT_DIR"]) / ("desktop" if desktop else "gles")
+            for tag, rgba in (("native", late_native), ("strong", late_strong), ("off", late_off)):
+                save_rgba(folder / ("copy-order-" + label + "-" + tag + ".png"), rgba, size)
+    native_binding = samplers[0]
+    bind_sampler(0, native_binding)
+    bind_input(texture)
+    active(0x84C0)
+    gl("glDeleteTextures", None, I, C.POINTER(U))(1, C.byref(late_target))
+    active(0x84C3)
+    assert source_lods() == saved_source_lods and get_error() == 0
+    copy_order_report = {"api": "desktop" if desktop else "gles", "version": version, "path": "copy-before-consumer",
+                         "sourceModes": copy_order_evidence, "sourceStatePendingErrorRevisionTTL": True,
+                         "limit": "actual authored software GL copies/material pixels, NOT Windows detours/player/game/GPU/FPS acceptance"}
+    report = json.dumps(copy_order_report, separators=(",", ":"))
+    if os.environ.get("BSI_TEXTURE_PIXEL_ARTIFACT_DIR"):
+        (folder / "copy-order-evidence.json").write_text(json.dumps(copy_order_report, indent=2) + "\n")
+    print("Copy-before-consumer pixel evidence:", report)
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        assert len(report.encode()) < 2500
+        print("::notice title=Actual copy-before-consumer material pixels (software)::" + report)
+
     # Explicitly mandatory in desktop CI; no version override or stub-only
     # feature claim. Source/destination need not be bound to ANY current FBO.
     if os.environ.get("BSI_TEST_COPY_IMAGE") == "1":

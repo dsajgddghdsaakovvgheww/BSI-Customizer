@@ -93,7 +93,7 @@ QVariantMap ShaderBridge::bridgeInfo()const{
     return {{"moduleQtVersion",QString::fromLatin1(QT_VERSION_STR)},
             {"runtimeQtVersion",QString::fromLatin1(qVersion())},{"publicQtApi",true},
             {"moduleBuildRevision",QStringLiteral(BSI_SHADERS_BUILD_REVISION)},
-            {"moduleCaptureVersion",QStringLiteral("gl-transfer-route-ledger-v4")}};
+            {"moduleCaptureVersion",QStringLiteral("gl-copy-consumer-order-v5")}};
 }
 QVariantList ShaderBridge::controlList()const{
     QVariantList out;
@@ -129,6 +129,7 @@ QVariantMap ShaderBridge::metrics()const{
             {"textureProducerInspected",number(m.textureProducerInspected)},{"textureProducerDraws",number(m.textureProducerDraws)},
             {"textureProducerBindings",number(m.textureProducerBindings)},{"textureProducerStatus",QString::fromStdString(m.textureProducerStatus)},
             {"textureTransferCalls",number(m.textureTransferCalls)},{"textureTransferInputs",number(m.textureTransferInputs)},
+            {"textureDeferredCopies",number(m.textureDeferredCopies)},{"textureDeferredInputs",number(m.textureDeferredInputs)},
             {"textureHookDrawCalls",number(m.textureHookDrawCalls)},{"textureHookTransferCalls",number(m.textureHookTransferCalls)},
             {"textureHookImageCopyCalls",number(m.textureHookImageCopyCalls)},{"textureHookNativeImageCalls",number(m.textureHookNativeImageCalls)},
             {"textureTransferApis",auditCounters(glTransferApiLabels,m.textureTransferAudit.calls)},
@@ -152,7 +153,7 @@ QString ShaderBridge::diagnostics()const{
              m.value("textureDepthNever").toString(),m.value("textureDepthAlways").toString(),
              m.value("textureDepthMissingAttachment").toString(),m.value("textureDepthInsufficientPrecision").toString(),
              m.value("textureDepthUnspecified").toString(),m.value("textureNestedInspected").toString(),m.value("textureNestedDraws").toString());
-    const auto producerReport=QStringLiteral("Presentation-input observations: draws=%1; color bindings=%2. Resource-linked FBO/pbuffer producers: inspected=%3; prepared=%4; private bindings=%5. Color transfer observations: calls=%6; linked inputs=%7. GL texture/RBO names require the same or observed-successfully-shared namespace. An exact recent native pbuffer color link from a successful image binding or captured copy can reach its nonsharing renderer without merging GL names; pbuffer existence alone is not ownership. Unknown/foreign/protected routes stay native. Bindings/submitted copies/native image links are not measured texture pixels or FPS.")
+    const auto producerReport=QStringLiteral("Presentation-input observations: draws=%1; color bindings=%2. Resource-linked FBO/pbuffer producers: inspected=%3; prepared=%4; private bindings=%5. Immediate color transfer observations: calls=%6; linked inputs=%7. GL texture/RBO names require the same or observed-successfully-shared namespace. An exact recent native pbuffer color link from a successful image binding or captured copy can reach its nonsharing renderer without merging GL names; pbuffer existence alone is not ownership. Unknown/foreign/protected routes stay native. Bindings/submitted copies/native image links are not measured texture pixels or FPS.")
         .arg(m.value("textureConsumerDraws").toString(),m.value("textureConsumerInputs").toString(),
              m.value("textureProducerInspected").toString(),m.value("textureProducerDraws").toString(),m.value("textureProducerBindings").toString(),
              m.value("textureTransferCalls").toString(),m.value("textureTransferInputs").toString())
@@ -164,7 +165,9 @@ QString ShaderBridge::diagnostics()const{
         +QStringLiteral("\nCopy/blit routing ledger (native image bindings excluded): APIs: %1\nTerminal outcomes: %2\nProvider-candidate checks: %3\nDescriptor refusals: %4\nCode-target provider masks (NOT resource ownership): %5\nOne outcome per completed audited callback; candidate checks may overlap across shared-code providers. In-flight/reset-stale callbacks can be absent. Recorded inputs are submitted metadata, NOT driver success, changed pixels or a working Potato effect. No extra diagnostic GL query, raw handle/name, persistent log or upload.")
              .arg(auditLine(m.value("textureTransferApis")),auditLine(m.value("textureTransferStops")),
                   auditLine(m.value("textureTransferCandidates")),auditLine(m.value("textureTransferDescriptors")),
-                  auditLine(m.value("textureTransferCodeProviders")));
+                  auditLine(m.value("textureTransferCodeProviders")))
+        +QStringLiteral("\nDeferred copy-subimage reconciliation: edges=%1; linked inputs=%2. Awaiting-exact-consumer callbacks are NOT ownership or qualified links. Only later exact consumption in the same/observed-share namespace can reconcile submitted metadata, within the ORIGINAL two-frame capture deadline and eight-hop bound. Reconciliation is separate from native call totals and NOT proof of driver success, private bindings or game pixels.")
+             .arg(m.value("textureDeferredCopies").toString(),m.value("textureDeferredInputs").toString());
     const auto inspectionReport=QStringLiteral("Texture inspection since the latest setting/source change: calls=%1; sampler-inspection calls=%2; conservative depth bypass=%3; blended bypass=%4; no eligible mip sampler=%5; other bypass=%6\nLatest bypass: %7\nOffscreen/pbuffer/foreign scene contexts are not inferred from presentation or a share group.")
         .arg(m.value("textureInspected").toString(),m.value("textureEligibleDraws").toString(),
              m.value("textureDepthBypasses").toString(),m.value("textureBlendBypasses").toString(),

@@ -40,6 +40,10 @@ struct GlContextIdentity {
         return provider==other.provider&&display==other.display&&context==other.context;
     }
 };
+// Deferred metadata is NOT ownership. Only an exact later consumer can resolve
+// a submitted base-level copy; the original capture's namespace/TTL still bind it.
+enum class GlDeferredCopyResult { Refused, Queued, Capacity };
+struct GlDeferredCopyResolution {unsigned copies=0,inputs=0;};
 // Bounded, allocation-free dependency evidence, serialized by renderMutex.
 // Only a real selected-drawable/default-FBO draw or submitted color blit can
 // seed consumed color resources. A nonpresenting producer must write an exact
@@ -51,18 +55,19 @@ struct GlContextIdentity {
 // unrelated contexts, providers or EGL displays; no foreign HWND is adopted.
 class GlTextureProvenance {
 public:
-    static constexpr std::size_t contextCapacity=64,textureCapacity=128;
+    static constexpr std::size_t contextCapacity=64,textureCapacity=128,pendingCopyCapacity=32;
     static constexpr unsigned maximumHops=8;
     static constexpr std::uint64_t frameLifetime=2;
     void synchronize(std::uintptr_t source,std::uint64_t revision){
         if(source_==source&&revision_==revision)return;
         source_=source;revision_=revision;clearEvidence();
     }
-    void clearEvidence(){for(auto &item:textures_)item={};frame_=1;}
+    void clearEvidence(){for(auto &item:textures_)item={};for(auto &copy:pending_)copy={};pendingCount_=0;frame_=1;}
     void nextFrame(){
         if(frame_==std::numeric_limits<std::uint64_t>::max()){clearEvidence();return;}
         ++frame_;
         for(auto &item:textures_)if(item.texture&&item.expires<frame_)item={};
+        for(auto &copy:pending_)if(copy.output&&copy.expires<frame_)erase(copy);
     }
     bool remember(GlContextIdentity key){return space(key,true)!=0;}
     bool known(GlContextIdentity key)const{return knownSpace(key)!=0;}
@@ -97,13 +102,14 @@ public:
     }
     void forget(GlContextIdentity key){
         const auto id=knownSpace(key);
+        for(auto &copy:pending_)if(copy.output&&copy.key==key)erase(copy);
         for(auto &entry:contexts_)if(entry.space&&entry.key==key)entry={};
         if(id&&std::none_of(contexts_.begin(),contexts_.end(),[&](const Context &c){return c.space==id;}))
             for(auto &item:textures_)if(item.space==id)item={};
     }
     void forgetProvider(unsigned provider){
         for(auto &entry:contexts_)if(entry.space&&entry.key.provider==provider)entry={};
-        for(auto &item:textures_)if(item.texture&&item.provider==provider)item={};
+        invalidate(provider);
     }
     // Invalidate by provider even if deletion came through an untracked shared
     // context: conservative over-invalidation is preferable to a reused name.
@@ -112,16 +118,55 @@ public:
         bool invalid=!names||count>256;
         if(!invalid)for(const auto &item:textures_)if(item.texture&&item.provider==provider&&item.texture.kind==kind)
             for(int i=0;i<count;++i)if(item.texture.name==names[i]){invalid=true;break;}
+        if(!invalid)for(const auto &copy:pending_)if(copy.output&&copy.key.provider==provider)
+            for(int i=0;i<count;++i)if((copy.output.kind==kind&&copy.output.name==names[i])
+                ||(copy.input.kind==kind&&copy.input.name==names[i])){invalid=true;break;}
         if(invalid)invalidate(provider);
     }
     void retiredPbuffer(unsigned provider,std::uintptr_t generation){
         for(const auto &item:textures_)if(item.provider==provider&&item.texture.kind==GlColorResource::Pbuffer&&item.texture.name==generation){
             invalidate(provider);return;
         }
+        for(const auto &copy:pending_)if(copy.output&&copy.key.provider==provider
+            &&copy.input.kind==GlColorResource::Pbuffer&&copy.input.name==generation){invalidate(provider);return;}
     }
     // Drop inherited ancestors too: they no longer have an intact observed
     // path if a downstream/root resource was retired. Keep valid namespaces.
-    void invalidate(unsigned provider){for(auto &item:textures_)if(item.provider==provider)item={};}
+    void discardPendingProvider(unsigned provider){
+        if(!pendingCount_)return;
+        for(auto &copy:pending_)if(copy.output&&copy.key.provider==provider)erase(copy);
+    }
+    void invalidate(unsigned provider){
+        for(auto &item:textures_)if(item.provider==provider)item={};
+        discardPendingProvider(provider);
+    }
+    // An observed later write replaces the earlier copy's destination. If an
+    // already-qualified callback cannot capture its output, revoke that space's
+    // pending metadata without probing more GL state. Revocation is not adoption.
+    void discardPendingWrites(GlContextIdentity key,const GlTextureUsage *usage){
+        if(!pendingCount_)return;
+        const auto id=knownSpace(key);if(!id)return;
+        for(auto &copy:pending_)if(copy.output&&copy.space==id
+            &&(!usage||usage->writeCount>usage->capacity||contains(usage->writes,usage->writeCount,copy.output)))erase(copy);
+    }
+    // Called only AFTER a native CopyTexSubImage2D returns with its existing
+    // descriptor/current/route/resource checks intact. A queued edge cannot
+    // seed a namespace, authorize a producer or refresh any dependency. The
+    // exact destination must be consumed later in an observed SAME/share space.
+    GlDeferredCopyResult deferCopy(GlContextIdentity key,const GlTextureUsage &usage){
+        const auto id=knownSpace(key);
+        if(!source_||!id||!hasDependencies(key)||usage.readCount!=1||usage.writeCount!=1)return GlDeferredCopyResult::Refused;
+        const auto input=usage.reads[0],output=usage.writes[0];
+        if(!input||!output||output.kind!=GlColorResource::Texture||input==output
+           ||(input.kind==GlColorResource::Pbuffer&&!input.colorBuffer)||producer(key,usage))return GlDeferredCopyResult::Refused;
+        // Keep only the latest captured copy into a given output, not an
+        // obsolete predecessor overwritten by a later observed copy.
+        for(auto &copy:pending_)if(copy.output&&copy.space==id&&copy.output==output){
+            copy={key,input,output,id,deadline()};return GlDeferredCopyResult::Queued;
+        }
+        for(auto &copy:pending_)if(!copy.output){copy={key,input,output,id,deadline()};++pendingCount_;return GlDeferredCopyResult::Queued;}
+        return GlDeferredCopyResult::Capacity;
+    }
     bool producer(GlContextIdentity key,const GlTextureUsage &usage)const{
         if(!source_||usage.readCount>usage.capacity||usage.writeCount>usage.capacity)return false;
         const auto id=knownSpace(key);
@@ -130,15 +175,16 @@ public:
         return false;
     }
     // Returns the number of consumed color bindings observed, not pixels/FPS.
-    unsigned observe(GlContextIdentity key,const GlTextureUsage &usage,bool selectedDrawable){
+    unsigned observe(GlContextIdentity key,const GlTextureUsage &usage,bool selectedDrawable,GlDeferredCopyResolution *resolved=nullptr){
+        if(resolved)*resolved={};
         if(!source_||usage.readCount>usage.capacity||usage.writeCount>usage.capacity)return 0;
+        discardPendingWrites(key,&usage);
         bool nativeOutput=false;
         for(std::size_t i=0;i<usage.writeCount;++i)nativeOutput=nativeOutput||hasNativeOutput(key,usage.writes[i]);
         const auto id=space(key,selectedDrawable||nativeOutput);if(!id)return 0;
         unsigned hops=0;std::uint64_t expires=0;
         if(selectedDrawable&&usage.defaultFramebuffer){
-            expires=frame_>std::numeric_limits<std::uint64_t>::max()-frameLifetime
-                ?std::numeric_limits<std::uint64_t>::max():frame_+frameLifetime;
+            expires=deadline();
         }else{
             hops=maximumHops;
             for(const auto &item:textures_)if((live(item,id)||nativeMatch(item,key,item.texture))&&contains(usage.writes,usage.writeCount,item.texture)){
@@ -153,15 +199,46 @@ public:
             if(!texture||contains(usage.writes,usage.writeCount,texture))continue;
             if(note(key,id,texture,expires,hops))++count;
         }
+        if(count)resolvePending(resolved);
         return count;
     }
 private:
     struct Context {GlContextIdentity key{};std::uint64_t space=0;};
+    struct PendingCopy {GlContextIdentity key{};GlColorResource input{},output{};std::uint64_t space=0,expires=0;};
     struct Texture {unsigned provider=0;GlColorResource texture{};unsigned hops=0;std::uint64_t space=0,expires=0;std::uintptr_t display=0;};
     std::array<Context,contextCapacity> contexts_{};
     std::array<Texture,textureCapacity> textures_{};
+    std::array<PendingCopy,pendingCopyCapacity> pending_{};
+    unsigned pendingCount_=0;
     std::uintptr_t source_=0;
     std::uint64_t revision_=0,frame_=1,nextSpace_=1;
+    std::uint64_t deadline()const{
+        return frame_>std::numeric_limits<std::uint64_t>::max()-frameLifetime
+            ?std::numeric_limits<std::uint64_t>::max():frame_+frameLifetime;
+    }
+    void erase(PendingCopy &copy){copy={};--pendingCount_;}
+    void resolvePending(GlDeferredCopyResolution *resolved){
+        // No GL queries, allocation or ownership from a pending edge. A real
+        // consumer has just seeded/refreshed an exact destination proof. Resolve
+        // at most the existing hop bound, retaining BOTH the root and capture
+        // deadlines. Copy cycles cannot renew themselves or replay indefinitely.
+        for(unsigned pass=0;pendingCount_&&pass<maximumHops;++pass){
+            bool progress=false;
+            for(auto &copy:pending_)if(copy.output){
+                if(copy.expires<frame_||knownSpace(copy.key)!=copy.space){erase(copy);continue;}
+                unsigned hops=maximumHops;std::uint64_t expires=0;
+                for(const auto &item:textures_)if(live(item,copy.space)&&item.texture==copy.output){
+                    const auto until=(std::min)(item.expires,copy.expires);
+                    if(until>expires){expires=until;hops=item.hops+1;}
+                    else if(until==expires)hops=(std::min)(hops,item.hops+1);
+                }
+                if(!expires||hops>=maximumHops||!note(copy.key,copy.space,copy.input,expires,hops))continue;
+                if(resolved){++resolved->copies;++resolved->inputs;}
+                erase(copy);progress=true;
+            }
+            if(!progress)break;
+        }
+    }
     static bool contains(const std::array<GlColorResource,GlTextureUsage::capacity> &items,std::size_t count,GlColorResource name){
         return count<=items.size()&&std::find(items.begin(),items.begin()+count,name)!=items.begin()+count;
     }

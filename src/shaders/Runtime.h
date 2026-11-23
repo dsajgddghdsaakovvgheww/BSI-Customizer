@@ -34,6 +34,9 @@ struct Metrics {
     std::uint64_t textureConsumerDraws=0,textureConsumerInputs=0;
     std::uint64_t textureProducerInspected=0,textureProducerDraws=0,textureProducerBindings=0;
     std::uint64_t textureTransferCalls=0,textureTransferInputs=0;
+    // Asynchronous reconciliation of submitted copies, NOT extra native calls
+    // or private bindings. Kept separate from synchronous transfer observations.
+    std::uint64_t textureDeferredCopies=0,textureDeferredInputs=0;
     // Non-injected hook entries anywhere in this process while a GL game source
     // is selected and Potato is active. May include aliases/foreign routes.
     std::uint64_t textureHookDrawCalls=0,textureHookTransferCalls=0,textureHookImageCopyCalls=0,textureHookNativeImageCalls=0;
@@ -86,6 +89,7 @@ public:
     void textureTransferAuditReport(const GlTransferAttempt &attempt);
     void textureConsumerReport(unsigned inputs,std::uint64_t revision);
     void textureTransferReport(unsigned inputs,std::uint64_t revision);
+    void textureDeferredCopyReport(unsigned copies,unsigned inputs,std::uint64_t revision);
     void textureReport(unsigned bindings,const std::string &detail,bool supported,
                        TextureDrawReason reason=TextureDrawReason::NotInspected,
                        TextureDepthFailure depthFailure=TextureDepthFailure::None,bool nested=false,

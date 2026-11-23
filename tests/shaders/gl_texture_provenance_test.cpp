@@ -142,6 +142,119 @@ int main(){
         p.observe(presenter,composite,true);p.observe(presenter,usage(false,{front},{50}),false);
         p.synchronize(123,2);require(!p.hasNativeOutput(unknown,front),"a settings/source revision revokes native bindings too");
     }
+    {
+        GlTextureProvenance p;p.synchronize(123,1);p.observe(presenter,composite,true);
+        const auto front=GlColorResource::pbuffer(800,0x0400),back=GlColorResource::pbuffer(800,0x0402);
+        const auto copy=usage(false,{front},{51}),nativeDraw=usage(true,{1},{front});
+        require(p.deferCopy(presenter,copy)==GlDeferredCopyResult::Queued&&!p.producer(presenter,nativeDraw),
+                "copy-before-consumer retains bounded submitted metadata, NEVER pbuffer ownership");
+        GlDeferredCopyResolution resolved;
+        p.observe(presenter,composite,true,&resolved);
+        require(!resolved.copies&&!p.producer(presenter,nativeDraw),"a different consumed output must not reconcile a sibling copy");
+        p.observe(unknown,usage(true,{51}),true,&resolved);
+        require(!resolved.copies&&!p.producer(presenter,nativeDraw),"same numeric destination in an unrelated namespace cannot consume pending copy metadata");
+        require(p.observe(presenter,usage(true,{51}),true,&resolved)==1&&resolved.copies==1&&resolved.inputs==1
+                &&p.producer(presenter,nativeDraw)&&!p.producer(presenter,usage(true,{1},{back})),
+                "only a LATER exact actual consumer reconciles the native lifetime/color aspect, without merging GL names");
+        p.observe(presenter,usage(true,{51}),true,&resolved);
+        require(!resolved.copies&&!resolved.inputs,"each submitted pending edge is consumed once, not replayed every frame");
+    }
+    {
+        GlTextureProvenance p;p.synchronize(123,1);p.shared(presenter,sharedScene);p.observe(presenter,composite,true);
+        const auto copy=usage(false,{GlColorResource::renderbuffer(70)},{51});
+        require(p.deferCopy(sharedScene,copy)==GlDeferredCopyResult::Queued,"an observed shared namespace can retain an unconsumed copy");
+        require(p.deferCopy(unknown,copy)==GlDeferredCopyResult::Refused
+                &&p.deferCopy({2,10,100},copy)==GlDeferredCopyResult::Refused
+                &&p.deferCopy({1,11,100},copy)==GlDeferredCopyResult::Refused,"pending copies cannot create context/provider/display dependencies");
+        GlDeferredCopyResolution resolved;p.observe(presenter,usage(true,{51}),true,&resolved);
+        require(resolved.copies==1&&p.producer(sharedScene,usage(false,{1},{GlColorResource::renderbuffer(70)}))
+                &&!p.producer(presenter,usage(false,{1},{70})),"late shared consumption still separates TEXTURE and RENDERBUFFER numeric names");
+    }
+    {
+        GlTextureProvenance p;const auto front=GlColorResource::pbuffer(800,0x0400);const auto copy=usage(false,{front},{51});
+        const auto reset=[&]{p.synchronize(0,1);p.synchronize(123,1);p.observe(presenter,composite,true);require(p.deferCopy(presenter,copy)==GlDeferredCopyResult::Queued,"queue fresh exact typed copy");};
+        GlDeferredCopyResolution resolved;
+        reset();p.nextFrame();p.nextFrame();p.observe(presenter,usage(true,{51}),true,&resolved);
+        require(resolved.copies==1&&p.hasNativeOutput(unknown,front),"pending deadline remains inclusive at two frames");
+        p.observe(presenter,usage(true,{51}),true);p.nextFrame();
+        require(!p.hasNativeOutput(unknown,front),"late consumption cannot extend the ORIGINAL copy deadline or replay its removed edge");
+        reset();for(unsigned i=0;i<3;++i)p.nextFrame();p.observe(presenter,usage(true,{51}),true,&resolved);
+        require(!resolved.copies&&!p.hasNativeOutput(unknown,front),"expired unconsumed copies cannot revive from a later destination-name match");
+        reset();unsigned name=51;p.deleted(1,1,&name);p.observe(presenter,usage(true,{51}),true,&resolved);
+        require(!resolved.copies&&!p.hasNativeOutput(unknown,front),"deleting an UNCONSUMED pending destination revokes it before name reuse");
+        reset();p.retiredPbuffer(1,800);p.observe(presenter,usage(true,{51}),true,&resolved);
+        require(!resolved.copies&&!p.hasNativeOutput(unknown,front),"retirement of an UNLINKED native source generation clears pending metadata too");
+        reset();p.forget(presenter);p.remember(presenter);p.observe(presenter,usage(true,{51}),true,&resolved);
+        require(!resolved.copies&&!p.hasNativeOutput(unknown,front),"context handle reuse never reuses a pending namespace generation");
+        reset();p.shared(presenter,sharedScene);p.observe(presenter,usage(true,{51}),true,&resolved);
+        require(!resolved.copies&&!p.hasNativeOutput(unknown,front),"a late namespace merge revokes pending copies, rather than retroactively sharing them");
+        reset();p.synchronize(123,2);p.observe(presenter,usage(true,{51}),true,&resolved);
+        require(!resolved.copies&&!p.hasNativeOutput(unknown,front),"Off/review/strength/source revision clears unconsumed copy metadata");
+        reset();p.forgetProvider(1);p.observe(presenter,usage(true,{51}),true,&resolved);
+        require(!resolved.copies&&!p.hasNativeOutput(unknown,front),"provider retirement cannot leave a pending native link");
+        reset();p.invalidate(1);p.observe(presenter,usage(true,{51}),true,&resolved);
+        require(!resolved.copies&&!p.hasNativeOutput(unknown,front),"lost retirement coverage drops pending and qualified dependencies together");
+    }
+    {
+        GlTextureProvenance p;p.synchronize(123,1);p.observe(presenter,composite,true);
+        const auto a=GlColorResource::pbuffer(800,0x0400),b=GlColorResource::pbuffer(801,0x0400);
+        require(p.deferCopy(presenter,usage(false,{a},{51}))==GlDeferredCopyResult::Queued
+                &&p.deferCopy(presenter,usage(false,{b},{51}))==GlDeferredCopyResult::Queued,"latest submitted copy replaces an overwritten pending predecessor");
+        GlDeferredCopyResolution resolved;p.observe(presenter,usage(true,{51}),true,&resolved);
+        require(resolved.copies==1&&!p.hasNativeOutput(unknown,a)&&p.hasNativeOutput(unknown,b),"a later consumer cannot revive an obsolete overwritten native source");
+        p.synchronize(123,2);p.observe(presenter,composite,true);
+        const auto rb=GlColorResource::renderbuffer(70);
+        require(p.deferCopy(presenter,usage(false,{rb},{51}))==GlDeferredCopyResult::Queued,"typed RBO source queued");
+        unsigned name=70;p.deleted(1,1,&name);p.observe(presenter,usage(true,{51}),true,&resolved);
+        require(resolved.copies==1,"a numerically equal texture deletion is not an RBO retirement");
+        p.synchronize(123,3);p.observe(presenter,composite,true);p.deferCopy(presenter,usage(false,{rb},{51}));
+        p.deleted(1,1,&name,GlColorResource::Renderbuffer);p.observe(presenter,usage(true,{51}),true,&resolved);
+        require(!resolved.copies,"retiring the actual typed pending input revokes the path");
+    }
+    {
+        GlTextureProvenance p;const auto front=GlColorResource::pbuffer(800,0x0400);
+        const auto reset=[&]{p.synchronize(0,1);p.synchronize(123,1);p.observe(presenter,composite,true);p.deferCopy(presenter,usage(false,{front},{51}));};
+        GlDeferredCopyResolution resolved;const auto same=usage(false,{1},{51}),other=usage(false,{1},{52});
+        reset();p.discardPendingWrites(presenter,&same);p.observe(presenter,usage(true,{51}),true,&resolved);
+        require(!resolved.copies&&!p.hasNativeOutput(unknown,front),"an observed later draw/copy into the pending DESTINATION replaces the old edge");
+        reset();p.discardPendingWrites(presenter,&other);p.observe(presenter,usage(true,{51}),true,&resolved);
+        require(resolved.copies==1,"an exact captured sibling write need not revoke unrelated pending metadata");
+        reset();p.discardPendingWrites(presenter,nullptr);p.observe(presenter,usage(true,{51}),true,&resolved);
+        require(!resolved.copies,"uncapturable callback output revokes pending metadata in that namespace, without querying more GL state");
+        reset();p.discardPendingWrites(unknown,nullptr);p.discardPendingWrites({2,10,100},nullptr);p.discardPendingWrites({1,11,100},nullptr);
+        p.observe(presenter,usage(true,{51}),true,&resolved);
+        require(resolved.copies==1,"another isolated context/provider/display cannot collide with the pending namespace");
+        reset();p.discardPendingProvider(1);p.observe(presenter,usage(true,{51}),true,&resolved);
+        require(!resolved.copies&&p.hasDependencies(presenter),"missed-callback revocation drops pending metadata only, not existing namespace/consumer proof");
+    }
+    {
+        GlTextureProvenance p;p.synchronize(123,1);p.observe(presenter,composite,true);
+        for(unsigned i=0;i<GlTextureProvenance::pendingCopyCapacity;++i)
+            require(p.deferCopy(presenter,usage(false,{GlColorResource::pbuffer(800+i,0x0400)},{1000+i}))==GlDeferredCopyResult::Queued,"fixed pending-copy budget accepts its exact capacity");
+        require(p.deferCopy(presenter,usage(false,{GlColorResource::renderbuffer(70)},{2000}))==GlDeferredCopyResult::Capacity,"pending overflow never evicts a live proof or grows the budget");
+        GlDeferredCopyResolution resolved;p.observe(presenter,usage(true,{1000}),true,&resolved);
+        require(resolved.copies==1&&p.deferCopy(presenter,usage(false,{GlColorResource::renderbuffer(70)},{2000}))==GlDeferredCopyResult::Queued,"resolved metadata frees exactly one bounded pending slot");
+        require(p.deferCopy(presenter,usage(false,{1},{1}))==GlDeferredCopyResult::Refused
+                &&p.deferCopy(presenter,usage(false,{1},{GlColorResource::renderbuffer(60)}))==GlDeferredCopyResult::Refused
+                &&p.deferCopy(presenter,usage(false,{1,2},{60}))==GlDeferredCopyResult::Refused
+                &&p.deferCopy(presenter,usage(false,{GlColorResource::pbuffer(800)},{60}))==GlDeferredCopyResult::Refused,
+                "feedback, nontexture destination, non-copy arity and unknown native color aspects are not queued");
+    }
+    {
+        GlTextureProvenance p;p.synchronize(123,1);p.observe(presenter,composite,true);
+        for(unsigned i=0;i<GlTextureProvenance::maximumHops;++i)
+            require(p.deferCopy(presenter,usage(false,{101+i},{100+i}))==GlDeferredCopyResult::Queued,"queue a bounded reverse-order copy chain");
+        GlDeferredCopyResolution resolved;p.observe(presenter,usage(true,{100}),true,&resolved);
+        require(resolved.copies==GlTextureProvenance::maximumHops-1
+                &&p.producer(presenter,usage(false,{1},{107}))&&!p.producer(presenter,usage(false,{1},{108})),"deferred resolution retains the SAME eight-hop limit");
+        p.synchronize(123,2);p.observe(presenter,composite,true);
+        p.deferCopy(presenter,usage(false,{52},{51}));p.deferCopy(presenter,usage(false,{51},{52}));
+        require(!p.producer(presenter,usage(false,{1},{51})),"a queued cycle cannot seed its own ownership");
+        p.observe(presenter,usage(true,{51}),true,&resolved);require(resolved.copies==2,"real consumption can resolve a cycle only once per captured edge");
+        for(unsigned i=0;i<3;++i)p.nextFrame();
+        require(!p.producer(presenter,usage(false,{1},{51}))&&!p.producer(presenter,usage(false,{1},{52})),"resolved copies never renew a cycle's TTL");
+    }
+    std::puts("PASS: copy-before-consumer bounded metadata, exact later same/observed-share consumption only, no pre-consumption ownership; original two-frame deadline/eight hops, typed input/output retirement, latest copy, namespace/source/review reset and capacity controls");
     std::puts("PASS: actual-consumer -> same/explicit-share typed texture/RBO/pbuffer producer dependency, observed color transfers not share-group guessing; TTL/hop/capacity bounds, unrelated providers/displays/contexts/outputs, revision/source/resource teardown and handle reuse");
     std::puts("LIMIT: resource-policy unit fixture, not installed-game pixels or physical-driver certification");
 }
