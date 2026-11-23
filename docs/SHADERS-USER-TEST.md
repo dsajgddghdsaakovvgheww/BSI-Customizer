@@ -145,15 +145,22 @@ root cause. All queued sources are renderbuffers; no hop/resource retries are
 reported. WGL-only target attribution is not resource ownership. The earlier v5
 negative (268frames/162NoSampler/zero bindings) is retained as historical evidence.
 
-**Do not reinstall unchanged v6 or collect a longer gameplay interval.** At the
-user's request, the next route is [the exact original tutorial DLL through the
-existing, reviewed startup importer](POTATO-ORIGINAL-DLL-USE.md). That is a
-separate, restart-only alternative with no BSI live strength/Off API, not another
-independent shader build or a promised game fix. Do not run both hook modules
-together for the comparison. The independent module's saved/armed state,
-presentation grading, counters and software tests still do not prove a material
-effect. The mutable RGB 256x256 presentation input remains legally GL_LINEAR;
-forcing it to use mips is not a repair. The
+**Do not reinstall unchanged v6 or collect a longer gameplay interval.** The
+user subsequently selected **live Settings On/Off + 0–100 strength**. The
+[unchanged original tutorial DLL](POTATO-ORIGINAL-DLL-USE.md) is a separate,
+restart-only fallback with no supported live-control ABI, not fulfillment of
+that requirement. Do not run both hook modules together.
+
+[Current controllable-engine work](POTATO-DRAW-WRITE-FOOTPRINT.md), source
+`eafff51…` / `gl-draw-write-footprint-v7`, separates invalidation-only complete
+raster output capture from effect eligibility. The unrelated-draw regression
+was reproduced RED before the repair; the actual Windows contract now passes.
+This is a functional supported-path repair, **not established game causality or
+a request to install another diagnostic-only build**. Save/Discard/live strength
+semantics remain unchanged. Saved/armed state, presentation grading, counters
+and software tests still do not prove a material effect. The mutable RGB
+256x256 presentation input remains legally GL_LINEAR; forcing it to use mips is
+not a repair. The
 [copy-order repair/v5 validation](POTATO-COPY-CONSUMER-ORDER.md) and
 [older v3/v4 negatives](POTATO-TRANSFER-ROUTING-DIAGNOSTICS.md) remain historical
 supported-path evidence, not the game's established resource graph.

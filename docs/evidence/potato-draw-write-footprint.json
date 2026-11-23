@@ -1,0 +1,1981 @@
+{
+  "schema": "bsi-potato-draw-write-footprint-evidence-v1",
+  "implementationSource": "eafff51bb12f9551336393ef8d308b13f3393faa",
+  "captureVersion": "gl-draw-write-footprint-v7",
+  "userSelection": {
+    "value": "live_required",
+    "requires": "live native Settings On/Off and 0-100 strength; Save/No/Discard",
+    "source": "conversation selection, not a test"
+  },
+  "acceptance": {
+    "latestInstalledSource": "2e5e6a0b726cf84dbc36c8ee5d5dcf8dce2c4d19",
+    "latestInstalledStatus": "negative: 5950 frames, 11663 NoSampler, 0 bindings",
+    "implementationInstalledGamePixels": "not observed",
+    "gameRootCauseEstablished": false,
+    "originalDllHasSupportedLiveControlAbi": false,
+    "originalRoute": "restart-only fallback, not fulfillment",
+    "newPackageRequestedOrOffered": false,
+    "releaseMergeTagOrProprietaryRedistribution": false
+  },
+  "repair": {
+    "kind": "functional supported-path repair, not diagnostic-only counting",
+    "invalidationType": "GlDrawWrites, not convertible to sampled GlTextureUsage",
+    "positiveSamplingQualification": "unchanged; exact later consumer still mandatory",
+    "unknownWrites": "still namespace-wide conservative revocation",
+    "mrt": "all enabled draw-buffer selectors, actual attachment mapping, typed whole-object invalidation",
+    "shaderImages": "any nonzero binding refuses precise capture; advertised ARB/NV bindless also refuses",
+    "queryBounds": {
+      "drawBuffers": 32,
+      "imageUnits": 256,
+      "localAngleActualImageUnits": 96
+    },
+    "queryOptimization": "no new output/image GL queries when no pending copy; possible in-flight token still revoked",
+    "unchangedBounds": {
+      "pendingCopies": 32,
+      "resources": 128,
+      "contexts": 64,
+      "maximumHops": 8,
+      "frameLifetime": 2
+    },
+    "noResourceOrOutputMutation": [
+      "generated mips",
+      "forced min filter",
+      "source sampler/texture descriptors",
+      "final-image blur",
+      "downscaling"
+    ],
+    "notClaimed": [
+      "unobserved storage/image aliases",
+      "arbitrary private transfers",
+      "game material semantics",
+      "hardware/FPS/account safety"
+    ]
+  },
+  "testsOnlyRed": {
+    "run": 45105294220,
+    "source": "eba9b612e4353d8673fa273f4848d4ec2b3a2827",
+    "url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45105294220",
+    "conclusion": "failure",
+    "jobs": [
+      {
+        "job": 137465071411,
+        "name": "focused-egl / Actual Windows MinHook on authored split EGL DLLs",
+        "conclusion": "failure",
+        "steps": [
+          {
+            "name": "Set up job",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/setup-python@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Build production hooks and authored DLLs without Qt or proprietary files",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run all nine independent split-dispatch contracts and existing Windows contracts",
+            "conclusion": "failure"
+          },
+          {
+            "name": "Record scope",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/setup-python@v5",
+            "conclusion": "skipped"
+          },
+          {
+            "name": "Post Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Complete job",
+            "conclusion": "success"
+          }
+        ]
+      }
+    ],
+    "firstFailure": "unrelated blended draw cleared queued metadata",
+    "laterNewCases": "not reached in the RED execution",
+    "failureAnnotations": [
+      {
+        "job": 137465071411,
+        "level": "failure",
+        "title": "",
+        "message": "Process completed with exit code 1."
+      },
+      {
+        "job": 137465071411,
+        "level": "failure",
+        "title": "Native shader test failure",
+        "message": ".   Passed    0.01 sec\n      Start  7: shader-gl-deferred-copy-audit\n 7/24 Test  #7: shader-gl-deferred-copy-audit ............   Passed    0.01 sec\n      Start  8: shader-gl-producer-route\n 8/24 Test  #8: shader-gl-producer-route .................   Passed    0.01 sec\n      Start  9: shader-wgl-pbuffer-registry\n 9/24 Test  #9: shader-wgl-pbuffer-registry ..............   Passed    0.01 sec\n      Start 10: shader-vulkan-present-contract\n10/24 Test #10: shader-vulkan-present-contract ...........   Passed    0.01 sec\n      Start 11: shader-d3d11-warp-pixels\n11/24 Test #11: shader-d3d11-warp-pixels .................   Passed    0.15 sec\n      Start 12: shader-d3d12-warp-pixels\n12/24 Test #12: shader-d3d12-warp-pixels .................   Passed    0.42 sec\n      Start 13: shader-dxgi-presentation-hooks\n13/24 Test #13: shader-dxgi-presentation-hooks ...........   Passed    0.42 sec\n      Start 14: shader-wgl-pbuffer-hooks-contract\n14/24 Test #14: shader-wgl-pbuffer-hooks-contract ........   Passed    1.31 sec\n      Start 15: shader-gl-transfer-native-abi-contract\n15/24 Test #15: shader-gl-transfer-native-abi-contract ...   Passed    1.28 sec\n      Start 16: shader-gl-copy-consumer-order-contract\n16/24 Test #16: shader-gl-copy-consumer-order-contract ...***Failed    0.64 sec\nFAIL: a captured unrelated color output must preserve pending metadata WITHOUT authorizing that draw or reconciling the copy\nPASS control: consumer-before-copy, exact typed native pbuffer, native LINEAR compositor, transparent copy ABI\nPASS negative: a submitted copy into an unconsumed sibling is not ownership\nPASS ledger retirement: reconciled; queued=1 pending=0 balanced=yes\nPASS ledger retirement: captured-destination-write; queued=1 pending=0 balanced=yes\n\n      Start 17: shader-wgl-image-copy-contract\n17/24 Test #17: shader-wgl-image-copy-contract ...........   Passed    1.28 sec\n      Start 18: shader-wgl-procedure-hooks-contract\n18/24 Test #18: shader-wgl-procedure-hooks-contract ......   Passed    1.31 sec\n      Start 19: shader-wgl-cached-procedures-contract\n19/24 Test #19: shader-wgl-cached-procedures-contract ....   Passed    1.33 sec\n      Start 20: shader-wgl-existing-current-contract\n20/24 Test #20: shader-wgl-existing-current-contract .....   Passed    1.30 sec\n      Start 21: shader-egl-cached-procedures-contract\n21/24 Test #21: shader-egl-cached-procedures-contract ....   Passed    2.25 sec\n      Start 22: shader-egl-late-procedures-contract\n22/24 Test #22: shader-egl-late-procedures-contract ......   Passed    2.25 sec\n      Start 23: shader-egl-loader-hooks-contract\n23/24 Test #23: shader-egl-loader-hooks-contract .........   Passed    3.42 sec\n      Start 24: shader-vulkan-loader-hooks-contract\n24/24 Test #24: shader-vulkan-loader-hooks-contract ......   Passed    0.77 sec\n\n96% tests passed, 1 tests failed out of 24\n\nTotal Test time (real) =  18.26 sec\n\nThe following tests FAILED:\n\t 16 - shader-gl-copy-consumer-order-contract (Failed)\nErrors while running CTest\n"
+      },
+      {
+        "job": 137465071411,
+        "level": "failure",
+        "title": "Native shader test failure",
+        "message": "Internal ctest changing into directory: D:/a/BSI-Customizer/BSI-Customizer/build-egl-contracts\nUpdateCTestConfiguration  from :D:/a/BSI-Customizer/BSI-Customizer/build-egl-contracts/DartConfiguration.tcl\nUpdateCTestConfiguration  from :D:/a/BSI-Customizer/BSI-Customizer/build-egl-contracts/DartConfiguration.tcl\nTest project D:/a/BSI-Customizer/BSI-Customizer/build-egl-contracts\nConstructing a list of tests\nDone constructing a list of tests\nUpdating test list for fixtures\nAdded 0 tests to meet fixture requirements\nChecking test dependency graph...\nChecking test dependency graph end\ntest 16\n    Start 16: shader-gl-copy-consumer-order-contract\n\n16: Test command: D:\\a\\BSI-Customizer\\BSI-Customizer\\build-egl-contracts\\Release\\shader-gl-copy-consumer-order-test.exe \"D:/a/BSI-Customizer/BSI-Customizer/build-egl-contracts/Release/BsiWglFixture.dll\"\n16: Working Directory: D:/a/BSI-Customizer/BSI-Customizer/build-egl-contracts\n16: Test timeout computed to be: 60\n16: FAIL: a captured unrelated color output must preserve pending metadata WITHOUT authorizing that draw or reconciling the copy\n16: PASS control: consumer-before-copy, exact typed native pbuffer, native LINEAR compositor, transparent copy ABI\n16: PASS negative: a submitted copy into an unconsumed sibling is not ownership\n16: PASS ledger retirement: reconciled; queued=1 pending=0 balanced=yes\n16: PASS ledger retirement: captured-destination-write; queued=1 pending=0 balanced=yes\n1/1 Test #16: shader-gl-copy-consumer-order-contract ...***Failed    0.64 sec\nFAIL: a captured unrelated color output must preserve pending metadata WITHOUT authorizing that draw or reconciling the copy\nPASS control: consumer-before-copy, exact typed native pbuffer, native LINEAR compositor, transparent copy ABI\nPASS negative: a submitted copy into an unconsumed sibling is not ownership\nPASS ledger retirement: reconciled; queued=1 pending=0 balanced=yes\nPASS ledger retirement: captured-destination-write; queued=1 pending=0 balanced=yes\n\n\n0% tests passed, 1 tests failed out of 1\n\nTotal Test time (real) =   0.65 sec\n\nThe following tests FAILED:\n\t 16 - shader-gl-copy-consumer-order-contract (Failed)\nErrors while running CTest\n"
+      }
+    ],
+    "fullLogFetch": "redirect to log-storage returned EOF; no complete log claimed"
+  },
+  "focusedWindowsGreen": {
+    "run": 45106272297,
+    "source": "eafff51bb12f9551336393ef8d308b13f3393faa",
+    "url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45106272297",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "job": 137468187403,
+        "name": "focused-egl / Actual Windows MinHook on authored split EGL DLLs",
+        "conclusion": "success",
+        "steps": [
+          {
+            "name": "Set up job",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/setup-python@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Build production hooks and authored DLLs without Qt or proprietary files",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run all nine independent split-dispatch contracts and existing Windows contracts",
+            "conclusion": "success"
+          },
+          {
+            "name": "Record scope",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/setup-python@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Complete job",
+            "conclusion": "success"
+          }
+        ]
+      }
+    ],
+    "readBackNotices": [
+      {
+        "job": 137468187403,
+        "level": "notice",
+        "title": "GL transfer ABI and routing ledger result",
+        "message": "Transfer CTest exit=0 source=eafff51bb12f9551336393ef8d308b13f3393faa"
+      },
+      {
+        "job": 137468187403,
+        "level": "notice",
+        "title": "Split EGL contract result",
+        "message": "capacity exit=0 source=eafff51bb12f9551336393ef8d308b13f3393faa"
+      },
+      {
+        "job": 137468187403,
+        "level": "notice",
+        "title": "Split EGL contract result",
+        "message": "native-image exit=0 source=eafff51bb12f9551336393ef8d308b13f3393faa"
+      },
+      {
+        "job": 137468187403,
+        "level": "notice",
+        "title": "Split EGL contract result",
+        "message": "resolver exit=0 source=eafff51bb12f9551336393ef8d308b13f3393faa"
+      },
+      {
+        "job": 137468187403,
+        "level": "notice",
+        "title": "Split EGL contract result",
+        "message": "retire-context exit=0 source=eafff51bb12f9551336393ef8d308b13f3393faa"
+      },
+      {
+        "job": 137468187403,
+        "level": "notice",
+        "title": "Split EGL contract result",
+        "message": "retire-surface exit=0 source=eafff51bb12f9551336393ef8d308b13f3393faa"
+      },
+      {
+        "job": 137468187403,
+        "level": "notice",
+        "title": "Split EGL contract result",
+        "message": "present exit=0 source=eafff51bb12f9551336393ef8d308b13f3393faa"
+      },
+      {
+        "job": 137468187403,
+        "level": "notice",
+        "title": "Split EGL contract result",
+        "message": "cached exit=0 source=eafff51bb12f9551336393ef8d308b13f3393faa"
+      },
+      {
+        "job": 137468187403,
+        "level": "notice",
+        "title": "Split EGL contract result",
+        "message": "queried exit=0 source=eafff51bb12f9551336393ef8d308b13f3393faa"
+      },
+      {
+        "job": 137468187403,
+        "level": "notice",
+        "title": "Split EGL contract result",
+        "message": "exports exit=0 source=eafff51bb12f9551336393ef8d308b13f3393faa"
+      }
+    ],
+    "successfulPerCaseTranscript": "not retrieved; pinned successful step propagates every CTest failure"
+  },
+  "fullMatrixGreen": {
+    "run": 45106460327,
+    "source": "eafff51bb12f9551336393ef8d308b13f3393faa",
+    "url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45106460327",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "job": 137468765920,
+        "name": "Actual Qt 5 public bridge on a newer independent Qt 5 runtime (Linux fixture)",
+        "conclusion": "success",
+        "steps": [
+          {
+            "name": "Set up job",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/setup-python@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Install distro Qt 5 build SDK and a separate Python Qt 5 runtime",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Build the actual Qt 5 plugin, not a mocked bridge",
+            "conclusion": "success"
+          },
+          {
+            "name": "Stock Phone dropdown, native Save/Discard contract and qrc-to-local helper on Qt 5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Physical controls, persistence, navigation and missing-module fallback on the independent host",
+            "conclusion": "success"
+          },
+          {
+            "name": "Live plugin preview shares one theme, stays opaque on every tab and preserves physical No/Discard",
+            "conclusion": "success"
+          },
+          {
+            "name": "Missing-font metrics cannot widen the Shaders form beyond its clip",
+            "conclusion": "success"
+          },
+          {
+            "name": "Unmodified native Qt 5 controls/theme, exact Save pixels, opacity and physical input on both pinned player families",
+            "conclusion": "success"
+          },
+          {
+            "name": "Selected-tab glass at host, 100/125/150/200 percent DPI and strict flat-image negative controls",
+            "conclusion": "success"
+          },
+          {
+            "name": "Retain glass capture diagnostics and negative controls",
+            "conclusion": "success"
+          },
+          {
+            "name": "Record scope",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/setup-python@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Complete job",
+            "conclusion": "success"
+          }
+        ]
+      },
+      {
+        "job": 137468766083,
+        "name": "Windows x64 bridge 6.2.4 -> host 6.8.3 and WARP",
+        "conclusion": "success",
+        "steps": [
+          {
+            "name": "Set up job",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run jurplel/install-qt-action@v4.3.1",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/setup-python@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Install an independent Qt Python host for actual cross-version plugin tests",
+            "conclusion": "success"
+          },
+          {
+            "name": "Build regular plugin, MinHook and native DirectX tests (no system proxy)",
+            "conclusion": "success"
+          },
+          {
+            "name": "Native API pixels, routing, real GL draw detours and EGL/DXGI/Vulkan lifecycle contracts",
+            "conclusion": "success"
+          },
+          {
+            "name": "Read-only actual module/provider contract against the independent host runtime",
+            "conclusion": "success"
+          },
+          {
+            "name": "Actual C++ plugin import and physical shader-page controls (Qt fixture only)",
+            "conclusion": "success"
+          },
+          {
+            "name": "Unmodified native controls/theme, exact Save pixels, opacity and physical input on both pinned matching-Qt players",
+            "conclusion": "success"
+          },
+          {
+            "name": "Physical native Settings navigation, prompts and missing-module fallback (contract fixture)",
+            "conclusion": "success"
+          },
+          {
+            "name": "Live plugin preview shares one theme, stays opaque on every tab and preserves physical No/Discard",
+            "conclusion": "success"
+          },
+          {
+            "name": "Stock Phone dropdown, native Save/Discard contract and qrc-to-local helper on Windows",
+            "conclusion": "success"
+          },
+          {
+            "name": "Actual selected-tab glass pixels/input at host, 100/125/150/200 percent DPI and strict flat-image negative controls",
+            "conclusion": "success"
+          },
+          {
+            "name": "Retain glass capture diagnostics and negative controls",
+            "conclusion": "success"
+          },
+          {
+            "name": "Record limits rather than claim universal support",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/setup-python@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run jurplel/install-qt-action@v4.3.1",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Complete job",
+            "conclusion": "success"
+          }
+        ]
+      },
+      {
+        "job": 137468766130,
+        "name": "Native Vulkan and GLES pixels (Mesa software; not hardware)",
+        "conclusion": "success",
+        "steps": [
+          {
+            "name": "Set up job",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/setup-node@v4",
+            "conclusion": "success"
+          },
+          {
+            "name": "Install real software graphics APIs",
+            "conclusion": "success"
+          },
+          {
+            "name": "Check committed SPIR-V matches the shared original source",
+            "conclusion": "success"
+          },
+          {
+            "name": "Native Mesa Vulkan pixels with mandatory Khronos lifetime/API validation",
+            "conclusion": "success"
+          },
+          {
+            "name": "ASan/UBSan routing and native Vulkan on a second software ICD",
+            "conclusion": "success"
+          },
+          {
+            "name": "ASan/UBSan native source, package, file recovery and every encoder allocation failure",
+            "conclusion": "success"
+          },
+          {
+            "name": "Production GLES and desktop OpenGL core pixels/state restoration",
+            "conclusion": "success"
+          },
+          {
+            "name": "Actual nonsharing native EGL pbuffer image pixels (mandatory ANGLE software)",
+            "conclusion": "success"
+          },
+          {
+            "name": "Retain authored native/Strong/Off texture images and measured mip evidence",
+            "conclusion": "success"
+          },
+          {
+            "name": "Record scope of results",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/setup-node@v4",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Complete job",
+            "conclusion": "success"
+          }
+        ]
+      },
+      {
+        "job": 137468766156,
+        "name": "Windows x64 bridge 5.15.2 -> host PyQt5-bundled-5.15 and WARP",
+        "conclusion": "success",
+        "steps": [
+          {
+            "name": "Set up job",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run jurplel/install-qt-action@v4.3.1",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/setup-python@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Install an independent Qt Python host for actual cross-version plugin tests",
+            "conclusion": "success"
+          },
+          {
+            "name": "Build regular plugin, MinHook and native DirectX tests (no system proxy)",
+            "conclusion": "success"
+          },
+          {
+            "name": "Native API pixels, routing, real GL draw detours and EGL/DXGI/Vulkan lifecycle contracts",
+            "conclusion": "success"
+          },
+          {
+            "name": "Read-only actual module/provider contract against the independent host runtime",
+            "conclusion": "success"
+          },
+          {
+            "name": "Actual C++ plugin import and physical shader-page controls (Qt fixture only)",
+            "conclusion": "success"
+          },
+          {
+            "name": "Unmodified native controls/theme, exact Save pixels, opacity and physical input on both pinned matching-Qt players",
+            "conclusion": "success"
+          },
+          {
+            "name": "Physical native Settings navigation, prompts and missing-module fallback (contract fixture)",
+            "conclusion": "success"
+          },
+          {
+            "name": "Live plugin preview shares one theme, stays opaque on every tab and preserves physical No/Discard",
+            "conclusion": "success"
+          },
+          {
+            "name": "Stock Phone dropdown, native Save/Discard contract and qrc-to-local helper on Windows",
+            "conclusion": "success"
+          },
+          {
+            "name": "Actual selected-tab glass pixels/input at host, 100/125/150/200 percent DPI and strict flat-image negative controls",
+            "conclusion": "success"
+          },
+          {
+            "name": "Retain glass capture diagnostics and negative controls",
+            "conclusion": "success"
+          },
+          {
+            "name": "Record limits rather than claim universal support",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/setup-python@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run jurplel/install-qt-action@v4.3.1",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Complete job",
+            "conclusion": "success"
+          }
+        ]
+      },
+      {
+        "job": 137468766165,
+        "name": "Windows x64 bridge 6.2.4 -> host 6.7.3 and WARP",
+        "conclusion": "success",
+        "steps": [
+          {
+            "name": "Set up job",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run jurplel/install-qt-action@v4.3.1",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/setup-python@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Install an independent Qt Python host for actual cross-version plugin tests",
+            "conclusion": "success"
+          },
+          {
+            "name": "Build regular plugin, MinHook and native DirectX tests (no system proxy)",
+            "conclusion": "success"
+          },
+          {
+            "name": "Native API pixels, routing, real GL draw detours and EGL/DXGI/Vulkan lifecycle contracts",
+            "conclusion": "success"
+          },
+          {
+            "name": "Read-only actual module/provider contract against the independent host runtime",
+            "conclusion": "success"
+          },
+          {
+            "name": "Actual C++ plugin import and physical shader-page controls (Qt fixture only)",
+            "conclusion": "success"
+          },
+          {
+            "name": "Unmodified native controls/theme, exact Save pixels, opacity and physical input on both pinned matching-Qt players",
+            "conclusion": "success"
+          },
+          {
+            "name": "Physical native Settings navigation, prompts and missing-module fallback (contract fixture)",
+            "conclusion": "success"
+          },
+          {
+            "name": "Live plugin preview shares one theme, stays opaque on every tab and preserves physical No/Discard",
+            "conclusion": "success"
+          },
+          {
+            "name": "Stock Phone dropdown, native Save/Discard contract and qrc-to-local helper on Windows",
+            "conclusion": "success"
+          },
+          {
+            "name": "Actual selected-tab glass pixels/input at host, 100/125/150/200 percent DPI and strict flat-image negative controls",
+            "conclusion": "success"
+          },
+          {
+            "name": "Retain glass capture diagnostics and negative controls",
+            "conclusion": "success"
+          },
+          {
+            "name": "Record limits rather than claim universal support",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/setup-python@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run jurplel/install-qt-action@v4.3.1",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Complete job",
+            "conclusion": "success"
+          }
+        ]
+      },
+      {
+        "job": 137468766187,
+        "name": "Qt inventory and Phone-source recovery on four pinned player samples",
+        "conclusion": "success",
+        "steps": [
+          {
+            "name": "Set up job",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/setup-python@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run python -m pip install pefile==2024.8.26",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Verify fixed-version, import-tag and compiler-header evidence without executing players",
+            "conclusion": "success"
+          },
+          {
+            "name": "Build the production Phone source and disk installer (Qt Core only)",
+            "conclusion": "success"
+          },
+          {
+            "name": "Realistic helper URLs, no-growth planning and disk recovery on disposable pinned-player copies",
+            "conclusion": "success"
+          },
+          {
+            "name": "Source-only public Qt bridge boundary guard",
+            "conclusion": "success"
+          },
+          {
+            "name": "Failure and timeout diagnostics never turn a failed test into a pass",
+            "conclusion": "success"
+          },
+          {
+            "name": "Independent Windows host path layouts never fall back to a build SDK",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/setup-python@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Complete job",
+            "conclusion": "success"
+          }
+        ]
+      }
+    ]
+  },
+  "hostedDrawWritePixelNotices": [
+    {
+      "job": 137468766130,
+      "report": {
+        "api": "gles",
+        "version": "OpenGL ES 3.1.0 (ANGLE 2.1.24600 git hash: 8304737811a7)",
+        "cases": [
+          {
+            "source": "sampler",
+            "draw": "blend",
+            "strengthRGBA": [
+              [
+                255,
+                0,
+                0,
+                173
+              ],
+              [
+                0,
+                128,
+                128,
+                173
+              ],
+              [
+                255,
+                255,
+                0,
+                173
+              ]
+            ],
+            "offExact": true
+          },
+          {
+            "source": "sampler",
+            "draw": "line",
+            "strengthRGBA": [
+              [
+                255,
+                0,
+                0,
+                173
+              ],
+              [
+                0,
+                128,
+                128,
+                173
+              ],
+              [
+                255,
+                255,
+                0,
+                173
+              ]
+            ],
+            "offExact": true
+          },
+          {
+            "source": "sampler",
+            "draw": "mask",
+            "strengthRGBA": [
+              [
+                255,
+                0,
+                0,
+                173
+              ],
+              [
+                0,
+                128,
+                128,
+                173
+              ],
+              [
+                255,
+                255,
+                0,
+                173
+              ]
+            ],
+            "offExact": true
+          },
+          {
+            "source": "sampler",
+            "draw": "none",
+            "strengthRGBA": [
+              [
+                255,
+                0,
+                0,
+                173
+              ],
+              [
+                0,
+                128,
+                128,
+                173
+              ],
+              [
+                255,
+                255,
+                0,
+                173
+              ]
+            ],
+            "offExact": true
+          },
+          {
+            "source": "texture",
+            "draw": "blend",
+            "strengthRGBA": [
+              [
+                255,
+                0,
+                0,
+                173
+              ],
+              [
+                0,
+                128,
+                128,
+                173
+              ],
+              [
+                255,
+                255,
+                0,
+                173
+              ]
+            ],
+            "offExact": true
+          },
+          {
+            "source": "texture",
+            "draw": "line",
+            "strengthRGBA": [
+              [
+                255,
+                0,
+                0,
+                173
+              ],
+              [
+                0,
+                128,
+                128,
+                173
+              ],
+              [
+                255,
+                255,
+                0,
+                173
+              ]
+            ],
+            "offExact": true
+          },
+          {
+            "source": "texture",
+            "draw": "mask",
+            "strengthRGBA": [
+              [
+                255,
+                0,
+                0,
+                173
+              ],
+              [
+                0,
+                128,
+                128,
+                173
+              ],
+              [
+                255,
+                255,
+                0,
+                173
+              ]
+            ],
+            "offExact": true
+          },
+          {
+            "source": "texture",
+            "draw": "none",
+            "strengthRGBA": [
+              [
+                255,
+                0,
+                0,
+                173
+              ],
+              [
+                0,
+                128,
+                128,
+                173
+              ],
+              [
+                255,
+                255,
+                0,
+                173
+              ]
+            ],
+            "offExact": true
+          }
+        ],
+        "aliases": [
+          {
+            "source": "sampler",
+            "target": "buffer0",
+            "revoked": true
+          },
+          {
+            "source": "sampler",
+            "target": "mrt3",
+            "revoked": true
+          },
+          {
+            "source": "texture",
+            "target": "buffer0",
+            "revoked": true
+          },
+          {
+            "source": "texture",
+            "target": "mrt3",
+            "revoked": true
+          }
+        ],
+        "pendingErrorsAndSourceState": true,
+        "limit": "authored software GL, not Windows/player/game/GPU/FPS acceptance"
+      }
+    },
+    {
+      "job": 137468766130,
+      "report": {
+        "api": "desktop",
+        "version": "4.5 (Core Profile) Mesa 25.2.8-0ubuntu0.24.04.5",
+        "cases": [
+          {
+            "source": "sampler",
+            "draw": "blend",
+            "strengthRGBA": [
+              [
+                255,
+                0,
+                0,
+                173
+              ],
+              [
+                0,
+                128,
+                128,
+                173
+              ],
+              [
+                255,
+                255,
+                0,
+                173
+              ]
+            ],
+            "offExact": true
+          },
+          {
+            "source": "sampler",
+            "draw": "line",
+            "strengthRGBA": [
+              [
+                255,
+                0,
+                0,
+                173
+              ],
+              [
+                0,
+                128,
+                128,
+                173
+              ],
+              [
+                255,
+                255,
+                0,
+                173
+              ]
+            ],
+            "offExact": true
+          },
+          {
+            "source": "sampler",
+            "draw": "mask",
+            "strengthRGBA": [
+              [
+                255,
+                0,
+                0,
+                173
+              ],
+              [
+                0,
+                128,
+                128,
+                173
+              ],
+              [
+                255,
+                255,
+                0,
+                173
+              ]
+            ],
+            "offExact": true
+          },
+          {
+            "source": "sampler",
+            "draw": "none",
+            "strengthRGBA": [
+              [
+                255,
+                0,
+                0,
+                173
+              ],
+              [
+                0,
+                128,
+                128,
+                173
+              ],
+              [
+                255,
+                255,
+                0,
+                173
+              ]
+            ],
+            "offExact": true
+          },
+          {
+            "source": "texture",
+            "draw": "blend",
+            "strengthRGBA": [
+              [
+                255,
+                0,
+                0,
+                173
+              ],
+              [
+                0,
+                128,
+                128,
+                173
+              ],
+              [
+                255,
+                255,
+                0,
+                173
+              ]
+            ],
+            "offExact": true
+          },
+          {
+            "source": "texture",
+            "draw": "line",
+            "strengthRGBA": [
+              [
+                255,
+                0,
+                0,
+                173
+              ],
+              [
+                0,
+                128,
+                128,
+                173
+              ],
+              [
+                255,
+                255,
+                0,
+                173
+              ]
+            ],
+            "offExact": true
+          },
+          {
+            "source": "texture",
+            "draw": "mask",
+            "strengthRGBA": [
+              [
+                255,
+                0,
+                0,
+                173
+              ],
+              [
+                0,
+                128,
+                128,
+                173
+              ],
+              [
+                255,
+                255,
+                0,
+                173
+              ]
+            ],
+            "offExact": true
+          },
+          {
+            "source": "texture",
+            "draw": "none",
+            "strengthRGBA": [
+              [
+                255,
+                0,
+                0,
+                173
+              ],
+              [
+                0,
+                128,
+                128,
+                173
+              ],
+              [
+                255,
+                255,
+                0,
+                173
+              ]
+            ],
+            "offExact": true
+          }
+        ],
+        "aliases": [
+          {
+            "source": "sampler",
+            "target": "buffer0",
+            "revoked": true
+          },
+          {
+            "source": "sampler",
+            "target": "mrt3",
+            "revoked": true
+          },
+          {
+            "source": "texture",
+            "target": "buffer0",
+            "revoked": true
+          },
+          {
+            "source": "texture",
+            "target": "mrt3",
+            "revoked": true
+          }
+        ],
+        "pendingErrorsAndSourceState": true,
+        "limit": "authored software GL, not Windows/player/game/GPU/FPS acceptance"
+      }
+    },
+    {
+      "job": 137468766130,
+      "report": {
+        "api": "gles",
+        "version": "OpenGL ES 3.2 Mesa 25.2.8-0ubuntu0.24.04.5",
+        "cases": [
+          {
+            "source": "sampler",
+            "draw": "blend",
+            "strengthRGBA": [
+              [
+                255,
+                0,
+                0,
+                173
+              ],
+              [
+                0,
+                128,
+                128,
+                173
+              ],
+              [
+                255,
+                255,
+                0,
+                173
+              ]
+            ],
+            "offExact": true
+          },
+          {
+            "source": "sampler",
+            "draw": "line",
+            "strengthRGBA": [
+              [
+                255,
+                0,
+                0,
+                173
+              ],
+              [
+                0,
+                128,
+                128,
+                173
+              ],
+              [
+                255,
+                255,
+                0,
+                173
+              ]
+            ],
+            "offExact": true
+          },
+          {
+            "source": "sampler",
+            "draw": "mask",
+            "strengthRGBA": [
+              [
+                255,
+                0,
+                0,
+                173
+              ],
+              [
+                0,
+                128,
+                128,
+                173
+              ],
+              [
+                255,
+                255,
+                0,
+                173
+              ]
+            ],
+            "offExact": true
+          },
+          {
+            "source": "sampler",
+            "draw": "none",
+            "strengthRGBA": [
+              [
+                255,
+                0,
+                0,
+                173
+              ],
+              [
+                0,
+                128,
+                128,
+                173
+              ],
+              [
+                255,
+                255,
+                0,
+                173
+              ]
+            ],
+            "offExact": true
+          },
+          {
+            "source": "texture",
+            "draw": "blend",
+            "strengthRGBA": [
+              [
+                255,
+                0,
+                0,
+                173
+              ],
+              [
+                0,
+                128,
+                128,
+                173
+              ],
+              [
+                255,
+                255,
+                0,
+                173
+              ]
+            ],
+            "offExact": true
+          },
+          {
+            "source": "texture",
+            "draw": "line",
+            "strengthRGBA": [
+              [
+                255,
+                0,
+                0,
+                173
+              ],
+              [
+                0,
+                128,
+                128,
+                173
+              ],
+              [
+                255,
+                255,
+                0,
+                173
+              ]
+            ],
+            "offExact": true
+          },
+          {
+            "source": "texture",
+            "draw": "mask",
+            "strengthRGBA": [
+              [
+                255,
+                0,
+                0,
+                173
+              ],
+              [
+                0,
+                128,
+                128,
+                173
+              ],
+              [
+                255,
+                255,
+                0,
+                173
+              ]
+            ],
+            "offExact": true
+          },
+          {
+            "source": "texture",
+            "draw": "none",
+            "strengthRGBA": [
+              [
+                255,
+                0,
+                0,
+                173
+              ],
+              [
+                0,
+                128,
+                128,
+                173
+              ],
+              [
+                255,
+                255,
+                0,
+                173
+              ]
+            ],
+            "offExact": true
+          }
+        ],
+        "aliases": [
+          {
+            "source": "sampler",
+            "target": "buffer0",
+            "revoked": true
+          },
+          {
+            "source": "sampler",
+            "target": "mrt3",
+            "revoked": true
+          },
+          {
+            "source": "texture",
+            "target": "buffer0",
+            "revoked": true
+          },
+          {
+            "source": "texture",
+            "target": "mrt3",
+            "revoked": true
+          }
+        ],
+        "pendingErrorsAndSourceState": true,
+        "limit": "authored software GL, not Windows/player/game/GPU/FPS acceptance"
+      }
+    }
+  ],
+  "localValidation": {
+    "nativeCTest": "11/11 strict -Wall -Wextra -Werror -pedantic; Vulkan ON",
+    "sanitizedCTest": "11/11 ASan+UBSan+leaks; Vulkan ON",
+    "win64": "four optimized strict object compilations, NOT execution",
+    "angle": {
+      "api": "gles",
+      "version": "OpenGL ES 3.1.0 (ANGLE 2.1.24600 git hash: 8304737811a7)",
+      "cases": [
+        {
+          "source": "sampler",
+          "draw": "blend",
+          "strengthRGBA": [
+            [
+              255,
+              0,
+              0,
+              173
+            ],
+            [
+              0,
+              128,
+              128,
+              173
+            ],
+            [
+              255,
+              255,
+              0,
+              173
+            ]
+          ],
+          "offExact": true
+        },
+        {
+          "source": "sampler",
+          "draw": "line",
+          "strengthRGBA": [
+            [
+              255,
+              0,
+              0,
+              173
+            ],
+            [
+              0,
+              128,
+              128,
+              173
+            ],
+            [
+              255,
+              255,
+              0,
+              173
+            ]
+          ],
+          "offExact": true
+        },
+        {
+          "source": "sampler",
+          "draw": "mask",
+          "strengthRGBA": [
+            [
+              255,
+              0,
+              0,
+              173
+            ],
+            [
+              0,
+              128,
+              128,
+              173
+            ],
+            [
+              255,
+              255,
+              0,
+              173
+            ]
+          ],
+          "offExact": true
+        },
+        {
+          "source": "sampler",
+          "draw": "none",
+          "strengthRGBA": [
+            [
+              255,
+              0,
+              0,
+              173
+            ],
+            [
+              0,
+              128,
+              128,
+              173
+            ],
+            [
+              255,
+              255,
+              0,
+              173
+            ]
+          ],
+          "offExact": true
+        },
+        {
+          "source": "texture",
+          "draw": "blend",
+          "strengthRGBA": [
+            [
+              255,
+              0,
+              0,
+              173
+            ],
+            [
+              0,
+              128,
+              128,
+              173
+            ],
+            [
+              255,
+              255,
+              0,
+              173
+            ]
+          ],
+          "offExact": true
+        },
+        {
+          "source": "texture",
+          "draw": "line",
+          "strengthRGBA": [
+            [
+              255,
+              0,
+              0,
+              173
+            ],
+            [
+              0,
+              128,
+              128,
+              173
+            ],
+            [
+              255,
+              255,
+              0,
+              173
+            ]
+          ],
+          "offExact": true
+        },
+        {
+          "source": "texture",
+          "draw": "mask",
+          "strengthRGBA": [
+            [
+              255,
+              0,
+              0,
+              173
+            ],
+            [
+              0,
+              128,
+              128,
+              173
+            ],
+            [
+              255,
+              255,
+              0,
+              173
+            ]
+          ],
+          "offExact": true
+        },
+        {
+          "source": "texture",
+          "draw": "none",
+          "strengthRGBA": [
+            [
+              255,
+              0,
+              0,
+              173
+            ],
+            [
+              0,
+              128,
+              128,
+              173
+            ],
+            [
+              255,
+              255,
+              0,
+              173
+            ]
+          ],
+          "offExact": true
+        }
+      ],
+      "aliases": [
+        {
+          "source": "sampler",
+          "target": "buffer0",
+          "revoked": true
+        },
+        {
+          "source": "sampler",
+          "target": "mrt3",
+          "revoked": true
+        },
+        {
+          "source": "texture",
+          "target": "buffer0",
+          "revoked": true
+        },
+        {
+          "source": "texture",
+          "target": "mrt3",
+          "revoked": true
+        }
+      ],
+      "pendingErrorsAndSourceState": true,
+      "limit": "authored software GL, not Windows/player/game/GPU/FPS acceptance"
+    },
+    "pngValidation": [
+      {
+        "sourceMode": "sampler",
+        "fullFrameNativeEqualsOff": true,
+        "fullFrameStrongDiffers": true,
+        "differentColorPixels": 4096,
+        "files": [
+          {
+            "state": "native",
+            "path": ".cache/potato-draw-writes/pixels/gles/draw-footprint-sampler-native.png",
+            "bytes": 206,
+            "sha256": "bbeaacf314bcc8f12ddf4352490314c3dc11afc8dba2fd762fb4693a5e5940a2",
+            "dimensions": [
+              64,
+              64
+            ],
+            "rgbaSha256": "cdc6776c7860f67df2707bd0585c1c7eb02d91e4d09a70e890b39c59e3ea2fd0",
+            "firstRGBA": [
+              255,
+              0,
+              0,
+              173
+            ],
+            "alphaExact173": true
+          },
+          {
+            "state": "strong",
+            "path": ".cache/potato-draw-writes/pixels/gles/draw-footprint-sampler-strong.png",
+            "bytes": 207,
+            "sha256": "9007133fbf446182a3f6396efa82dd47e7f5486a474efa313ac3d4119f7d87a2",
+            "dimensions": [
+              64,
+              64
+            ],
+            "rgbaSha256": "032050fa57217bb47afbfc2e20c9b8c7fc718e7cf690f359fd90f536d6c0eeeb",
+            "firstRGBA": [
+              255,
+              255,
+              0,
+              173
+            ],
+            "alphaExact173": true
+          },
+          {
+            "state": "off",
+            "path": ".cache/potato-draw-writes/pixels/gles/draw-footprint-sampler-off.png",
+            "bytes": 206,
+            "sha256": "bbeaacf314bcc8f12ddf4352490314c3dc11afc8dba2fd762fb4693a5e5940a2",
+            "dimensions": [
+              64,
+              64
+            ],
+            "rgbaSha256": "cdc6776c7860f67df2707bd0585c1c7eb02d91e4d09a70e890b39c59e3ea2fd0",
+            "firstRGBA": [
+              255,
+              0,
+              0,
+              173
+            ],
+            "alphaExact173": true
+          }
+        ]
+      },
+      {
+        "sourceMode": "texture",
+        "fullFrameNativeEqualsOff": true,
+        "fullFrameStrongDiffers": true,
+        "differentColorPixels": 4096,
+        "files": [
+          {
+            "state": "native",
+            "path": ".cache/potato-draw-writes/pixels/gles/draw-footprint-texture-native.png",
+            "bytes": 206,
+            "sha256": "bbeaacf314bcc8f12ddf4352490314c3dc11afc8dba2fd762fb4693a5e5940a2",
+            "dimensions": [
+              64,
+              64
+            ],
+            "rgbaSha256": "cdc6776c7860f67df2707bd0585c1c7eb02d91e4d09a70e890b39c59e3ea2fd0",
+            "firstRGBA": [
+              255,
+              0,
+              0,
+              173
+            ],
+            "alphaExact173": true
+          },
+          {
+            "state": "strong",
+            "path": ".cache/potato-draw-writes/pixels/gles/draw-footprint-texture-strong.png",
+            "bytes": 207,
+            "sha256": "9007133fbf446182a3f6396efa82dd47e7f5486a474efa313ac3d4119f7d87a2",
+            "dimensions": [
+              64,
+              64
+            ],
+            "rgbaSha256": "032050fa57217bb47afbfc2e20c9b8c7fc718e7cf690f359fd90f536d6c0eeeb",
+            "firstRGBA": [
+              255,
+              255,
+              0,
+              173
+            ],
+            "alphaExact173": true
+          },
+          {
+            "state": "off",
+            "path": ".cache/potato-draw-writes/pixels/gles/draw-footprint-texture-off.png",
+            "bytes": 206,
+            "sha256": "bbeaacf314bcc8f12ddf4352490314c3dc11afc8dba2fd762fb4693a5e5940a2",
+            "dimensions": [
+              64,
+              64
+            ],
+            "rgbaSha256": "cdc6776c7860f67df2707bd0585c1c7eb02d91e4d09a70e890b39c59e3ea2fd0",
+            "firstRGBA": [
+              255,
+              0,
+              0,
+              173
+            ],
+            "alphaExact173": true
+          }
+        ]
+      }
+    ],
+    "policyDifferential": {
+      "baselineSource": "91f4efbe93c0360233d4e892d11949f3d8c9fc43",
+      "originalHeaderSha256": "54b8008b4ca795c9dffbd68fb903d4caa63c5129436c7c1b2817fdefc90c46ec",
+      "normalization": "opening namespace only renamed to BaselineV5",
+      "traces": 128,
+      "operations": 65536,
+      "admissions": 2055,
+      "reconciliations": 128,
+      "limit": "unchanged GlTextureUsage API only; new footprint/hook behavior intentionally differs"
+    },
+    "developmentCorrections": [
+      "Vulkan loader-path environment corrected before final 11/11 run",
+      "new image-query bound accepts actual 96-unit ANGLE table; >256 still refused",
+      "test source-LOD check rebound the real material instead of querying the compositor target"
+    ],
+    "logs": [
+      {
+        "path": ".cache/potato-draw-writes/native-build.log",
+        "bytes": 1191,
+        "sha256": "91fb1ffcd51f3c6f5c2b531745886c2b2f32de9ef348dd1b6c6983988925046e"
+      },
+      {
+        "path": ".cache/potato-draw-writes/native.log",
+        "bytes": 1530,
+        "sha256": "e1828cc0c684c39e3375455b52b27a82199299c3279e1829a796f8a988791528"
+      },
+      {
+        "path": ".cache/potato-draw-writes/asan-build.log",
+        "bytes": 1191,
+        "sha256": "509b2d87ce9c0dd38c5198b3762159828f317e030289256fe2761fdcdb529fd4"
+      },
+      {
+        "path": ".cache/potato-draw-writes/asan.log",
+        "bytes": 1526,
+        "sha256": "fbca44d00183162747bbb7784d0b7f372b2680fcf1886ef929c14a2ff90c0e62"
+      },
+      {
+        "path": ".cache/potato-draw-writes/angle-pixels.log",
+        "bytes": 14931,
+        "sha256": "c8b2f0be099641f0e047c2a315f4b1e0c44a9baa65de57ca81f5a20d0712bc4e"
+      },
+      {
+        "path": ".cache/potato-draw-writes/public-qt.log",
+        "bytes": 160,
+        "sha256": "eec13e66e71136bc02e9aaae1805d101b94e8b45a1a13f714c48dd8d454d6b0c"
+      },
+      {
+        "path": ".cache/potato-draw-writes/notices.log",
+        "bytes": 133,
+        "sha256": "150e81cc314fb56286ea658b5aaf8930e5ecb91798d974b206cd2db6b2bdbd8a"
+      },
+      {
+        "path": ".cache/potato-draw-writes/provenance-equivalence.log",
+        "bytes": 321,
+        "sha256": "c6390829e5bfa1bfe552aa2171546d9fdee8633fcbc9b40566ba5921d424f60d"
+      },
+      {
+        "path": ".cache/potato-draw-writes/win64-PresentationHooks.log",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": ".cache/potato-draw-writes/win64-GlTextureOverride.log",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": ".cache/potato-draw-writes/win64-wgl_loader_fixture.log",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": ".cache/potato-draw-writes/win64-gl_copy_consumer_order_test.log",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    ]
+  },
+  "testedSourceFiles": [
+    {
+      "path": ".github/workflows/egl-split-dispatch.yml",
+      "sha256": "4e567b6057f365943b71f54ecdef9a6ce25f9940e2940f4e2ddbcf3dbc244689"
+    },
+    {
+      "path": "src/shaders/GlDeferredCopyAudit.h",
+      "sha256": "86eb2cfad10eba02ae0fd7f62bed94702a9059b31980d6da594c77236c8da8e3"
+    },
+    {
+      "path": "src/shaders/GlProducerRoute.h",
+      "sha256": "442282b938cc82be517f63cb4cf03d712168493fa81121d84eae6cf28786f36c"
+    },
+    {
+      "path": "src/shaders/GlTextureOverride.cpp",
+      "sha256": "4877bb793e4f983e4307565512e44294b271a38c40f4359812695c0c1959280d"
+    },
+    {
+      "path": "src/shaders/GlTextureOverride.h",
+      "sha256": "35a1f87d9026d4f6af36a055884ca89310ad285e55051da6a986fba692683898"
+    },
+    {
+      "path": "src/shaders/GlTextureProvenance.h",
+      "sha256": "4381f22941949670173324ec516c1fc136323833bd15fee63acb9e129d7a0118"
+    },
+    {
+      "path": "src/shaders/PresentationHooks.cpp",
+      "sha256": "242b114012c618e9a22b92ba0e3ba109cd452605e8d101440bcad66fe6896631"
+    },
+    {
+      "path": "src/shaders/ShaderBridge.cpp",
+      "sha256": "1f2930944851841b77de0510003053480ba9b34ce785cd77890a0ead413f9ca4"
+    },
+    {
+      "path": "tests/shaders/egl_gl_fixture.h",
+      "sha256": "68e127ebb93f2b7f8b4651c1861d7173b579ffa92794c9893e2e81dd71bd4f16"
+    },
+    {
+      "path": "tests/shaders/gl_copy_consumer_order_test.cpp",
+      "sha256": "08c90d43c7bda20669c4370cd37b498a52b38f0f7dfcd520da807bb8b5be4b0a"
+    },
+    {
+      "path": "tests/shaders/gl_deferred_copy_audit_test.cpp",
+      "sha256": "96d0ce67c6be13a11c1efac6c18fd7f6292e0d94b57ae9351addf021b019da8c"
+    },
+    {
+      "path": "tests/shaders/gl_producer_route_test.cpp",
+      "sha256": "5b891b1900d5cf70df303a2a43ea49d135f7166f882e7dbbf9a0aceb242df3b0"
+    },
+    {
+      "path": "tests/shaders/gl_texture_override_test.cpp",
+      "sha256": "2914cc17168acb4ea92ac47f55a9bd1f09c3678ecae56b9dae6376850cba02d4"
+    },
+    {
+      "path": "tests/shaders/gpu_adapter.cpp",
+      "sha256": "67c69d7ca2d11e9067541cb3aa5ee98a07c31aec7d227924ec84508591e6927d"
+    },
+    {
+      "path": "tests/shaders/texture_quality_gl_pixels.py",
+      "sha256": "acb5f082d1e637a0e7635a9f327d04ed20dbbdab00fe487dfaf8446e09d715d2"
+    },
+    {
+      "path": "tests/shaders/wgl_loader_fixture.cpp",
+      "sha256": "2cc5cf20178347321fd153aaf68af7eb8da06a2bae4b6bb906724839d9bb935a"
+    },
+    {
+      "path": "tests/shaders_plugin_ui_test.py",
+      "sha256": "b1803525a9eabfb45c16eb4474c9b3b5b8504af1c7168a685b5fcb34d69c01a6"
+    }
+  ],
+  "historicalEvidenceByteUnchanged": [
+    {
+      "path": "docs/evidence/potato-installed-v6.json",
+      "bytes": 4852,
+      "sha256": "01b91673fd484559fccaa4ae10feb501ce994ff28683eb5ea6384dce39588805"
+    },
+    {
+      "path": "docs/evidence/potato-pending-copy-ledger.json",
+      "bytes": 132893,
+      "sha256": "1a4ee9988c98786eb5fe570e916020f95b78985fafa5b596949056498cc205ab"
+    },
+    {
+      "path": "docs/evidence/potato-copy-consumer-order.json",
+      "bytes": 166521,
+      "sha256": "060c4e3d997d716a2d8bdeb6a04562ec752bcfa2e0d07d4aea8c6598c64e56f4"
+    }
+  ],
+  "limits": [
+    "authored Windows dispatch and software-API resources, not installed game or physical GPU",
+    "no supplied PF/player/provider/driver/tool execution",
+    "native Save/Discard/live controls validated separately from material effect",
+    "same-scene game Off -> Strong -> Off/native restoration remains required",
+    "no package/public release/tag/merge created for this change"
+  ]
+}

@@ -18,10 +18,12 @@ a proven write, unsupported primitive, missing hook or game root cause.
 No hop/resource-budget retries were reported. Counters are not game pixels.
 
 [The transcribed installed report](evidence/potato-installed-v6.json) is kept
-separate from the successful implementation tests below. At the user's request,
-the next direction is the [exact tutorial DLL via the existing, explicitly
-reviewed restart-only route](POTATO-ORIGINAL-DLL-USE.md), not another unchanged
-v6 install or longer gameplay request. No new independent game repair is claimed.
+separate from the successful implementation tests below. The user subsequently
+selected **live Settings On/Off + 0–100 strength**. The [unchanged original DLL](POTATO-ORIGINAL-DLL-USE.md)
+is therefore a restart-only fallback, not fulfillment of that choice. Current
+work [separates complete draw-write invalidation from sampling eligibility](POTATO-DRAW-WRITE-FOOTPRINT.md)
+in the controllable native engine. That independently reproduced repair is not
+yet proof of a game fix. Do not reinstall unchanged v6 or request longer play.
 
 ## Previous installed result: v5 was not working
 
@@ -224,11 +226,13 @@ remains historical and unchanged; it does not establish game acceptance.
 Do not loosen TTLs, force LINEAR mips, merge guessed namespaces or substitute
 presentation blur/resolution on the basis of this ledger.
 
-The user's requested alternative is documented in
+The earlier requested alternative is documented in
 [exact original DLL use](POTATO-ORIGINAL-DLL-USE.md), using the already available
 DLL patcher with unchanged local original bytes and explicit startup-risk review.
-It is separate from the BSI sampler feature and does not provide its live slider
-or Off/restoration contract. No new diagnostic package is needed for that route.
+It remains a fallback: the user's subsequent **live On/Off + 0–100** selection
+requires a controllable implementation, not these unchanged persistent hooks.
+See [the current functional write-footprint repair](POTATO-DRAW-WRITE-FOOTPRINT.md).
+No original/source/ABI, new diagnostic-only package or game success is inferred.
 
 Acceptance of the independent sampler feature still requires actual same-scene
 material **Off → Strong → Off** with native restoration. Original-DLL process

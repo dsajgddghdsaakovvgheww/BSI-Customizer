@@ -3,8 +3,10 @@
 > **Later user-requested direction:** after the installed v6 also prepared zero
 > bindings, the user requested using these exact original DLLs instead of another
 > diagnostic-only build. See [explicitly reviewed, restart-only original use](POTATO-ORIGINAL-DLL-USE.md).
-> That route uses local unchanged bytes and the existing DLL patcher; this
-> historical comparison is not a new game/driver or live-Off success claim.
+> The user then explicitly selected **live Settings On/Off + 0–100 strength**.
+> That unchanged-original route cannot meet this requirement and remains only a
+> fallback. See [current controllable-engine work](POTATO-DRAW-WRITE-FOOTPRINT.md).
+> This historical comparison is not a new game/driver or live-Off success claim.
 
 ## Result
 

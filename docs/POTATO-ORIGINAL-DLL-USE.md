@@ -2,9 +2,15 @@
 
 ## Decision and current result
 
-The user requests the **original DLL from the supplied YouTube tutorial**, not
-another reimplementation/diagnostic-only install. The independent v6 path is
-confirmed **not working in the game**: 5,950 processed presentation frames,
+**Fallback only under the current requirement.** After requesting the original
+tutorial DLL, the user explicitly selected **live Settings On/Off and 0–100
+strength** (`live_required`). This unchanged DLL has no supported live-control
+ABI: the restart-only guide below does **not** fulfill that choice. The selected
+work is the [independently controllable native path](POTATO-DRAW-WRITE-FOOTPRINT.md),
+with Save/Discard and draw-scoped Off restoration; its game effect is unproved.
+Do not stack the two hook modules or present DLL swapping as a live slider.
+
+The independent v6 path is confirmed **not working in the game**: 5,950 processed presentation frames,
 11,663 NoSampler inspections, **zero Potato bindings**. There were two deferred
 reconciliations and two producer inspections, still with zero bindings. The
 [installed v6 report](evidence/potato-installed-v6.json) is separate from all

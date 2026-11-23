@@ -1,14 +1,22 @@
 # Potato graphic strength: actual sampling, not a weaker-success indicator
 
-## What the installed status means
+## Current requirement and installed status
 
-The newest supplied game reports have **3,145 and 856 NoSampler inspections,
+The user explicitly selected **live Settings On/Off + 0–100 strength**, retaining
+native Save/Discard. The unchanged tutorial DLL has no supported live-control
+ABI; manual fixed-strength swapping/restarts do not meet this requirement. The
+independent controls below are retained. [Current draw-write-footprint work](POTATO-DRAW-WRITE-FOOTPRINT.md)
+fixes a separately reproduced tracking defect, **not proven game acceptance**.
+The latest installed v6 result remains **5,950 frames / 11,663 NoSampler
+inspections / zero bindings**, as [recorded separately](POTATO-PENDING-COPY-LEDGER.md).
+
+The historical snapshots used during slider work had **3,145 and 856 NoSampler inspections,
 zero linked producer inspections and zero prepared draws/private bindings**, at
 saved **100%**. That is **no applied Potato texture reduction**, not a small/weak
 effect. Their 1,577 and 2,993 processed frames refer to independent presentation
 grading. Neither those frames nor an armed/saved switch establishes changed
-textures. The inspected mutable RGB 256x256 consumer now specifically reports
-legal **GL_LINEAR 0x2601 / non-mip-filter=1**, not missing required mip 1.
+textures. In those reports, the inspected mutable RGB 256x256 consumer specifically
+reports legal **GL_LINEAR 0x2601 / non-mip-filter=1**, not missing required mip 1.
 
 The [immutable mip/view repair](POTATO-MIP-QUALIFICATION.md),
 [native image links](POTATO-NATIVE-IMAGE-BINDINGS.md) and

@@ -70,9 +70,14 @@ allows named FBO/RBO proof on current no-HWND WGL DCs or truly surfaceless EGL
 contexts without inventing a native default image. Foreign windows, unmapped
 non-null EGL surfaces, unobserved sharing and unproven outputs stay native.
 These repair independently reproduced gaps, **not a proven game root cause**.
-The newest installed reports still have **3,145 and 856 NoSampler inspections /
-zero prepared bindings**, and legal **GL_LINEAR** on the inspected consumer;
-installed-game texture/Off acceptance remains negative.
+The latest installed v6 report is still **5,950 frames / 11,663 NoSampler
+inspections / zero bindings**; [its balanced ledger](POTATO-PENDING-COPY-LEDGER.md)
+identifies a conservative removal site, not game causality. The user explicitly
+selected **live Settings On/Off + 0–100 strength**, which the unchanged tutorial
+DLL cannot provide. [Current write-footprint work](POTATO-DRAW-WRITE-FOOTPRINT.md)
+repairs a separate RED/green regression while retaining those controls. The
+single-level consumer remains legally GL_LINEAR; game material/Off acceptance
+is still unproved, not rescued by counters or authored software pixels.
 
 ### Nested translator draws and the active-gameplay failure
 
