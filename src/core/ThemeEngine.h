@@ -148,6 +148,16 @@ public:
         qint64 pos = 0;
         int len = 0;
         QByteArray rep;
+        // Set for a verified whole-record rewrite of the compressed theme QML
+        // (the decompression-based palette: the record is decompressed, the
+        // declaration literal edited and the record recompressed in place).
+        // Such a replacement IS the compressed record, so the "never rewrite
+        // compressed bytes" gate exempts it - and the stream fields let
+        // applyHexTheme re-verify the recompressed record before writing.
+        bool verifiedStream = false;
+        qint64 streamZoff = -1;
+        quint32 streamCompLen = 0;
+        QByteArray streamExpect;
     };
     static QList<Replacement> collectThemeReplacements(const QByteArray &data,
                                                        const QString &profile,

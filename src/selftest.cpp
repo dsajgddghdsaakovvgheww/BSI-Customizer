@@ -1065,6 +1065,134 @@ int runSelfTest()
     }
 
     // ------------------------------------------------------------------
+    // 2f2) Compressed theme-QML declarations (the decompression-based palette)
+    //      findQmlColor falls back to the decompressed declaration table when
+    //      no verified plain binding exists, and applyHexTheme rewrites the
+    //      declaration inside the compressed record - apply -> reload exact.
+    // ------------------------------------------------------------------
+    {
+        std::printf("[hex-qml-stream] decompression-based palette read/write\n");
+
+        // Mini player image: MZ/PE stub + one [be32 usize][zlib] theme record
+        // (the bare qCompress blob layout) + the UiThemeObject.qml marker
+        // findThemeZlib anchors on.
+        auto makeStreamFixture = [](const QString &qmlText) {
+            QByteArray d("MZ", 2);
+            d += QByteArray(0x7E, '\0');
+            d += "PE\0\0"; // 0x80
+            d += QByteArray(0x180, '\0');
+            const QByteArray raw = qmlText.toUtf8();
+            // Level 1 leaves slack in the slot, so a later edit (even a 6 -> 8
+            // digit literal) always fits and the round trip is deterministic.
+            const QByteArray comp = qCompress(raw, 1).mid(4); // raw zlib stream
+            const quint32 sz = quint32(raw.size());
+            d += char((sz >> 24) & 0xFF);
+            d += char((sz >> 16) & 0xFF);
+            d += char((sz >> 8) & 0xFF);
+            d += char(sz & 0xFF);
+            d += comp;
+            d += QByteArray(0x20, '\0');
+            d += QByteArrayLiteral("UiThemeObject.qml");
+            d += QByteArray(0x200, '\0');
+            return d;
+        };
+        const QString qmlText = QStringLiteral(
+            "import QtQuick 2.0\n"
+            "QtObject {\n"
+            "    property QtObject colors: QtObject {\n"
+            "        property color primary80: \"#21242C\"\n"
+            "        property color accentNormal: \"#EB2C43AA\"\n"
+            "    }\n"
+            "}\n");
+        const QByteArray pe = makeStreamFixture(qmlText);
+
+        check(ThemeEngine::findQmlColor(pe, QStringLiteral("primary80"))
+                  == QStringLiteral("#21242C"),
+              "hex-qml-stream: findQmlColor reads the compressed declaration");
+        check(ThemeEngine::findQmlColor(pe, QStringLiteral("accentNormal"))
+                  == QStringLiteral("#EB2C43AA"),
+              "hex-qml-stream: 8-digit declaration reported");
+        check(ThemeEngine::findQmlColor(pe, QStringLiteral("nope")).isEmpty(),
+              "hex-qml-stream: unknown name stays empty");
+
+        auto writeFixture = [&pe](const QString &path) {
+            QFile f(path);
+            f.open(QIODevice::WriteOnly);
+            f.write(pe);
+            f.close();
+        };
+        auto applyOne = [](const QString &exePath, const QString &name,
+                           const QString &cur, const QString &next) {
+            HexColorItem row;
+            row.name = name;
+            row.currentHex = cur;
+            row.color = next;
+            row.enabled = true;
+            return ThemeEngine::applyHexTheme(exePath, QStringLiteral("MSI5"), {},
+                                              QList<HexColorItem> { row });
+        };
+
+        // Apply -> reload round trip through the compressed record.
+        {
+            const QString exePath = tmp.path() + QStringLiteral("/streamtheme.exe");
+            writeFixture(exePath);
+            const auto r = applyOne(exePath, QStringLiteral("primary80"),
+                                    QStringLiteral("#21242C"),
+                                    QStringLiteral("#101820"));
+            check(r.ok, "hex-qml-stream: applyHexTheme patches the compressed record");
+            QFile f(exePath);
+            f.open(QIODevice::ReadOnly);
+            const QByteArray after = f.readAll();
+            f.close();
+            check(after.size() == pe.size(), "hex-qml-stream: file size unchanged");
+            check(ThemeEngine::findQmlColor(after, QStringLiteral("primary80"))
+                      == QStringLiteral("#101820"),
+                  "hex-qml-stream: apply -> reload round trip");
+            check(ThemeEngine::findQmlColor(after, QStringLiteral("accentNormal"))
+                      == QStringLiteral("#EB2C43AA"),
+                  "hex-qml-stream: sibling declaration untouched");
+
+            // Re-patch the already-patched record (the padded-resource case).
+            const auto r2 = applyOne(exePath, QStringLiteral("primary80"),
+                                     QStringLiteral("#101820"),
+                                     QStringLiteral("#223344"));
+            check(r2.ok, "hex-qml-stream: re-patch of a patched record works");
+            QFile f2(exePath);
+            f2.open(QIODevice::ReadOnly);
+            const QByteArray after2 = f2.readAll();
+            f2.close();
+            check(ThemeEngine::findQmlColor(after2, QStringLiteral("primary80"))
+                      == QStringLiteral("#223344"),
+                  "hex-qml-stream: re-patch round trip");
+        }
+
+        // 6 -> 8 digit rewrite (literal and size prefix grow) and the alpha
+        // kept when a new value supplies none.
+        {
+            const QString exePath = tmp.path() + QStringLiteral("/streamalpha.exe");
+            writeFixture(exePath);
+            const auto r = applyOne(exePath, QStringLiteral("primary80"),
+                                    QStringLiteral("#21242C"),
+                                    QStringLiteral("#101820FF"));
+            check(r.ok, "hex-qml-stream: 8-digit value applied");
+            const auto r2 = applyOne(exePath, QStringLiteral("accentNormal"),
+                                     QStringLiteral("#EB2C43AA"),
+                                     QStringLiteral("#0088FF"));
+            check(r2.ok, "hex-qml-stream: alpha-kept value applied");
+            QFile f(exePath);
+            f.open(QIODevice::ReadOnly);
+            const QByteArray after = f.readAll();
+            f.close();
+            check(ThemeEngine::findQmlColor(after, QStringLiteral("primary80"))
+                      == QStringLiteral("#101820FF"),
+                  "hex-qml-stream: 6->8 digit rewrite round trip");
+            check(ThemeEngine::findQmlColor(after, QStringLiteral("accentNormal"))
+                      == QStringLiteral("#EB0088FF"),
+                  "hex-qml-stream: declaration alpha kept");
+        }
+    }
+
+    // ------------------------------------------------------------------
     // 2g) Toggle SVG recolor (PatchToggleSvgs): length-safe, knob preserved
     // ------------------------------------------------------------------
     {
