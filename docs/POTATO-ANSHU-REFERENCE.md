@@ -1,5 +1,11 @@
 # ANSHU Potato archive: exact comparison with the earlier reference
 
+> **Later user-requested direction:** after the installed v6 also prepared zero
+> bindings, the user requested using these exact original DLLs instead of another
+> diagnostic-only build. See [explicitly reviewed, restart-only original use](POTATO-ORIGINAL-DLL-USE.md).
+> That route uses local unchanged bytes and the existing DLL patcher; this
+> historical comparison is not a new game/driver or live-Off success claim.
+
 ## Result
 
 **This is a different RAR package containing the same six complete DLL files

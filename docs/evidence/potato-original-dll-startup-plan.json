@@ -1,0 +1,231 @@
+{
+  "schema": "bsi.original-potato-startup-data-plan.v1",
+  "scope": "Existing production import planner on supplied PF player bytes plus six exact ANSHU DLL members as DATA ONLY; not actual player loading or game evidence.",
+  "productionBinarySourceAlreadyAvailable": "2e5e6a0b726cf84dbc36c8ee5d5dcf8dce2c4d19",
+  "startupImplementationByteUnchangedFromThatPackage": {
+    "src/core/DllStartup.cpp": "b10f49668f02c0db0633a7255477cab5dc2b97c260094a20894b73f965958033",
+    "src/core/DllStartupImport.cpp": "5540d26707ebdabe23e24fb726ded15d8f8dfecb7cb8759c0eccb53ad5df0791",
+    "src/core/DllStartup.h": "b1e3573e090893b8a0b8a53cf3ab95e2e64f2754db8e1d8c7945ee23e8826e3d",
+    "src/core/DllStartupImport.h": "60fe5c44d8bd7863a5b04a06ce36f370ff93c01497cef37f4e460b6bf2c9ecb9",
+    "src/qml/components/DllStartupPanel.qml": "a2338e035a66440a03fe444ee0231a0eb93ae1d3ad7875fff28084f5aa79b21b"
+  },
+  "archive": {
+    "name": "POTATO FF DLL BY ANSHU.rar",
+    "driveFileId": "1Ex-E3YCwkq5wWschqaFMdNv9abB0MV9-",
+    "bytes": 345058,
+    "sha256": "ed56050e890d9bf9efa8df08cd5eee2f143041cb49b983760c231e2c1fbca449",
+    "entries": 18
+  },
+  "pf": {
+    "archiveSha256": "8922e6b30903d8f1552abb3a7a83477532bd699277fcbbdf222a24e73407b990",
+    "playerSha256": "9138bf12725d389f2a2bd84495e2634428fafb292f23a5fa46e200cda986960d",
+    "playerBytes": 12098936,
+    "versionFromPriorStaticAudit": "5.12.120.6303",
+    "member": "HD-Player.exe",
+    "selectedMemberCrcChecked": true
+  },
+  "cases": [
+    {
+      "archiveMember": "POTATO FF DLL BY ANSHU/POTATO FF DLL BY ANSHU/Intel/LOW/dinput8.dll",
+      "dllBytes": 243712,
+      "dllSha256": "25da83f0c7f5d6052e67e279cb427d20643593321405f017331ebd450e5fdcf8",
+      "existingNativeImportAnchor": "proxy_DirectInput8Create",
+      "directImportsNotFullDependencyResolution": [
+        "OPENGL32.dll",
+        "KERNEL32.dll",
+        "VCRUNTIME140.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll"
+      ],
+      "proposedLocalFilename": "BsiPotatoOriginal.dll",
+      "payloadByteChanges": false,
+      "nativeDataPlannerAccepted": true,
+      "independentlyDecodedWithPeFile": true,
+      "originalSectionsOverlayEntryPointAndImportDescriptorsPreserved": true,
+      "newSectionWritableNonExecutable": true,
+      "realTerminatedNamedImportThunks": true,
+      "peChecksumIndependentlyVerified": true,
+      "repeatByteIdentical": true,
+      "genericZlagInitAnchorRefusedWithoutOutput": true,
+      "dllExportOrInitializerCalledByPlanner": false,
+      "playerOrDllExecuted": false,
+      "importsBefore": 43,
+      "importsAfter": 44,
+      "outputBytes": 12100096,
+      "sha256": "672fef641fb68ac72cd11161c3177221dda42417f1905f29bc17e8ac22dbbd87"
+    },
+    {
+      "archiveMember": "POTATO FF DLL BY ANSHU/POTATO FF DLL BY ANSHU/Intel/STRONG/dinput8.dll",
+      "dllBytes": 243712,
+      "dllSha256": "c956f2bd04b22212ecb8e65a0397c40addf64be136d8d1cd906e473661113554",
+      "existingNativeImportAnchor": "proxy_DirectInput8Create",
+      "directImportsNotFullDependencyResolution": [
+        "OPENGL32.dll",
+        "KERNEL32.dll",
+        "VCRUNTIME140.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll"
+      ],
+      "proposedLocalFilename": "BsiPotatoOriginal.dll",
+      "payloadByteChanges": false,
+      "nativeDataPlannerAccepted": true,
+      "independentlyDecodedWithPeFile": true,
+      "originalSectionsOverlayEntryPointAndImportDescriptorsPreserved": true,
+      "newSectionWritableNonExecutable": true,
+      "realTerminatedNamedImportThunks": true,
+      "peChecksumIndependentlyVerified": true,
+      "repeatByteIdentical": true,
+      "genericZlagInitAnchorRefusedWithoutOutput": true,
+      "dllExportOrInitializerCalledByPlanner": false,
+      "playerOrDllExecuted": false,
+      "importsBefore": 43,
+      "importsAfter": 44,
+      "outputBytes": 12100096,
+      "sha256": "672fef641fb68ac72cd11161c3177221dda42417f1905f29bc17e8ac22dbbd87"
+    },
+    {
+      "archiveMember": "POTATO FF DLL BY ANSHU/POTATO FF DLL BY ANSHU/Nvidia  AMD/BS MSI 4/forte/dinput8.dll",
+      "dllBytes": 243712,
+      "dllSha256": "c956f2bd04b22212ecb8e65a0397c40addf64be136d8d1cd906e473661113554",
+      "existingNativeImportAnchor": "proxy_DirectInput8Create",
+      "directImportsNotFullDependencyResolution": [
+        "OPENGL32.dll",
+        "KERNEL32.dll",
+        "VCRUNTIME140.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll"
+      ],
+      "proposedLocalFilename": "BsiPotatoOriginal.dll",
+      "payloadByteChanges": false,
+      "nativeDataPlannerAccepted": true,
+      "independentlyDecodedWithPeFile": true,
+      "originalSectionsOverlayEntryPointAndImportDescriptorsPreserved": true,
+      "newSectionWritableNonExecutable": true,
+      "realTerminatedNamedImportThunks": true,
+      "peChecksumIndependentlyVerified": true,
+      "repeatByteIdentical": true,
+      "genericZlagInitAnchorRefusedWithoutOutput": true,
+      "dllExportOrInitializerCalledByPlanner": false,
+      "playerOrDllExecuted": false,
+      "importsBefore": 43,
+      "importsAfter": 44,
+      "outputBytes": 12100096,
+      "sha256": "672fef641fb68ac72cd11161c3177221dda42417f1905f29bc17e8ac22dbbd87"
+    },
+    {
+      "archiveMember": "POTATO FF DLL BY ANSHU/POTATO FF DLL BY ANSHU/Nvidia  AMD/BS MSI 4/leve/dinput8.dll",
+      "dllBytes": 243712,
+      "dllSha256": "289e1eb34e815b886f4c2585c37efc78c489f58fd7b28942cfd5aeb1ec38b282",
+      "existingNativeImportAnchor": "proxy_DirectInput8Create",
+      "directImportsNotFullDependencyResolution": [
+        "OPENGL32.dll",
+        "KERNEL32.dll",
+        "VCRUNTIME140.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll"
+      ],
+      "proposedLocalFilename": "BsiPotatoOriginal.dll",
+      "payloadByteChanges": false,
+      "nativeDataPlannerAccepted": true,
+      "independentlyDecodedWithPeFile": true,
+      "originalSectionsOverlayEntryPointAndImportDescriptorsPreserved": true,
+      "newSectionWritableNonExecutable": true,
+      "realTerminatedNamedImportThunks": true,
+      "peChecksumIndependentlyVerified": true,
+      "repeatByteIdentical": true,
+      "genericZlagInitAnchorRefusedWithoutOutput": true,
+      "dllExportOrInitializerCalledByPlanner": false,
+      "playerOrDllExecuted": false,
+      "importsBefore": 43,
+      "importsAfter": 44,
+      "outputBytes": 12100096,
+      "sha256": "672fef641fb68ac72cd11161c3177221dda42417f1905f29bc17e8ac22dbbd87"
+    },
+    {
+      "archiveMember": "POTATO FF DLL BY ANSHU/POTATO FF DLL BY ANSHU/Nvidia  AMD/BS MSI 5/LIGHT/version.dll",
+      "dllBytes": 245248,
+      "dllSha256": "b68e5b3586ffd2a57c680a0426818e71b06eadc3ce60b80507f42679892b3558",
+      "existingNativeImportAnchor": "proxy_VerQueryValueW",
+      "directImportsNotFullDependencyResolution": [
+        "OPENGL32.dll",
+        "KERNEL32.dll",
+        "VCRUNTIME140.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll"
+      ],
+      "proposedLocalFilename": "BsiPotatoOriginal.dll",
+      "payloadByteChanges": false,
+      "nativeDataPlannerAccepted": true,
+      "independentlyDecodedWithPeFile": true,
+      "originalSectionsOverlayEntryPointAndImportDescriptorsPreserved": true,
+      "newSectionWritableNonExecutable": true,
+      "realTerminatedNamedImportThunks": true,
+      "peChecksumIndependentlyVerified": true,
+      "repeatByteIdentical": true,
+      "genericZlagInitAnchorRefusedWithoutOutput": true,
+      "dllExportOrInitializerCalledByPlanner": false,
+      "playerOrDllExecuted": false,
+      "importsBefore": 43,
+      "importsAfter": 44,
+      "outputBytes": 12100096,
+      "sha256": "31d97a093e3dff902eeabbde26ce01b59adf3ab0310bcb4fa6c5ddb7de588679"
+    },
+    {
+      "archiveMember": "POTATO FF DLL BY ANSHU/POTATO FF DLL BY ANSHU/Nvidia  AMD/BS MSI 5/STRONG/version.dll",
+      "dllBytes": 245248,
+      "dllSha256": "7440db72c09af59e8a3249e17fff0a1e964e4409bc6ec7b9c1686b35368fac22",
+      "existingNativeImportAnchor": "proxy_VerQueryValueW",
+      "directImportsNotFullDependencyResolution": [
+        "OPENGL32.dll",
+        "KERNEL32.dll",
+        "VCRUNTIME140.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll"
+      ],
+      "proposedLocalFilename": "BsiPotatoOriginal.dll",
+      "payloadByteChanges": false,
+      "nativeDataPlannerAccepted": true,
+      "independentlyDecodedWithPeFile": true,
+      "originalSectionsOverlayEntryPointAndImportDescriptorsPreserved": true,
+      "newSectionWritableNonExecutable": true,
+      "realTerminatedNamedImportThunks": true,
+      "peChecksumIndependentlyVerified": true,
+      "repeatByteIdentical": true,
+      "genericZlagInitAnchorRefusedWithoutOutput": true,
+      "dllExportOrInitializerCalledByPlanner": false,
+      "playerOrDllExecuted": false,
+      "importsBefore": 43,
+      "importsAfter": 44,
+      "outputBytes": 12100096,
+      "sha256": "31d97a093e3dff902eeabbde26ce01b59adf3ab0310bcb4fa6c5ddb7de588679"
+    }
+  ],
+  "boundedNativeParserGuards": {
+    "result": "PASS; includes 2000 deterministic input-immutable/idempotence mutations",
+    "logSha256": "c3d02a4cb292e51b5428a8458d75473e0aa7efbc9d382d10264610ecb430761d"
+  },
+  "unrarSourceCommit": "cacdcb8cbe1813b6151e3f92f2ccec7afe4d6a41",
+  "originalsLoadedOrExecutedInThisCheck": false,
+  "productionCodeChanged": false,
+  "payloadsBundledOrRedistributed": false,
+  "playerStartupOrPhysicalDriverOrGameMaterialAccepted": false,
+  "limitations": [
+    "Preserved certificate bytes do not preserve Authenticode validity after an EXE import/header edit.",
+    "A structurally valid import does not establish successful DLL attachment, dependencies, driver compatibility or material effect in an installed player.",
+    "Historical controlled Windows original-DLL behavior is in docs/POTATO-DLL-PROBE.md, not re-executed here.",
+    "Original DLLs have persistent process-wide hooks/state, no supported BSI strength/Off ABI, and must not be unloaded under live hooks.",
+    "Restart-only removal requires restoring the EXE dependency before deleting the required DLL; do not discard unrelated later edits."
+  ],
+  "additionalOfflineValidation": {
+    "sanitizedNativeParser": {
+      "result": "PASS",
+      "logSha256": "c3d02a4cb292e51b5428a8458d75473e0aa7efbc9d382d10264610ecb430761d",
+      "scope": "ASan/UBSan/leak native parser controls"
+    },
+    "offlineReferenceTests": {
+      "result": "PASS",
+      "logSha256": "3843280f075a3794c83b0999dcf651582719440b4aca2501654af6033459d0e8",
+      "scope": "26 synthetic/reference-evidence tests; no original execution"
+    }
+  }
+}

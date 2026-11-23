@@ -129,27 +129,31 @@ requires explicit review of existing driver LOD/AA overrides, and currently has
 a GL 3.3/GLES 3.1 draw-time path only. No supplied DLL is installed. See
 [exact coverage and resource-provenance limits](TEXTURE-QUALITY-PORTABILITY.md).
 
-**Latest installed result remains not working:** the header identifies
-**`91f4efb…` / `gl-copy-consumer-order-v5`**, with **268 frames / 162 NoSampler
-inspections** at 100%, zero material bindings, linked producers, immediate
-qualified transfers or deferred reconciliations. This is the third genuine
-installed negative, not a stale installation. Raw activity is **10,624 draws /
-162 copy-subimage callbacks**. The 160 `awaiting-exact-copy-consumer` outcomes
-mean queued metadata callbacks, **not 160 distinct/live/successful copies**.
-No existing report distinguishes expiry, overwrites/revocation, lifecycle or
-namespace changes from an unobserved exact consumer. WGL-only code attribution
-is not resource ownership. The second Off snapshot resets interval counters;
-it does not invalidate the On failure or prove restored material pixels.
+**Latest installed result remains not working:** **`2e5e6a0…` /
+`gl-pending-copy-ledger-v6`**, **5,950 frames / 11,663 NoSampler inspections** at
+100%, **zero Potato bindings**. Two deferred edges reconciled and two producer
+draws were inspected, still with zero bindings; the latest reported base-only
+960x540 RGBA8 input uses legal GL_NEAREST0x2600 / BASE/MAX0/0. This fourth
+installed negative is not stale installation or insufficient play time.
 
-The [bounded v6 pending-copy lifetime ledger](POTATO-PENDING-COPY-LEDGER.md),
-**`gl-pending-copy-ledger-v6`**, adds metadata-only retirement/matching diagnostics
-without changing sampling, routes or TTL. It is **not a diagnosed game fix**.
-Use the newly validated diagnostic package identified in that report
-(source `2e5e6a0…`, package run `45097774113`); do not repeat unchanged v5 or
-request more gameplay as a remedy. The mutable RGB
-256x256 presentation input uses legal **GL_LINEAR 0x2601 / non-mip-filter=1**;
-forcing mips is not a repair. Grading, saved/armed state and queued counters do
-not prove a material effect. The
+The [v6 pending-copy ledger](POTATO-PENDING-COPY-LEDGER.md) balances **11,630
+queued / zero pending / peak2**. Of these metadata entries, 11,361 retire at
+`draw-output-or-primitive-unavailable`; 256 at captured writes, 10 missed/busy,
+one sharing change, two reconciliation. This identifies a conservative metadata
+removal site, not a confirmed driver write, unsupported GL primitive or game
+root cause. All queued sources are renderbuffers; no hop/resource retries are
+reported. WGL-only target attribution is not resource ownership. The earlier v5
+negative (268frames/162NoSampler/zero bindings) is retained as historical evidence.
+
+**Do not reinstall unchanged v6 or collect a longer gameplay interval.** At the
+user's request, the next route is [the exact original tutorial DLL through the
+existing, reviewed startup importer](POTATO-ORIGINAL-DLL-USE.md). That is a
+separate, restart-only alternative with no BSI live strength/Off API, not another
+independent shader build or a promised game fix. Do not run both hook modules
+together for the comparison. The independent module's saved/armed state,
+presentation grading, counters and software tests still do not prove a material
+effect. The mutable RGB 256x256 presentation input remains legally GL_LINEAR;
+forcing it to use mips is not a repair. The
 [copy-order repair/v5 validation](POTATO-COPY-CONSUMER-ORDER.md) and
 [older v3/v4 negatives](POTATO-TRANSFER-ROUTING-DIAGNOSTICS.md) remain historical
 supported-path evidence, not the game's established resource graph.

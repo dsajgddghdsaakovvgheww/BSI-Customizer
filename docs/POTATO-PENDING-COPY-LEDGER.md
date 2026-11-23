@@ -1,6 +1,29 @@
-# Potato: v5 installed failure and v6 pending-copy lifetime diagnostics
+# Potato: installed v6 still not working; pending-copy diagnostic history
 
-## Latest installed result: still not working
+## Latest installed result: v6 is also negative
+
+The user has now tested **`2e5e6a0…` / `gl-pending-copy-ledger-v6`** in the game:
+**5,950 processed frames / 11,663 NoSampler inspections / zero Potato bindings**.
+Two deferred edges reconciled and two producer draws were inspected, but neither
+prepared a binding. The latest producer input is base-only `960×540` RGBA8 with legal
+`GL_NEAREST` (`0x2600`), BASE/MAX 0/0, still first-rejected as non-mip-filter.
+This fourth installed negative supersedes the untested-v6 delivery status below.
+
+The new interval balances: **11,630 queued = 11,361 uncaptured-output + 256
+captured-destination-write + 10 missed/guarded/busy + one sharing change + two
+reconciled**, pending zero, peak two. All 11,361 uncaptured removals are at
+`draw-output-or-primitive-unavailable`; all queued sources are renderbuffers.
+This identifies the dominant conservative **metadata removal code path**, not
+a proven write, unsupported primitive, missing hook or game root cause.
+No hop/resource-budget retries were reported. Counters are not game pixels.
+
+[The transcribed installed report](evidence/potato-installed-v6.json) is kept
+separate from the successful implementation tests below. At the user's request,
+the next direction is the [exact tutorial DLL via the existing, explicitly
+reviewed restart-only route](POTATO-ORIGINAL-DLL-USE.md), not another unchanged
+v6 install or longer gameplay request. No new independent game repair is claimed.
+
+## Previous installed result: v5 was not working
 
 The user installed **`91f4efbe93c0360233d4e892d11949f3d8c9fc43`** /
 **`gl-copy-consumer-order-v5`**. Its supported-path ordering and original-entry
@@ -192,20 +215,23 @@ downloaded or executed in this Linux workspace.
 | Setup ZIP | `e2df4611a960762f9a191c4eda5aacd1ecf08aa0f25c505264cde0f116130f02` |
 | Setup EXE | `93a4bc98493e937f1844b678b6e2f8f8600453264457d4b7736a76fcc178935d` |
 
-## Next useful installed check
+## Superseded diagnostic-install request
 
-Do not reinstall unchanged v5, loosen TTLs, force LINEAR mips, merge guessed
-namespaces or substitute presentation blur/resolution. This newly validated v6
-diagnostic package is for explaining metadata retention, **not a promise of a
-working effect**.
+The v6 package above was validated as a diagnostic implementation, then tested
+by the user with the negative result at the top of this page. **Do not reinstall
+unchanged v6 or request longer play.** Existing implementation/package evidence
+remains historical and unchanged; it does not establish game acceptance.
+Do not loosen TTLs, force LINEAR mips, merge guessed namespaces or substitute
+presentation blur/resolution on the basis of this ledger.
 
-Use the backed-up authorized test installation and the native update flow:
-**Inspect compatibility → 2. Review update → Install native shaders**.
-Replacing the Customizer EXE alone does not update the DLL. Check the new exact
-source and capture schema, then retain the complete diagnostic report at 100%
-before changing settings or turning Off, including all pending-ledger lines.
-No longer gameplay interval is prescribed as a remedy.
+The user's requested alternative is documented in
+[exact original DLL use](POTATO-ORIGINAL-DLL-USE.md), using the already available
+DLL patcher with unchanged local original bytes and explicit startup-risk review.
+It is separate from the BSI sampler feature and does not provide its live slider
+or Off/restoration contract. No new diagnostic package is needed for that route.
 
-Game acceptance remains actual same-scene material **Off → Strong → Off**, with
-native restoration. Neither a balanced ledger, a reconciliation, a private
-binding, authored pixels nor a successful package can substitute for that.
+Acceptance of the independent sampler feature still requires actual same-scene
+material **Off → Strong → Off** with native restoration. Original-DLL process
+exit/restart is a separate comparison, not an in-place Off test. Neither a
+balanced ledger, a reconciliation, a private binding, authored pixels nor a
+successful package can substitute for actual game material changes.
