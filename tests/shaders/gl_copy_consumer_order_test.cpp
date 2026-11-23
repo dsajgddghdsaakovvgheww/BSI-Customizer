@@ -35,6 +35,20 @@ struct Fixture {
         require(count("bsiFixtureTransferCalls")==calls+1&&count("bsiFixtureTransferArgumentsIntact")&&count("bsiFixtureBindingsRestored")&&!count("bsiFixtureInvalidGl"),"exact once-only copy original and untouched native arguments/state");
     }
 };
+Fixture *callbackFixture=nullptr;
+HDC callbackPresentationDc=nullptr;
+void WINAPI presentInOriginal(){
+    auto &f=*callbackFixture;
+    const auto dc=f.fn<HDC(WINAPI*)()>("wglGetCurrentDC")();
+    const auto context=f.fn<HGLRC(WINAPI*)()>("wglGetCurrentContext")();
+    f.current(callbackPresentationDc,context);
+    require(f.fn<BOOL(WINAPI*)(HDC)>("wglSwapBuffers")(callbackPresentationDc)!=FALSE,"presentation can advance while native transfer holds no lock");
+    f.current(dc,context);
+}
+void WINAPI overwriteInOriginal(){
+    auto &f=*callbackFixture;f.resource(2,58);
+    f.draw(0,"an intervening native-worker draw is not owned by an in-flight copy");f.resource(4);
+}
 void WINAPI resetInOriginal(){
     std::thread worker([]{auto &r=Runtime::instance();r.setTexture({false,true,TextureDrawPolicy::OwnedMipCompatibility});r.setTexture({true,true,TextureDrawPolicy::OwnedMipCompatibility});});
     worker.join();
@@ -46,6 +60,7 @@ int main(int argc,char **argv){
     const auto root=CreateWindowExW(0,L"STATIC",L"copy order player",WS_OVERLAPPEDWINDOW,0,0,900,600,nullptr,nullptr,instance,nullptr);
     const auto child=CreateWindowExW(0,L"STATIC",L"copy order game",WS_CHILD,0,0,640,360,root,nullptr,instance,nullptr);
     require(root&&child,"owned native child HWND");const auto dc=GetDC(child);
+    callbackFixture=&f;callbackPresentationDc=dc;
     const auto context=f.fn<HGLRC(WINAPI*)(HDC)>("wglCreateContext")(dc);require(context!=nullptr,"authored native context");
     require(setWglProviderForTesting(f.module),"explicit test-only WGL provider injection");
     auto &runtime=Runtime::instance();runtime.setTexture({true,true,TextureDrawPolicy::OwnedMipCompatibility});runtime.start(reinterpret_cast<std::uintptr_t>(root));
@@ -79,6 +94,22 @@ int main(int argc,char **argv){
     require(runtime.metrics().textureProducerDraws==1&&runtime.metrics().textureProducerBindings==2
             &&runtime.metrics().textureDeferredCopies==1&&runtime.metrics().textureDeferredInputs==1
             &&!runtime.metrics().textureTransferCalls,"late actual consumption reaches only its resource-linked material producer, separately from native call totals");
+
+    // Presentation elapsed inside the native original counts against the
+    // ORIGINAL capture deadline, not a fresh lifetime starting at return.
+    reset();consumer(50);producer(0,"in-flight frame boundary starts native");
+    f.fn<void(*)(void(WINAPI*)())>("bsiFixtureOnTransfer")(presentInOriginal);f.copy(57);
+    f.fn<void(*)(void(WINAPI*)())>("bsiFixtureOnTransfer")(nullptr);
+    f.current(dc,context);require(f.fn<BOOL(WINAPI*)(HDC)>("wglSwapBuffers")(dc)!=FALSE,"reach the original copy's inclusive deadline");
+    consumer(57);producer(2,"a returning copy can reconcile at its original inclusive two-frame deadline");
+    f.current(dc,context);require(f.fn<BOOL(WINAPI*)(HDC)>("wglSwapBuffers")(dc)!=FALSE,"advance beyond entry-time deadline");
+    producer(0,"time spent INSIDE the native copy must not extend the original capture's two-frame deadline");
+
+    reset();consumer(50);producer(0,"in-flight overwrite control starts native");
+    f.fn<void(*)(void(WINAPI*)())>("bsiFixtureOnTransfer")(overwriteInOriginal);f.copy(58);
+    f.fn<void(*)(void(WINAPI*)())>("bsiFixtureOnTransfer")(nullptr);
+    consumer(58);producer(0,"an intervening destination write during the original revokes in-flight copy metadata before it can be queued");
+    require(!runtime.metrics().textureDeferredCopies,"post-original queuing cannot resurrect metadata invalidated during the original");
 
     reset();consumer(50);producer(0,"overwritten pending output control begins native");f.copy(56);
     f.resource(2,56);f.draw(0,"another unqualified FBO draw writes the pending destination without gaining ownership");
