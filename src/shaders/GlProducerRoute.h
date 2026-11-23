@@ -14,6 +14,13 @@ constexpr GlProducerRoute glProducerRoute(bool selected,bool pbuffer,bool hasWin
         :hasWindow?(selectedWindow?GlProducerRoute::NamedResourceOnly:GlProducerRoute::Refuse)
         :resourceOnlyDrawable?GlProducerRoute::NamedResourceOnly:GlProducerRoute::Refuse;
 }
+// Invalidation-only footprints cannot create a native identity or ownership.
+// A resource-only drawable still cannot stand in for an unknown default image.
+inline bool qualifyGlDrawWrites(GlProducerRoute route,std::uintptr_t pbuffer,const GlDrawWrites &writes){
+    if(route==GlProducerRoute::Refuse)return false;
+    return !writes.defaultFramebuffer||route==GlProducerRoute::Selected
+        ||(route==GlProducerRoute::NativePbuffer&&pbuffer);
+}
 // No GL calls or allocations; leave a refused capture untouched. Texture/RBO
 // identities are still checked against live namespace-qualified dependencies
 // AFTER this function. Only an observed pbuffer lifetime can name its default

@@ -156,14 +156,17 @@ int main(int argc,char **argv){
             retired(GlDeferredCopyExit::DestinationWrite);
             consumer(60);producer(0,"a possible overwritten destination cannot inherit the old copy predecessor");
             require(!runtime.metrics().textureDeferredCopies,"all enabled raster color outputs must be included in conservative overwrite invalidation");
+            std::printf("PASS destination alias: flags=%u, target=%s, excluded primitive=1, old predecessor revoked\n",flags,mrt?"mrt3":"buffer0");
         }
     }
 
-    reset();consumer(50);producer(0,"uncaptured output control begins native");f.copy(59);
-    f.resource(2,61);f.drawFlags(8);f.draw(0,"unqueryable/incomplete output still revokes the namespace, including for excluded primitives",1);
-    retired(GlDeferredCopyExit::UnknownWrite);
-    require(pending().discardSites[static_cast<std::size_t>(GlDeferredDiscardSite::DrawUsage)]==1,"unknown output is distinguished from an exact overwritten destination; primitive eligibility is not a footprint");
-    consumer(59);producer(0,"a failed complete output capture must not retain metadata or manufacture ownership");
+    for(unsigned flags:{8u,64u}){
+        reset();consumer(50);producer(0,"uncaptured output control begins native");f.copy(59);
+        f.resource(2,61);f.drawFlags(flags);f.draw(0,"incomplete output or bound shader image still revokes the namespace, including for excluded primitives",1);
+        retired(GlDeferredCopyExit::UnknownWrite);
+        require(pending().discardSites[static_cast<std::size_t>(GlDeferredDiscardSite::DrawWrites)]==1,"unknown output is distinguished from an exact overwritten destination; primitive eligibility is not a footprint");
+        consumer(59);producer(0,"a failed complete output capture must not retain metadata or manufacture ownership");
+    }
 
     reset();consumer(50);producer(0,"new interval starts native");
     f.fn<void(*)(void(WINAPI*)())>("bsiFixtureOnTransfer")(resetInOriginal);f.copy(52);

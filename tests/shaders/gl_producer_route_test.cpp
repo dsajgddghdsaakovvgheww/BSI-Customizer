@@ -4,7 +4,9 @@
 #include "GlProducerRoute.h"
 #include <cstdio>
 #include <cstdlib>
+#include <type_traits>
 using namespace BsiShaders;
+static_assert(!std::is_convertible_v<GlDrawWrites,GlTextureUsage>,"write-only invalidation must not masquerade as sampled dependency evidence");
 namespace {
 void require(bool value,const char *message){if(!value){std::fprintf(stderr,"FAIL: %s\n",message);std::exit(1);}}
 GlTextureUsage fbo(GlColorResource output=50){
@@ -29,6 +31,15 @@ int main(){
     require(glProducerRoute(false,false,true,false,true)==GlProducerRoute::Refuse
             &&glProducerRoute(false,false,false,false,false)==GlProducerRoute::Refuse,
             "foreign/Qt windows, unknown non-null EGL surfaces and missing WGL DCs cannot become resource routes");
+    GlDrawWrites writes;writes.defaultFramebuffer=writes.nativeColorWrite=true;
+    require(qualifyGlDrawWrites(selected,0,writes)&&qualifyGlDrawWrites(pbuffer,800,writes)
+            &&!qualifyGlDrawWrites(pbuffer,0,writes)&&!qualifyGlDrawWrites(nonWindow,0,writes)
+            &&!qualifyGlDrawWrites(GlProducerRoute::Refuse,800,writes)&&!writes.writeCount,
+            "write-only default footprints still need the exact selected/live-pbuffer route; no native identity is created");
+    writes={};writes.writes[writes.writeCount++]=50;
+    require(qualifyGlDrawWrites(nonWindow,0,writes)&&!qualifyGlDrawWrites(GlProducerRoute::Refuse,800,writes)
+            &&writes.writeCount==1&&writes.writes[0]==50,
+            "only an admitted native route can use named outputs for invalidation, never ownership or foreign adoption");
     auto output=fbo();
     require(nonWindow==GlProducerRoute::NamedResourceOnly&&qualifyGlProducerOutput(nonWindow,0,output)
             &&output.writeCount==1&&output.writes[0]==50,

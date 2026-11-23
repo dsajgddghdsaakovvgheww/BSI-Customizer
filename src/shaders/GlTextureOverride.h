@@ -42,6 +42,14 @@ public:
     // No sampler replacement, texture binding, pixel readback or GL error read.
     // Restores ACTIVE_TEXTURE on every path; caller still proves the route.
     bool usage(GlTextureUsage *out);
+    // Invalidation ONLY, not usage()/producer evidence. Enumerates EVERY enabled
+    // draw-buffer slot, conservatively ignoring color masks/depth/blend/program/
+    // primitive eligibility. No reads/ownership, allocation, binding or error
+    // queue change. Incomplete/unknown/protection-possible outputs, bound shader
+    // images, bindless-image capability or unavailable queries fail closed;
+    // never substitute the partial buffer-zero usage() capture on failure.
+    // The caller must still qualify the current native route and resource epoch.
+    bool drawWrites(GlDrawWrites *out);
     // Read-only color-copy/resolve observation. No shader/depth/blend/color-mask
     // requirements (those do not control blits/copies), no bindings/objects
     // changed, and no GetError. Default framebuffer entries contain a zero-name

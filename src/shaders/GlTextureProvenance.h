@@ -34,6 +34,18 @@ struct GlTextureUsage {
     std::array<GlColorResource,capacity> reads{},writes{};
     std::size_t readCount=0,writeCount=0;
 };
+// Invalidation ONLY: a conservative superset of the current draw's enabled
+// raster-color targets. It carries no sampled inputs, native-image identity or
+// ownership, and cannot be passed to producer()/observe(). Blend, primitive,
+// program and color masks do not make another target an unknown namespace write.
+// A native output still needs the caller's selected/live-pbuffer route check;
+// its only policy effect here is to revoke an in-flight capture, never a link.
+struct GlDrawWrites {
+    static constexpr std::size_t capacity=GlTextureUsage::capacity;
+    bool defaultFramebuffer=false,nativeColorWrite=false;
+    std::array<GlColorResource,capacity> writes{};
+    std::size_t writeCount=0;
+};
 struct GlContextIdentity {
     unsigned provider=0;
     std::uintptr_t display=0,context=0;
@@ -70,6 +82,7 @@ public:
         for(auto &copy:pending_)if(copy.output)erase(copy,reason);
         pendingCount_=0;frame_=1;
     }
+    bool hasPendingCopies()const{return pendingCount_!=0;} // caller serializes; not ownership
     const GlDeferredCopyAudit &deferredCopyAudit()const{return audit_;} // caller serializes, as for the resource graph
     bool takeDeferredCopyAudit(GlDeferredCopyAudit *out,std::uint64_t *revision){
         if(!auditDirty_||!out||!revision)return false;
@@ -156,15 +169,13 @@ public:
     // already-qualified callback cannot capture its output, revoke that space's
     // pending metadata without probing more GL state. Revocation is not adoption.
     void discardPendingWrites(GlContextIdentity key,const GlTextureUsage *usage,GlDeferredDiscardSite site=GlDeferredDiscardSite::Unspecified){
-        // Also revoke an IN-FLIGHT capture not yet queued. Interleaved callback
-        // writes are conservatively unordered; they never gain new lineage.
-        if(!usage||usage->writeCount)advancePendingEpoch();
-        if(!pendingCount_)return;
-        const auto id=knownSpace(key);if(!id)return;
-        const bool unknown=!usage||usage->writeCount>usage->capacity;
-        for(auto &copy:pending_)if(copy.output&&copy.space==id
-            &&(unknown||contains(usage->writes,usage->writeCount,copy.output)))
-                erase(copy,unknown?GlDeferredCopyExit::UnknownWrite:GlDeferredCopyExit::DestinationWrite,site);
+        discardPendingColorWrites(key,usage?&usage->writes:nullptr,usage?usage->writeCount:0,false,site);
+    }
+    // Deliberately separate from sampled dependency evidence. Even a complete
+    // footprint may ONLY remove pending copies; it never seeds/renews a graph.
+    // Null/oversized capture remains namespace-wide conservative revocation.
+    void discardPendingDrawWrites(GlContextIdentity key,const GlDrawWrites *writes,GlDeferredDiscardSite site=GlDeferredDiscardSite::Unspecified){
+        discardPendingColorWrites(key,writes?&writes->writes:nullptr,writes?writes->writeCount:0,writes&&writes->nativeColorWrite,site);
     }
     // Called only AFTER a native CopyTexSubImage2D returns with its existing
     // descriptor/current/route/resource checks intact. A queued edge cannot
@@ -234,6 +245,19 @@ public:
         return count;
     }
 private:
+    void discardPendingColorWrites(GlContextIdentity key,const std::array<GlColorResource,GlTextureUsage::capacity> *writes,
+                                   std::size_t count,bool nativeWrite,GlDeferredDiscardSite site){
+        // Also revoke an IN-FLIGHT capture not yet queued. Interleaved callback
+        // writes remain conservatively unordered, INCLUDING unrelated/native
+        // writes; the more precise queued-output match does not relax that rule.
+        if(!writes||count||nativeWrite)advancePendingEpoch();
+        if(!pendingCount_)return;
+        const auto id=knownSpace(key);if(!id)return;
+        const bool unknown=!writes||count>writes->size();
+        for(auto &copy:pending_)if(copy.output&&copy.space==id
+            &&(unknown||contains(*writes,count,copy.output)))
+                erase(copy,unknown?GlDeferredCopyExit::UnknownWrite:GlDeferredCopyExit::DestinationWrite,site);
+    }
     struct Context {GlContextIdentity key{};std::uint64_t space=0;};
     struct PendingCopy {GlContextIdentity key{};GlColorResource input{},output{};std::uint64_t space=0,expires=0;};
     struct Texture {unsigned provider=0;GlColorResource texture{};unsigned hops=0;std::uint64_t space=0,expires=0;std::uintptr_t display=0;};

@@ -843,6 +843,127 @@ def exercise(gl, policy, desktop, size, resolver, resource_current):
             folder = Path(os.environ["BSI_TEXTURE_PIXEL_ARTIFACT_DIR"]) / ("desktop" if desktop else "gles")
             for tag, rgba in (("native", late_native), ("strong", late_strong), ("off", late_off)):
                 save_rgba(folder / ("copy-order-" + label + "-" + tag + ".png"), rgba, size)
+    # Independent real-API regression for invalidation versus eligibility.
+    # Each excluded draw actually executes at the application's native state;
+    # only the complete color-write footprint may retain/remove queued metadata.
+    policy.bsi_test_dependency_draw_writes.argtypes = [C.POINTER(U)]
+    policy.bsi_test_dependency_draw_writes.restype = U
+    policy.bsi_test_dependency_pending.restype = U
+    policy.bsi_test_dependency_primitive_begin.argtypes = [I, U, I]
+    policy.bsi_test_dependency_primitive_begin.restype = U
+    draw_buffers = gl("glDrawBuffers", None, I, C.POINTER(U))
+    attach_texture = gl("glFramebufferTexture2D", None, U, U, U, U, I)
+    mask_color = gl("glColorMask", None, C.c_ubyte, C.c_ubyte, C.c_ubyte, C.c_ubyte)
+    footprint_cases, footprint_aliases = [], []
+    footprint_revision = 900
+
+    def queue_footprint_control():
+        nonlocal footprint_revision
+        footprint_revision += 1
+        policy.bsi_test_dependency_reset(footprint_revision)
+        assert late_source(2) == (0, native)
+        bind_framebuffer(0x8CA8, stage_fbo)
+        bind_framebuffer(0x8CA9, color_fbo)
+        blit(0, 0, size, size, 0, 0, size, size, 0x4000, 0x2600)
+        late_present(color_target)
+        assert policy.bsi_test_dependency_consumer() == 1
+        assert late_source(2) == (0, native)
+        late_copy(True)
+        assert policy.bsi_test_dependency_pending() == 1
+        bind_framebuffer(0x8D40, color_fbo)
+        bind_input(texture)
+        bind_sampler(0, native_binding)
+
+    def inspect_footprint(expected):
+        keys = (0x84E0, 0x8069, 0x8919, 0x8CA6, 0x8CAA, 0x8B8D, 0x8825, 0x8828)
+        def state():
+            result = []
+            for key in keys:
+                value = I()
+                get_int(key, C.byref(value))
+                result.append(value.value)
+            return result
+        before = state()
+        gl("glEnable", None, U)(0xDEADBEEF)
+        outputs = U()
+        captured = policy.bsi_test_dependency_draw_writes(C.byref(outputs))
+        assert captured == 1 and outputs.value == expected, ("complete draw-write footprint", captured, outputs.value, expected, before)
+        assert state() == before, "write-only inspection must not bind a source/sampler/FBO/program or change draw buffers"
+        assert get_error() == 0x0500 and get_error() == 0, "new indexed image/draw-buffer queries must preserve pending errors WITHOUT adding an API error"
+
+    for native_binding in (samplers[0], 0):
+        label = "sampler" if native_binding else "texture"
+        for case in ("blend", "line", "mask", "none"):
+            queue_footprint_control()
+            primitive = 1 if case == "line" else 4
+            if case == "blend":
+                gl("glEnable", None, U)(0x0BE2)
+            if case == "mask":
+                mask_color(0, 0, 0, 0)
+            if case == "none":
+                draw_buffers(1, (U * 1)(0))
+            inspect_footprint(0 if case == "none" else 1)
+            assert policy.bsi_test_dependency_pending() == 1
+            assert policy.bsi_test_dependency_primitive_begin(2, primitive, 100) == 0, "an excluded draw stays native; a write footprint cannot grant sampled-input ownership"
+            draw(primitive, 0, 2 if primitive == 1 else 3)
+            policy.bsi_test_quality_end()
+            gl("glDisable", None, U)(0x0BE2)
+            mask_color(1, 1, 1, 1)
+            draw_buffers(1, (U * 1)(0x8CE0))
+            before_image = late_present(late_target)
+            assert tuple(before_image[:4]) == native
+            assert policy.bsi_test_dependency_consumer() == 1 and policy.bsi_test_dependency_deferred_resolved() == 1
+            rgba = []
+            for percent in (0, 50, 100):
+                bind_framebuffer(0x8D40, stage_fbo)
+                bind_input(texture)
+                bind_sampler(0, native_binding)
+                assert policy.bsi_test_dependency_primitive_begin(2, 4, percent) == int(percent > 0)
+                draw(4, 0, 3)
+                policy.bsi_test_quality_end()
+                late_copy(False)
+                image = late_present(late_target)
+                rgba.append(list(image[:4]))
+                if percent == 0:
+                    assert image == before_image
+            assert rgba[0] == list(native) and all(abs(a - b) <= 2 for a, b in zip(rgba[1], (0, 128, 128, 173))) and rgba[2] == list(colors[3])
+            assert late_source(0) == (0, native)
+            late_copy(False)
+            restored = late_present(late_target)
+            assert restored == before_image, "the complete presented Off image must match the pre-effect image exactly"
+            bind_input(texture)
+            assert source_lods() == saved_source_lods
+            footprint_cases.append({"source": label, "draw": case, "strengthRGBA": rgba, "offExact": True})
+            if case == "blend" and os.environ.get("BSI_TEXTURE_PIXEL_ARTIFACT_DIR"):
+                folder = Path(os.environ["BSI_TEXTURE_PIXEL_ARTIFACT_DIR"]) / ("desktop" if desktop else "gles")
+                for tag, pixels in (("native", before_image), ("strong", image), ("off", restored)):
+                    save_rgba(folder / ("draw-footprint-" + label + "-" + tag + ".png"), pixels, size)
+        for mrt in (False, True):
+            queue_footprint_control()
+            attach_texture(0x8D40, 0x8CE3 if mrt else 0x8CE0, 0x0DE1, late_target, 0)
+            if mrt:
+                draw_buffers(4, (U * 4)(0x8CE0, 0, 0, 0x8CE3))
+            mask_color(0, 0, 0, 0)  # a conservative POSSIBLE write, not proof of pixels
+            inspect_footprint(2 if mrt else 1)
+            assert policy.bsi_test_dependency_pending() == 0, "an alias on ANY enabled color output revokes the queued predecessor, even when buffer-zero writes are masked"
+            draw(1, 0, 2)
+            mask_color(1, 1, 1, 1)
+            draw_buffers(1, (U * 1)(0x8CE0))
+            attach_texture(0x8D40, 0x8CE3 if mrt else 0x8CE0, 0x0DE1, 0 if mrt else color_target, 0)
+            late_present(late_target)
+            assert policy.bsi_test_dependency_consumer() == 1 and policy.bsi_test_dependency_deferred_resolved() == 0
+            assert late_source(2) == (0, native), "discarded aliases cannot resurrect a material producer at late consumption"
+            footprint_aliases.append({"source": label, "target": "mrt3" if mrt else "buffer0", "revoked": True})
+    footprint_report = {"api": "desktop" if desktop else "gles", "version": version, "cases": footprint_cases,
+                        "aliases": footprint_aliases, "pendingErrorsAndSourceState": True,
+                        "limit": "authored software GL, not Windows/player/game/GPU/FPS acceptance"}
+    report = json.dumps(footprint_report, separators=(",", ":"))
+    print("Draw-write footprint pixel evidence:", report)
+    if os.environ.get("BSI_TEXTURE_PIXEL_ARTIFACT_DIR"):
+        (folder / "draw-write-footprint-evidence.json").write_text(json.dumps(footprint_report, indent=2) + "\n")
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        assert len(report.encode()) < 2500
+        print("::notice title=Actual draw-write-footprint material pixels (software)::" + report)
     native_binding = samplers[0]
     bind_sampler(0, native_binding)
     bind_input(texture)

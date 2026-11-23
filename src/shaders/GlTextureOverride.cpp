@@ -49,6 +49,7 @@ struct GlTextureOverride::Impl {
     GL_FUNCTION(const unsigned char*,GetString,(U))
     GL_FUNCTION(const unsigned char*,GetStringi,(U,U))
     GL_FUNCTION(void,GetIntegerv,(U,I*))
+    GL_FUNCTION(void,GetIntegeri_v,(U,U,I*))
     GL_FUNCTION(void,GetFloatv,(U,F*))
     GL_FUNCTION(void,GetBooleanv,(U,B*))
     GL_FUNCTION(B,IsEnabled,(U))
@@ -77,10 +78,10 @@ struct GlTextureOverride::Impl {
     GL_FUNCTION(void,BindSampler,(U,U))
 #undef GL_FUNCTION
     bool ready=false,es=false,anisotropic=false,srgbDecode=false,minmax=false,protectedTextures=false;
-    bool immutableFormatQuery=false,immutableLevelsQuery=false,viewLevelsQuery=false,namedImageQueries=false;
+    bool immutableFormatQuery=false,immutableLevelsQuery=false,viewLevelsQuery=false,namedImageQueries=false,drawWritesReady=false;
     unsigned copyImageApis=0;
     GlQualityCapabilities qualityCapabilities;
-    I units=0,attachments=0,extensionCount=0,maximumLevel=0;
+    I units=0,attachments=0,extensionCount=0,maximumLevel=0,drawBuffers=0,imageUnits=0;
     enum class MipRefusal { None, Protection, Range, Dimensions, Format, Incomplete, SingleLevel, Storage, NonMipFilter, Count };
     struct MipInspection {
         MipRefusal refusal=MipRefusal::None;
@@ -295,6 +296,20 @@ bool GlTextureOverride::initialize(ResolveGl resolve,void *user,std::string *err
     }
     g.GetIntegerv(0x8b4d,&g.units);g.GetIntegerv(0x8cdf,&g.attachments);
     if(g.units<1||g.units>256||g.attachments<1||g.attachments>32)return fail("Unqualified GL sampler/attachment limits; original textures retained.");
+    // Optional invalidation-only capture. Never infer absence of non-raster
+    // image writes from shader/blend state: inspect all ordinary image bindings
+    // when the API advertises them, and refuse bindless-image contracts whose
+    // targets need not appear in that table. No new positive sampling contract.
+    g.GetIntegerv(0x8824,&g.drawBuffers); // MAX_DRAW_BUFFERS, GL3 / ES3 core
+    g.drawWritesReady=g.CheckFramebufferStatus&&g.drawBuffers>0&&g.drawBuffers<=I(GlDrawWrites::capacity)
+        &&!g.protectedTextures&&!g.extension("GL_ARB_bindless_texture")&&!g.extension("GL_NV_bindless_texture");
+    const bool shaderImages=g.es||major>4||(major==4&&minor>=2)
+        ||g.extension("GL_ARB_shader_image_load_store")||g.extension("GL_EXT_shader_image_load_store");
+    if(shaderImages){
+        g.GetIntegeri_v=reinterpret_cast<Impl::GetIntegeri_vType>(resolve("glGetIntegeri_v",user));
+        g.GetIntegerv(0x8f38,&g.imageUnits); // MAX_IMAGE_UNITS, only with the actual capability
+        if(!g.GetIntegeri_v||g.imageUnits<1||g.imageUnits>256)g.drawWritesReady=false;
+    }
     // Named copy capture is optional. A non-null driver stub alone does not
     // legalize DSA queries or a particular copy-image extension spelling.
     if(!g.es){
@@ -364,6 +379,38 @@ bool GlTextureOverride::usage(GlTextureUsage *out){
         }
     }
     return true;
+}
+bool GlTextureOverride::drawWrites(GlDrawWrites *out){
+    if(!out)return false;
+    *out={};auto &g=*impl;if(!g.ready||!g.drawWritesReady)return false;
+    for(I i=0;i<g.imageUnits;++i){
+        I image=-1;g.GetIntegeri_v(0x8f3a,U(i),&image); // IMAGE_BINDING_NAME, no source binding change
+        if(image!=0)return false; // even a read-only/unused image remains conservative unknown output
+    }
+    if(g.CheckFramebufferStatus(0x8ca9)!=0x8cd5)return false;
+    I framebuffer=-1;g.GetIntegerv(0x8ca6,&framebuffer);if(framebuffer<0)return false;
+    GlDrawWrites captured;captured.defaultFramebuffer=framebuffer==0;
+    for(I i=0;i<g.drawBuffers;++i){
+        I slot=-1;g.GetIntegerv(0x8825+U(i),&slot); // EVERY DRAW_BUFFERi, not COLOR_ATTACHMENTi by assumption
+        if(slot==0)continue;
+        if(slot<0)return false;
+        if(!framebuffer){
+            // No native identity/aspect is invented or compared. This flag can
+            // only revoke an in-flight token AFTER the caller qualifies the
+            // selected/live-unprotected-pbuffer default route.
+            captured.nativeColorWrite=true;continue;
+        }
+        if(slot<0x8ce0||slot>=0x8ce0+g.attachments)return false;
+        I type=0,name=0;g.GetFramebufferAttachmentParameteriv(0x8ca9,U(slot),0x8cd0,&type);
+        if(type!=0x1702&&type!=0x8d41)return false;
+        g.GetFramebufferAttachmentParameteriv(0x8ca9,U(slot),0x8cd1,&name);
+        if(name<=0)return false;
+        // Include a whole typed object, irrespective of mip/layer, color mask,
+        // shader output, depth/stencil/scissor or whether the primitive is
+        // eligible for Potato. A possible write is enough to REVOKE, not adopt.
+        captured.writes[captured.writeCount++]=type==0x1702?GlColorResource(U(name)):GlColorResource::renderbuffer(U(name));
+    }
+    *out=captured;return true; // a complete all-NONE footprint is genuinely empty
 }
 bool GlTextureOverride::textureBinding(GlTextureBinding *out,bool requireColorImage){
     if(!out)return false;

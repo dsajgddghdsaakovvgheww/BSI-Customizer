@@ -145,14 +145,14 @@ API void bsiFixtureResourceState(unsigned mode,unsigned output){
     g.textures=mode==1?std::array<unsigned,4>{{output,0,0,0}}:std::array<unsigned,4>{{1,2,0,0}};
     g.samplers[1].min=mode==1?0x2601:0x2703; // legal LINEAR consumer, existing trilinear material source otherwise
     g.mips=mode!=1;g.depth=g.depthWrite=false;g.depthBits=0;g.blend=g.protectedTexture=false;g.colorWrite=true;
-    g.program=1;g.drawBufferNone=false;g.drawComplete=true;g.extraOutputs={};
+    g.program=1;g.drawBufferNone=false;g.drawComplete=true;g.extraOutputs={};g.imageBinding=0;
 }
 // Invalidation controls, independent of material-override eligibility. The
 // secondary output occupies DRAW_BUFFER3 / COLOR_ATTACHMENT3, never slot zero.
 API void bsiFixtureDrawFlags(unsigned flags,unsigned secondary){
     auto &g=EglDrawFixture::state();g.blend=(flags&1)!=0;g.colorWrite=(flags&2)==0;
     g.program=flags&4?0:1;g.drawComplete=(flags&8)==0;g.drawBufferNone=(flags&16)!=0;
-    g.extraOutputs={};g.extraOutputs[3]=secondary;
+    g.extraOutputs={};g.extraOutputs[3]=secondary;g.imageBinding=flags&64?60:0;
 }
 API void bsiFixtureTransferState(unsigned readKind,unsigned source,unsigned destination){
     auto &g=EglDrawFixture::state();g.readFramebuffer=readKind?8:0;g.framebuffer=7;

@@ -93,7 +93,7 @@ QVariantMap ShaderBridge::bridgeInfo()const{
     return {{"moduleQtVersion",QString::fromLatin1(QT_VERSION_STR)},
             {"runtimeQtVersion",QString::fromLatin1(qVersion())},{"publicQtApi",true},
             {"moduleBuildRevision",QStringLiteral(BSI_SHADERS_BUILD_REVISION)},
-            {"moduleCaptureVersion",QStringLiteral("gl-pending-copy-ledger-v6")}};
+            {"moduleCaptureVersion",QStringLiteral("gl-draw-write-footprint-v7")}};
 }
 QVariantList ShaderBridge::controlList()const{
     QVariantList out;

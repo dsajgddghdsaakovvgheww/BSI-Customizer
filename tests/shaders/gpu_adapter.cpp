@@ -20,19 +20,19 @@ BsiShaders::GlTextureUsage pendingTransfer;
 BsiShaders::GlDeferredCopyResolution lastDeferred;
 BsiShaders::GlDeferredCopyCapture transferCapture;
 bool transferCaptured=false,transferIsSubimage=false;
-unsigned producerBegin(int mode,bool pbuffer,bool namedOnly=false,int strength=100){
+unsigned producerBegin(int mode,bool pbuffer,bool namedOnly=false,int strength=100,unsigned primitive=4){
     // Python verifies the actual current EGL context/display and BOTH null
     // surfaces before requesting namedOnly. This fixture-only bridge supplies
     // the native fact, never the final resource proof or a fake pbuffer ID.
     const auto route=BsiShaders::glProducerRoute(false,false,false,false,namedOnly);
     if(namedOnly&&route==BsiShaders::GlProducerRoute::Refuse)return 0;
     BsiShaders::GlTextureUsage usage;
-    if(!quality->usage(&usage))return 0;
+    if((primitive!=4&&primitive!=5&&primitive!=6)||!quality->usage(&usage))return 0;
     if(namedOnly&&!BsiShaders::qualifyGlProducerOutput(route,0,usage))return 0;
     if(pbuffer&&usage.defaultFramebuffer){usage.writes[0]=authoredPbuffer;usage.writeCount=1;}
     if(!dependencies.producer(authoredContext,usage))return 0;
     dependencies.observe(authoredContext,usage,false);std::string detail;
-    return quality->begin(static_cast<BsiShaders::TextureQuality>(mode),true,4,&detail,nullptr,nullptr,
+    return quality->begin(static_cast<BsiShaders::TextureQuality>(mode),true,primitive,&detail,nullptr,nullptr,
                           BsiShaders::TextureDrawPolicy::OwnedMipCompatibility,strength);
 }
 }
@@ -97,6 +97,17 @@ unsigned bsi_test_dependency_consumer(){
 }
 unsigned bsi_test_dependency_deferred_resolved(){return lastDeferred.copies;}
 unsigned bsi_test_dependency_producer_begin(int mode){return producerBegin(mode,false);}
+unsigned bsi_test_dependency_primitive_begin(int mode,unsigned primitive,int strength){return producerBegin(mode,false,false,strength,primitive);}
+unsigned bsi_test_dependency_draw_writes(unsigned *outputs){
+    BsiShaders::GlDrawWrites writes;
+    // This fixture invokes the observer only on its authored named FBOs. The
+    // actual native/current/protection/serial/foreign-route gates are separate
+    // Windows contracts; never supply a fake default/pbuffer identity here.
+    const bool captured=quality->drawWrites(&writes)&&BsiShaders::qualifyGlDrawWrites(BsiShaders::GlProducerRoute::NamedResourceOnly,0,writes);
+    dependencies.discardPendingDrawWrites(authoredContext,captured?&writes:nullptr);
+    *outputs=captured?unsigned(writes.writeCount):0;return captured;
+}
+unsigned bsi_test_dependency_pending(){return dependencies.deferredCopyAudit().pending;}
 unsigned bsi_test_dependency_pbuffer_begin(int mode){return producerBegin(mode,true);}
 unsigned bsi_test_dependency_resource_only_begin(int mode,int strength){return producerBegin(mode,false,true,strength);}
 // Authored native-pbuffer qualification, not a Windows lifecycle assertion.

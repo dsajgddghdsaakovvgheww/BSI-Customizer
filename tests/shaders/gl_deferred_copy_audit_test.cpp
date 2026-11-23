@@ -55,8 +55,8 @@ int main(){
         fresh();for(unsigned i=0;i<3;++i)p.nextFrame();onlyExit(p,GlDeferredCopyExit::Expired);
         p.observe(presenter,usage(true,{51}),true);require(!p.producer(presenter,producer),"accounting does not preserve an expired edge for a late consumer");
         fresh();const auto write=usage(false,{1},{51});p.discardPendingWrites(presenter,&write);onlyExit(p,GlDeferredCopyExit::DestinationWrite);
-        fresh();p.discardPendingWrites(presenter,nullptr,GlDeferredDiscardSite::DrawUsage);onlyExit(p,GlDeferredCopyExit::UnknownWrite);
-        require(p.deferredCopyAudit().discardSites[index(GlDeferredDiscardSite::DrawUsage)]==1,"retired-edge sites identify which existing capture path lacked a safe output");
+        fresh();p.discardPendingWrites(presenter,nullptr,GlDeferredDiscardSite::DrawWrites);onlyExit(p,GlDeferredCopyExit::UnknownWrite);
+        require(p.deferredCopyAudit().discardSites[index(GlDeferredDiscardSite::DrawWrites)]==1,"retired-edge sites identify which existing capture path lacked a safe output");
         fresh();auto invalid=write;invalid.writeCount=33;p.discardPendingWrites(presenter,&invalid,static_cast<GlDeferredDiscardSite>(999));onlyExit(p,GlDeferredCopyExit::UnknownWrite);
         require(p.deferredCopyAudit().discardSites[0]==1,"invalid diagnostic indices remain bounded WITHOUT preventing the existing conservative discard");
         fresh();p.discardPendingProvider(2);require(p.deferredCopyAudit().pending==1,"another provider's revocation must not affect the pending edge");
@@ -72,6 +72,39 @@ int main(){
         auto a=p.deferredCopyAudit();require(a.queued==2&&a.pending==1&&a.peak==1&&a.exits[index(GlDeferredCopyExit::Superseded)]==1,"a newer queued copy retires the overwritten predecessor, not the occupied slot twice");
         p.observe(presenter,usage(true,{51}),true);balanced(p);a=p.deferredCopyAudit();
         require(a.queued==2&&!a.pending&&a.exits[index(GlDeferredCopyExit::Reconciled)]==1,"one superseded plus one resolved entry balances two submitted metadata records");
+    }
+    {
+        GlTextureProvenance p;unsigned revision=100;
+        const auto fresh=[&]{p.synchronize(123,++revision);p.observe(presenter,root,true);require(p.deferCopy(presenter,copy)==GlDeferredCopyResult::Queued,"queue draw-footprint control");};
+        GlDrawWrites unrelated;unrelated.writes[unrelated.writeCount++]=52;
+        fresh();p.discardPendingDrawWrites(presenter,&unrelated);
+        require(p.deferredCopyAudit().pending==1&&!p.producer(presenter,producer),"an unrelated known raster write retains queued metadata without adopting a producer");
+        p.observe(presenter,usage(true,{51}),true);onlyExit(p,GlDeferredCopyExit::Reconciled);
+        GlDrawWrites alias;alias.writes[alias.writeCount++]=51;
+        fresh();p.discardPendingDrawWrites(presenter,&alias);onlyExit(p,GlDeferredCopyExit::DestinationWrite);
+        GlDrawWrites rbo;rbo.writes[rbo.writeCount++]=GlColorResource::renderbuffer(51);
+        fresh();p.discardPendingDrawWrites(presenter,&rbo);
+        require(p.deferredCopyAudit().pending==1,"a same-number renderbuffer is not a texture destination alias");
+        require(p.remember(isolated),"known independent context space");p.discardPendingDrawWrites(isolated,&alias);
+        require(p.deferredCopyAudit().pending==1,"equal-name writes in an isolated space cannot retire another namespace's queued destination");
+        for(unsigned i=0;i<3;++i){p.discardPendingDrawWrites(presenter,&unrelated);p.nextFrame();}
+        onlyExit(p,GlDeferredCopyExit::Expired);
+        fresh();auto invalid=alias;invalid.writeCount=GlDrawWrites::capacity+1;
+        p.discardPendingDrawWrites(presenter,&invalid);onlyExit(p,GlDeferredCopyExit::UnknownWrite);
+        fresh();p.discardPendingDrawWrites(presenter,nullptr);onlyExit(p,GlDeferredCopyExit::UnknownWrite);
+        // The new precision is ONLY for already submitted/queued destinations.
+        // Any possible interleaved write still invalidates an in-flight capture.
+        for(unsigned kind=0;kind<3;++kind){
+            p.synchronize(123,++revision);p.observe(presenter,root,true);const auto token=p.captureDeferredCopy();
+            GlDrawWrites writes=kind==0?unrelated:GlDrawWrites{};
+            if(kind==1)writes.defaultFramebuffer=writes.nativeColorWrite=true;
+            p.discardPendingDrawWrites(presenter,kind==2?nullptr:&writes);
+            require(p.deferCopy(presenter,copy,token)==GlDeferredCopyResult::Refused,
+                    "unrelated/native/unknown writes revoke an in-flight token BEFORE later completion can queue stale metadata");
+        }
+        p.synchronize(123,++revision);p.observe(presenter,root,true);const auto token=p.captureDeferredCopy();
+        GlDrawWrites none;p.discardPendingDrawWrites(presenter,&none);
+        require(p.deferCopy(presenter,copy,token)==GlDeferredCopyResult::Queued,"a complete genuinely empty raster footprint need not invent a write");balanced(p);
     }
     {
         GlTextureProvenance p;p.synchronize(123,1);p.observe(presenter,root,true);

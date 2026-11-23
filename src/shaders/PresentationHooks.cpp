@@ -376,10 +376,20 @@ struct GameDraw {
                 }
                 if(quality.drawPolicy==TextureDrawPolicy::OwnedMipCompatibility&&quality.externalOverridesReviewed){
                     if(!session.resourceHooks)session.resourceHooks=installResourceHooks(provider,candidate.egl);
-                    const auto serial=h.drainedResourceSerial;GlTextureUsage usage;
+                    const auto serial=h.drainedResourceSerial;GlDrawWrites writes;
+                    // Output invalidation is NOT draw/sample eligibility. A
+                    // blended/line/masked draw may have fully known unrelated
+                    // raster targets; conversely buffer-zero usage is NOT a
+                    // complete MRT write footprint. Unknown outputs still revoke
+                    // the namespace, and ALL writes revoke in-flight captures.
+                    // With no queued destination to match, revoke a possible
+                    // in-flight capture directly instead of querying more GL.
+                    const bool writeCapture=session.resourceHooks&&h.provenance.hasPendingCopies()&&session.potato.drawWrites(&writes)
+                        &&qualifyGlDrawWrites(candidate.producerRoute,candidate.pbuffer,writes)&&serial==h.resourceSerial.load();
+                    h.provenance.discardPendingDrawWrites(identity,writeCapture?&writes:nullptr,GlDeferredDiscardSite::DrawWrites);
+                    GlTextureUsage usage;
                     const bool captured=session.resourceHooks&&(primitive==4||primitive==5||primitive==6)&&session.potato.usage(&usage)
                         &&candidate.qualifyOutput(usage)&&serial==h.resourceSerial.load();
-                    h.provenance.discardPendingWrites(identity,captured?&usage:nullptr,GlDeferredDiscardSite::DrawUsage);
                     if(!exact&&(!captured||!h.provenance.producer(identity,usage))){selected=nullptr;releaseAuditedBypass(scope);return;}
                     if(captured){
                         GlDeferredCopyResolution resolved;

@@ -10,7 +10,7 @@ enum class GlDeferredCopyExit : unsigned { Reconciled, Expired, DestinationWrite
     MissedCallback, ContextRetired, ProviderRetired, ResourceRetired, NativeSourceRetired,
     ShareChanged, EvidenceReset, NamespaceLost, Superseded, Count };
 enum class GlDeferredConsumerStop : unsigned { NoPending, OtherNamespace, NoDestination, ExactDestination, Count };
-enum class GlDeferredDiscardSite : unsigned { Unspecified, DrawCandidate, DrawInspector, DrawUsage,
+enum class GlDeferredDiscardSite : unsigned { Unspecified, DrawCandidate, DrawInspector, DrawWrites,
     TransferCandidate, TransferInspector, TransferDescriptor, NativeImageBinding, Count };
 inline constexpr std::array<const char*,static_cast<std::size_t>(GlDeferredCopyExit::Count)> glDeferredExitLabels{{
     "reconciled", "original-deadline-expired", "captured-destination-write", "uncaptured-callback-output",
@@ -19,7 +19,7 @@ inline constexpr std::array<const char*,static_cast<std::size_t>(GlDeferredCopyE
 inline constexpr std::array<const char*,static_cast<std::size_t>(GlDeferredConsumerStop::Count)> glDeferredConsumerLabels{{
     "no-pending-copy", "pending-only-in-other-namespaces", "same-namespace-no-destination-match", "exact-destination-match"}};
 inline constexpr std::array<const char*,static_cast<std::size_t>(GlDeferredDiscardSite::Count)> glDeferredDiscardLabels{{
-    "unspecified", "draw-candidate-refused", "draw-inspector-unavailable", "draw-output-or-primitive-unavailable",
+    "unspecified", "draw-candidate-refused", "draw-inspector-unavailable", "complete-draw-color-output-unavailable",
     "transfer-candidate-refused", "transfer-inspector-or-hooks-unavailable", "transfer-descriptor-refused", "native-image-binding"}};
 inline constexpr std::array<const char*,4> glDeferredSourceLabels{{"texture", "renderbuffer", "native-pbuffer", "other"}};
 struct GlDeferredCopyAudit {

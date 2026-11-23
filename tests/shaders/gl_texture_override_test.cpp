@@ -45,7 +45,12 @@ struct NamedImage {bool live=false;I target=0x0de1,width=64,height=64,format=0x8
 struct Fake {
     std::array<NamedImage,128> namedTextures{},namedRenderbuffers{};bool missingNamedQueries=false;I namedQueries=0;
     bool desktop=false,missingBiasQuery=false,storageExtension=false,viewExtension=false;
-    I desktopVersion=45,maximumTextureSize=16384;
+    I desktopVersion=45,maximumTextureSize=16384,maximumDrawBuffers=4,maximumImageUnits=4;
+    bool bindlessExtension=false,missingImageQuery=false;
+    U imageBinding=0;I imageQueries=0;
+    std::array<I,4> extraDrawBuffers{};
+    std::array<U,4> extraColorAttachments{};
+    std::array<I,4> extraColorTypes{{0x1702,0x1702,0x1702,0x1702}};
     bool immutable=false;
     I storageLevels=7,viewLevels=7,imageLevels=7,maximumMip=1000,extent=64,mismatchedLevel=-1;
     I immutableQueries=0,storageQueries=0,viewQueries=0,highestLevel=-1;
@@ -71,7 +76,7 @@ const unsigned char *GL_CALL getString(U name){
 }
 const unsigned char *GL_CALL getStringi(U,U index){
     if(g.incompleteExtensions)return nullptr;
-    for(const auto &entry:std::array<std::pair<bool,const char*>,3>{{{g.protectionExtension,"GL_EXT_protected_textures"},{g.storageExtension,"GL_ARB_texture_storage"},{g.viewExtension,g.desktop?"GL_ARB_texture_view":"GL_OES_texture_view"}}})
+    for(const auto &entry:std::array<std::pair<bool,const char*>,4>{{{g.protectionExtension,"GL_EXT_protected_textures"},{g.storageExtension,"GL_ARB_texture_storage"},{g.viewExtension,g.desktop?"GL_ARB_texture_view":"GL_OES_texture_view"},{g.bindlessExtension,"GL_ARB_bindless_texture"}}})
         if(entry.first){if(!index)return reinterpret_cast<const unsigned char*>(entry.second);--index;}
     require(false,"fixture extension count must match its actual list");return nullptr;
 }
@@ -80,6 +85,8 @@ void GL_CALL getInteger(U name,I *out){
     case 0x821d:*out=g.extensionCount;break;
     case 0x821e:++g.flagsQueries;if(!g.protectionExtension)++g.illegalQueries;*out=g.protectedContext?0x10:0;break;
     case 0x8b4d:case 0x8cdf:*out=4;break;
+    case 0x8824:*out=g.maximumDrawBuffers;break;
+    case 0x8f38:require(!g.desktop||g.desktopVersion>=42,"MAX_IMAGE_UNITS is not queried speculatively on older desktop GL");*out=g.maximumImageUnits;break;
     case 0x0d33:*out=g.maximumTextureSize;break;
     case 0x8b8d:++g.shaderQueries;*out=g.program;break;
     case 0x0b74:++g.depthFunctionQueries;*out=g.depthFunction;break;
@@ -89,8 +96,13 @@ void GL_CALL getInteger(U name,I *out){
     case 0x8ca6:*out=g.framebuffer;break;case 0x8caa:*out=g.readFramebuffer;break;
     case 0x0c02:*out=g.readBufferNone?0:g.readFramebuffer?0x8ce0:0x0405;break;
     case 0x8825:*out=g.drawBufferNone?0:g.framebuffer?0x8ce0:0x0405;break;
+    case 0x8826:case 0x8827:case 0x8828:*out=g.extraDrawBuffers[name-0x8825];break;
     default:require(false,"unexpected integer query in sampler fixture");
     }
+}
+void GL_CALL getIndexedInteger(U name,U index,I *out){
+    require((!g.desktop||g.desktopVersion>=42)&&name==0x8f3a&&index<U(g.maximumImageUnits),"only capability-qualified IMAGE_BINDING_NAME queries");
+    ++g.imageQueries;*out=index?0:I(g.imageBinding);
 }
 void GL_CALL getFloat(U name,F *out){
     require(g.desktop&&name==0x84fd,"MAX_TEXTURE_LOD_BIAS is queried only on identified desktop GL");
@@ -161,7 +173,11 @@ void GL_CALL attachment(U target,U attachment,U name,I *out){
     if((target==0x8ca8||target==0x8ca9)&&(read?g.readFramebuffer:g.framebuffer)
        &&((attachment>=0x8ce0&&attachment<0x8ce4)||attachment==0x8d20)){
         require(name==0x8cd0||name==0x8cd1||name==0x8211||(name>=0x8212&&name<=0x8214),"public color resource type/name/component metadata only");
-        *out=attachment!=0x8ce0?0:name==0x8cd0?(read?g.readColorType:g.colorType):name==0x8cd1?I(read?g.readColorAttachment:g.colorAttachment):name==0x8211?g.colorComponent:8;return;
+        if(attachment!=0x8ce0){
+            const U i=attachment-0x8ce0;
+            *out=i<4&&!read?(name==0x8cd0?g.extraColorTypes[i]:name==0x8cd1?I(g.extraColorAttachments[i]):8):0;return;
+        }
+        *out=name==0x8cd0?(read?g.readColorType:g.colorType):name==0x8cd1?I(read?g.readColorAttachment:g.colorAttachment):name==0x8211?g.colorComponent:8;return;
     }
     if(!(read?g.readFramebuffer:g.framebuffer)&&((g.desktop&&attachment>=0x0400&&attachment<=0x0403)||(!g.desktop&&attachment==0x0405))){
         require(name==0x8211||(name>=0x8212&&name<=0x8214),"default-color transfer queries use legal API-specific attachment metadata");
@@ -212,11 +228,12 @@ void GL_CALL namedRenderbuffer(U name,U key,I *out){
 void GL_CALL unexpected(){require(false,"protected GL pipeline must stop before allocating/compiling/drawing");}
 void *resolve(const char *name,void*){
     if(g.missingBiasQuery&&std::strcmp(name,"glGetFloatv")==0)return nullptr;
+    if(g.missingImageQuery&&std::strcmp(name,"glGetIntegeri_v")==0)return nullptr;
     if(g.missingTransferQuery&&std::strcmp(name,"glCheckFramebufferStatus")==0)return nullptr;
     if(g.missingNamedQueries&&(std::strcmp(name,"glGetTextureParameteriv")==0||std::strcmp(name,"glGetNamedRenderbufferParameteriv")==0))return nullptr;
 #define ENTRY(gl,fn) if(std::strcmp(name,"gl" #gl)==0)return reinterpret_cast<void*>(&fn)
     ENTRY(IsTexture,isTexture);ENTRY(IsRenderbuffer,isRenderbuffer);ENTRY(GetTextureParameteriv,namedTexture);ENTRY(GetTextureLevelParameteriv,namedLevel);ENTRY(GetNamedRenderbufferParameteriv,namedRenderbuffer);
-    ENTRY(GetString,getString);ENTRY(GetStringi,getStringi);ENTRY(GetIntegerv,getInteger);ENTRY(GetFloatv,getFloat);ENTRY(GetBooleanv,getBoolean);
+    ENTRY(GetString,getString);ENTRY(GetStringi,getStringi);ENTRY(GetIntegerv,getInteger);ENTRY(GetIntegeri_v,getIndexedInteger);ENTRY(GetFloatv,getFloat);ENTRY(GetBooleanv,getBoolean);
     ENTRY(IsEnabled,enabled);ENTRY(ActiveTexture,active);ENTRY(GetProgramiv,program);ENTRY(GetActiveUniform,uniform);
     ENTRY(GetUniformLocation,location);ENTRY(GetUniformiv,uniformValue);ENTRY(GetTexLevelParameteriv,level);
     ENTRY(GetTexParameteriv,textureInteger);ENTRY(GetTexParameterfv,textureFloat);ENTRY(GetSamplerParameteriv,samplerInt);
@@ -293,6 +310,55 @@ int main(){
         g.colorWrite=false;require(!quality.usage(&usage),"a zero-color-mask draw cannot seed a color dependency");
         g.colorWrite=true;g.drawBufferNone=true;require(!quality.usage(&usage),"DRAW_BUFFER0 NONE cannot authorize a producer");
         g.drawBufferNone=false;g.blend=true;require(!quality.usage(&usage),"blended UI/transparent draws do not seed producer evidence");
+        unchanged();quality.release();
+    }
+    for(I api:{31,33,45}){
+        g.reset();g.desktop=api!=31;g.desktopVersion=api;
+        GlTextureOverride quality;std::string error;GlDrawWrites writes;
+        require(!quality.drawWrites(&writes)&&!quality.drawWrites(nullptr),"uninitialized/null output cannot capture a write footprint");
+        require(quality.initialize(resolve,nullptr,&error)&&quality.drawWrites(&writes)&&writes.defaultFramebuffer
+                &&writes.nativeColorWrite&&!writes.writeCount,"native raster output is only an invalidation flag, not an invented pbuffer identity");
+        g.framebuffer=7;g.blend=true;g.program=0;g.colorWrite=g.depth=false;
+        failAfter=0;const bool allocationFree=quality.drawWrites(&writes);failAfter=-1;
+        require(allocationFree&&!writes.defaultFramebuffer&&!writes.nativeColorWrite&&writes.writeCount==1&&writes.writes[0]==99,
+                "write capture is allocation-free and independent of draw primitive/blend/program/mask/depth eligibility");
+        GlTextureUsage usage;require(!quality.usage(&usage),"an invalidation footprint must NOT make the excluded draw sampled-input/producer evidence");
+        g.extraDrawBuffers[3]=0x8ce2;g.extraColorAttachments[2]=99;g.extraColorTypes[2]=0x8d41;
+        require(quality.drawWrites(&writes)&&writes.writeCount==2&&writes.writes[0]==99&&writes.writes[1]==GlColorResource::renderbuffer(99),
+                "enumerate every enabled DRAW_BUFFERi's actual attachment, not a guessed same-index slot or numeric texture/RBO alias");
+        g.drawBufferNone=true;
+        require(quality.drawWrites(&writes)&&writes.writeCount==1&&writes.writes[0]==GlColorResource::renderbuffer(99),
+                "buffer-zero NONE/zero color mask is not permission to miss a different enabled MRT color target");
+        g.extraDrawBuffers[3]=0;
+        require(quality.drawWrites(&writes)&&!writes.writeCount&&!writes.nativeColorWrite,"a complete all-NONE raster-color footprint contains no color target");
+        g.drawBufferNone=false;g.extraDrawBuffers[3]=0x8ce2;g.extraColorAttachments[2]=0;
+        require(!quality.drawWrites(&writes)&&!writes.writeCount&&!writes.defaultFramebuffer&&!writes.nativeColorWrite,
+                "a failed later attachment cannot publish a partial buffer-zero footprint");
+        g.extraColorAttachments[2]=99;g.extraColorTypes[2]=0;
+        require(!quality.drawWrites(&writes)&&!writes.writeCount,"an unknown/absent output type remains unknown, not an empty complete footprint");
+        g.extraColorTypes[2]=0x1702;g.extraDrawBuffers[3]=0x8ce4;
+        require(!quality.drawWrites(&writes)&&!writes.writeCount,"out-of-range attachment selectors are refused before an invalid attachment query");
+        g.extraDrawBuffers[3]=0;g.drawComplete=false;
+        require(!quality.drawWrites(&writes)&&!writes.writeCount,"an incomplete framebuffer cannot provide a qualified output footprint");g.drawComplete=true;
+        if(api!=33){
+            g.imageBinding=99;require(!quality.drawWrites(&writes)&&!writes.writeCount,"any bound shader image remains unknown; a color-FBO list is not the whole possible write set");g.imageBinding=0;
+        }else require(!g.imageQueries,"GL3.3 without image-load-store support must never query speculative image enums");
+        unchanged();require(!g.shaderQueries&&!g.creations&&!g.deletions&&!g.illegalQueries,
+                "write-only inspection never queries shader uniforms, reads pixels, creates objects, changes active units or consumes GL errors");
+        quality.release();
+    }
+    for(unsigned guard=0;guard<7;++guard){
+        g.reset();
+        if(guard==0){g.protectionExtension=true;g.extensionCount=1;}
+        if(guard==1){g.bindlessExtension=true;g.extensionCount=1;}
+        if(guard==2)g.missingTransferQuery=true;
+        if(guard==3)g.missingImageQuery=true;
+        if(guard==4)g.maximumDrawBuffers=33;
+        if(guard==5)g.maximumImageUnits=257;
+        if(guard==6)g.maximumDrawBuffers=0;
+        GlTextureOverride quality;std::string error;GlDrawWrites writes;
+        require(quality.initialize(resolve,nullptr,&error)&&!quality.drawWrites(&writes)&&!writes.writeCount,
+                "protection/bindless/unknown query/limit contracts retain conservative unknown-write revocation without disabling existing sampler initialization");
         unchanged();quality.release();
     }
     for(bool desktop:{false,true}){

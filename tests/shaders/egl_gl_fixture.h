@@ -21,6 +21,7 @@ struct State {
     I active=3,depthFunction=0x0203,depthBits=24,framebuffer=0,program=1;
     std::array<U,4> extraOutputs{}; // optional MRT color attachments/draw slots 1..3
     bool drawBufferNone=false;
+    U imageBinding=0;
     U output=50,readOutput=70;
     I readFramebuffer=0,outputType=0x1702,readOutputType=0x1702;
     I defaultDrawBuffer=0x0405,defaultReadBuffer=0x0405;
@@ -55,7 +56,7 @@ inline void WINAPI getInteger(U name,I *out){InterlockedIncrement(&stateQueries)
     auto &g=state();
     switch(name){
     case 0x821d:*out=(g.protectionExtension?1:0)+(g.desktop?1:0);break;case 0x821e:if(!g.protectionExtension)bad();*out=protectedContext()?0x10:0;break;
-    case 0x8b4d:case 0x8cdf:case 0x8824:*out=4;break;case 0x8b8d:*out=g.program;break;
+    case 0x8b4d:case 0x8cdf:case 0x8824:case 0x8f38:*out=4;break;case 0x8b8d:*out=g.program;break;
     case 0x0d33:*out=16384;break;
     case 0x0b74:*out=g.depthFunction;break;case 0x84e0:*out=0x84c0+g.active;break;
     case 0x8069:*out=I(g.textures.at(std::size_t(g.active)));break;
@@ -65,6 +66,10 @@ inline void WINAPI getInteger(U name,I *out){InterlockedIncrement(&stateQueries)
     case 0x8caa:*out=g.readFramebuffer;break;case 0x0c02:*out=g.readFramebuffer?0x8ce0:g.defaultReadBuffer;break;
     default:*out=0;bad();break;
     }
+}
+inline void WINAPI getIndexedInteger(U name,U index,I *out){InterlockedIncrement(&stateQueries);
+    if(transferErrorProbe)SetLastError(0x987643);
+    if(name!=0x8f3a||index>=4)bad();*out=index?0:I(state().imageBinding);
 }
 inline void WINAPI getFloat(U name,F *out){InterlockedIncrement(&stateQueries);if(!state().desktop||name!=0x84fd)bad();*out=16;}
 inline void WINAPI getBoolean(U name,B *out){InterlockedIncrement(&stateQueries);
@@ -220,7 +225,7 @@ inline void invokeTransfer(bool copy,U alias){
 inline void *resolve(const char *name){
 #define ENTRY(gl,fn) if(std::strcmp(name,"gl" #gl)==0)return reinterpret_cast<void*>(&fn)
     ENTRY(IsTexture,isTexture);ENTRY(IsRenderbuffer,isRenderbuffer);ENTRY(GetTextureParameteriv,namedTexture);ENTRY(GetTextureLevelParameteriv,namedLevel);ENTRY(GetNamedRenderbufferParameteriv,namedRenderbuffer);
-    ENTRY(GetString,getString);ENTRY(GetStringi,getStringi);ENTRY(GetIntegerv,getInteger);ENTRY(GetFloatv,getFloat);ENTRY(GetBooleanv,getBoolean);
+    ENTRY(GetString,getString);ENTRY(GetStringi,getStringi);ENTRY(GetIntegerv,getInteger);ENTRY(GetIntegeri_v,getIndexedInteger);ENTRY(GetFloatv,getFloat);ENTRY(GetBooleanv,getBoolean);
     ENTRY(IsEnabled,enabled);ENTRY(ActiveTexture,active);ENTRY(GetProgramiv,program);ENTRY(GetActiveUniform,uniform);
     ENTRY(GetUniformLocation,location);ENTRY(GetUniformiv,uniformValue);ENTRY(GetTexLevelParameteriv,level);
     ENTRY(GetTexParameteriv,textureInteger);ENTRY(GetTexParameterfv,textureFloat);ENTRY(GetSamplerParameteriv,samplerInt);
