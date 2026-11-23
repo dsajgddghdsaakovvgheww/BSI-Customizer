@@ -420,14 +420,13 @@ Window {
         evaluate("UiTheme.colors.primary80 = '" + original_panel + "'", window)
         native_controls = {"shaderSave": "UiButton", "shaderPresets": "UiComboBox",
                            "shaderEnabled": "UiCheckBox", "shaderValue-saturation": "UiSlider",
-                           "shaderPotatoStrength": "UiSlider",
                            "shadersScroll": "UiScrollView", "shaderFooterInfo": "UiImage"}
         from shaders.native_ui_fixture import assert_component
         for name, kind in native_controls.items():
             assert_component(item(name), kind)
         if os.environ.get("BSI_SHADERS_NATIVE_UI_DIR"):
             assert evaluate("status === 1", item("shaderFooterInfo")), "the actual native MenuInfo asset did not load"
-            for control in [child for child in all_items() if child.objectName().startswith("shaderValue-") or child.objectName() == "shaderPotatoStrength"]:
+            for control in [child for child in all_items() if child.objectName().startswith("shaderValue-")]:
                 assert evaluate("handle.gradient == null && background.gradient == null", control), "shell decoration altered a native slider"
             assert evaluate("pColorState.borderGradient == null ? background.item.gradient == null : background.item.gradient === pColorState.borderGradient", item("shaderSave")), "shell decoration replaced the native Save material"
         assert evaluate("pSize === UiTheme.buttons.sizes.medium", item("shaderSave"))
@@ -597,92 +596,14 @@ Window {
             click(dialog_button(dialog, 0), target_window=dialog)
             assert native_display.pIsShortcutsEnabled and not evaluate("!!restartPrompt")
 
-        # A genuine texture switch has its own persisted draft/acknowledgement,
-        # never silently substitutes a resolution change or a final-image blur.
-        strength = item("shaderPotatoStrength")
-        assert not strength.isEnabled() and strength.property("value") == 100, "default/legacy Off retains 100 percent without enabling texture changes"
-        click(item("shaderPotatoGraphic"))
-        assert strength.isEnabled(), "texture strength must be independent of the visual-effects switch"
-        assert evaluate("draft.potatoGraphic") and not settings()["potatoGraphic"]
-        review = item("shaderPotatoReview")
-        assert inside_clip(review, item("shaderViewport")), "the required review must be revealed beside the toggle, not buried after a long paragraph"
-        assert "Not saved" in item("shaderPotatoTextureStatus").property("text")
-        assert "Current saved setting: Off" in item("shaderPotatoTextureStatus").property("text")
-        click(save_button)
-        assert not page.property("saveFailed") and "not saved yet" in page.property("feedback")
-        assert evaluate("needsTextureReview") and not settings()["potatoGraphic"] and not native_display.writes
-        assert inside_clip(review, item("shaderViewport")) and evaluate("activeFocus", review)
-        # The C++ safety validation remains strict even if QML is bypassed.
-        refused = json.loads(evaluate("JSON.stringify(Engine.apply(draft))"))
-        assert not refused["ok"] and not settings()["potatoGraphic"] and not native_display.writes
-        click(review)
-        assert "Not saved" in item("shaderPotatoTextureStatus").property("text") and not page.property("feedback")
-        click(save_button)
-        assert settings()["potatoGraphic"] and settings()["textureOverridesReviewed"] and not settings()["enabled"]
-        assert native_display.commits == 0 and not native_display.writes and not evaluate("!!restartPrompt")
-        assert "Saved setting: On" in item("shaderPotatoTextureStatus").property("text")
-        assert evaluate("Engine.metrics.textureDraws") == 0, "a saved switch without an observed game draw is not a successful sampler pass"
-        assert "No texture override confirmed" in item("shaderPotatoTextureStatus").property("text")
-        assert "Inspected calls: 0" in item("shaderPotatoTextureStatus").property("text")
-        assert "Sampler-inspection calls: 0" in item("shaderPotatoTextureStatus").property("text")
-        assert evaluate("Engine.metrics.textureDepthIndependent"), "saved On must arm the actual depth-independent runtime policy"
-        assert item("shaderFooterStatus").property("text") == "Potato saved; no texture override confirmed"
-        click(item("shaderCopyStatus"))
-        diagnostics = QGuiApplication.clipboard().text()
-        assert "calls=0; sampler-inspection calls=0; conservative depth bypass=0" in diagnostics
-        assert "Texture sampling policy: Owned mip compatibility (depth independent)" in diagnostics
-        assert "opaque mipmapped in-game HUD may also change" in diagnostics
-        assert "test disabled=0; writes disabled=0; NEVER=0; ALWAYS=0; missing attachment=0; under 16 bits=0; unspecified=0" in diagnostics
-        assert "Nested API calls: inspected=0; prepared=0" in diagnostics
-        assert "not additional game frames or proof of game-resource ownership" in diagnostics
-        assert "not measured game pixels/FPS" in diagnostics
-        assert "Saved Potato strength: 100%" in diagnostics
-        assert "zero prepared bindings means no applied reduction, not a weak effect" in item("shaderPotatoTextureStatus").property("text")
-        saved_bytes = profile.read_bytes()
-        click(strength, .5)
-        half = int(evaluate("draft.potatoStrength"))
-        assert 0 < half < 100 and page.property("pEnableSave") and settings()["potatoStrength"] == 100
-        QTest.keyClick(window, Qt.Key.Key_Right)
-        assert int(evaluate("draft.potatoStrength")) == half + 1, "native keyboard steps must control actual percentage, not only pointer position"
-        assert item("shaderPotatoStrengthValue").property("text") == str(half + 1) + "%"
-        assert profile.read_bytes() == saved_bytes and not native_display.writes
-        evaluate("fDiscardChanges()")
-        assert strength.property("value") == 100 and not page.property("pEnableSave") and profile.read_bytes() == saved_bytes, "native Discard restores unsaved texture strength without persisting or applying it"
-        click(strength, .5)
-        half = int(evaluate("draft.potatoStrength"))
-        click(save_button)
-        assert settings()["potatoStrength"] == half and evaluate("Engine.metrics.potatoStrength") == half
-        assert json.loads(profile.read_text())["values"]["potatoStrength"] == half
-        assert native_display.commits == 0 and not native_display.writes and not evaluate("!!restartPrompt"), "texture-only strength Save must not resize/restart or enable visual effects"
-        click(item("shaderEnhance")); click(item("shaderReset"))
-        assert evaluate("draft.potatoStrength") == half and settings()["potatoStrength"] == half, "visual presets/reset preserve the saved texture percentage"
-        click(strength, .5)
-        assert evaluate("activeFocus", strength), "physical click must focus the native slider before keyboard input"
-        # Qt 5's stock Slider supports arrow steps, NOT Home/End. Preserve
-        # that native contract rather than inventing a custom key handler or
-        # accidentally treating an endpoint mouse click as keyboard coverage.
-        for _ in range(100):
-            QTest.keyClick(window, Qt.Key.Key_Left)
-        assert evaluate("draft.potatoStrength") == 0, ("native left-arrow endpoint", evaluate("draft.potatoStrength"), strength.property("value"))
-        click(save_button)
-        assert settings()["potatoGraphic"] and settings()["potatoStrength"] == 0 and evaluate("Engine.metrics.potatoStrength") == 0
-        assert "Native sampling; no texture reduction requested" in item("shaderPotatoTextureStatus").property("text")
-        assert item("shaderFooterStatus").property("text") == "Potato strength 0%; native sampling"
-        saved_zero = profile.read_bytes()
-        for invalid in ("-1", "101", "1.5", "true", "'50'", "Number.NaN"):
-            refused = json.loads(evaluate("JSON.stringify(Engine.apply(Object.assign({}, draft, {potatoStrength: " + invalid + "})))"))
-            assert not refused["ok"] and profile.read_bytes() == saved_zero and settings()["potatoStrength"] == 0, "C++ rejects malformed percentages even when bypassing QML"
-        click(strength, .5)
-        assert evaluate("activeFocus", strength)
-        for _ in range(100):
-            QTest.keyClick(window, Qt.Key.Key_Right)
-        assert evaluate("draft.potatoStrength") == 100, ("native right-arrow endpoint", evaluate("draft.potatoStrength"), strength.property("value"))
-        click(save_button)
-        assert settings()["potatoStrength"] == 100 and not page.property("pEnableSave")
-        click(item("shaderEnhance")); click(item("shaderReset"))
-        assert evaluate("draft.potatoGraphic") and not page.property("pEnableSave"), "visual presets/reset must preserve texture choice"
-        click(item("shaderPotatoReview")); click(item("shaderPotatoGraphic")); click(save_button)
-        assert settings() == initial and not native_display.writes
+        # The unproven Potato texture customizer is intentionally not exposed
+        # in the Shaders tab. Keep the ordinary visual effects and resolution
+        # controls available without presenting unavailable texture promises.
+        hidden_texture_controls = {"shaderPotatoGraphic", "shaderPotatoReview",
+                                   "shaderPotatoStrength", "shaderPotatoStrengthValue",
+                                   "shaderPotatoTextureStatus", "shaderStretchSection"}
+        visible_names = {child.objectName() for child in all_items() if child.objectName()}
+        assert not (visible_names & hidden_texture_controls), visible_names & hidden_texture_controls
 
         original_display = dict(native_display.committed)
 
