@@ -71,16 +71,17 @@ struct GlDeferredCopyCapture {std::uint64_t expires=0,epoch=0;};
 class GlTextureProvenance {
 public:
     static constexpr std::size_t contextCapacity=64,textureCapacity=128,pendingCopyCapacity=32;
+    static constexpr std::size_t correlationCapacity=32,copyOutputCapacity=16;
     static constexpr unsigned maximumHops=8;
     static constexpr std::size_t edgeCapacity=4;
     static constexpr std::uint64_t frameLifetime=2;
     void synchronize(std::uintptr_t source,std::uint64_t revision){
         if(source_==source&&revision_==revision)return;
-        source_=source;revision_=revision;clearEvidence();
+        source_=source;revision_=revision;clearEvidence();resetCorrelationNames();
         audit_={};auditChanged(); // old-source retirements must not enter the new interval
     }
     void clearEvidence(GlDeferredCopyExit reason=GlDeferredCopyExit::EvidenceReset){
-        advancePendingEpoch();for(auto &item:textures_)item={};
+        advancePendingEpoch();clearCorrelationNames();for(auto &item:textures_)item={};
         for(auto &copy:pending_)if(copy.output)erase(copy,reason);
         pendingCount_=0;frame_=1;
     }
@@ -128,7 +129,7 @@ public:
         clearEvidence(GlDeferredCopyExit::ShareChanged);return true;
     }
     void forget(GlContextIdentity key){
-        advancePendingEpoch();const auto id=knownSpace(key);
+        advancePendingEpoch();clearCorrelationNames();const auto id=knownSpace(key);
         for(auto &copy:pending_)if(copy.output&&copy.key==key)erase(copy,GlDeferredCopyExit::ContextRetired);
         for(auto &entry:contexts_)if(entry.space&&entry.key==key)entry={};
         if(id&&std::none_of(contexts_.begin(),contexts_.end(),[&](const Context &c){return c.space==id;}))
@@ -164,6 +165,7 @@ public:
         for(auto &copy:pending_)if(copy.output&&copy.key.provider==provider)erase(copy,reason);
     }
     void invalidate(unsigned provider,GlDeferredCopyExit reason=GlDeferredCopyExit::ResourceRetired){
+        clearCorrelationNames();
         for(auto &item:textures_)if(item.provider==provider)item={};
         discardPendingProvider(provider,reason);
     }
@@ -212,9 +214,11 @@ public:
         return deferCopy(key,usage,captureDeferredCopy()); // already-submitted policy fixtures
     }
     GlDeferredCopyResult deferCopy(GlContextIdentity key,const GlTextureUsage &usage,GlDeferredCopyCapture capture){
-        if(!capture.epoch||capture.epoch!=pendingEpoch_||capture.expires<frame_||capture.expires>deadline())return GlDeferredCopyResult::Refused;
         const auto id=knownSpace(key);
-        if(!source_||!id||!hasDependencies(key)||usage.readCount!=1||usage.writeCount!=1)return GlDeferredCopyResult::Refused;
+        if(!source_||!id||usage.readCount>usage.capacity||usage.writeCount>usage.capacity)return GlDeferredCopyResult::Refused;
+        noteCopyCorrelation(id,usage);
+        if(!capture.epoch||capture.epoch!=pendingEpoch_||capture.expires<frame_||capture.expires>deadline()
+           ||usage.readCount!=1||usage.writeCount!=1||!hasDependencies(key))return GlDeferredCopyResult::Refused;
         const auto input=usage.reads[0],output=usage.writes[0];
         if(!input||!output||output.kind!=GlColorResource::Texture||input==output
            ||(input.kind==GlColorResource::Pbuffer&&!input.colorBuffer)||producer(key,usage))return GlDeferredCopyResult::Refused;
@@ -252,6 +256,8 @@ public:
         const auto id=space(key,selectedDrawable||nativeOutput);if(!id)return 0;
         if(stop)*stop=GlObserveStop::NoRootedProducer;
         const bool root=selectedDrawable&&usage.defaultFramebuffer;
+        if(replacesWrites)noteCopyCorrelation(id,usage);
+        if(root)notePresentedInputs(id,usage);
         if(replacesWrites&&!root)supersede(key,id,usage);
         unsigned hops=0;std::uint64_t expires=0;
         std::array<std::size_t,GlTextureUsage::capacity> parents{};std::size_t parentCount=0;
@@ -318,6 +324,10 @@ private:
     std::array<Context,contextCapacity> contexts_{};
     std::array<Texture,textureCapacity> textures_{};
     std::array<PendingCopy,pendingCopyCapacity> pending_{};
+    struct CorrelationName {bool used=false;std::uint64_t space=0;GlColorResource resource{};std::uint64_t lastFrame=0,distinctFrames=0;};
+    std::array<CorrelationName,correlationCapacity> presentedNames_{},copyInputNames_{};
+    std::array<CorrelationName,copyOutputCapacity> copyOutputNames_{};
+    std::uint64_t lastCopyOutputFrame_=0;
     unsigned pendingCount_=0;
     GlDeferredCopyAudit audit_{};
     bool auditDirty_=false;
@@ -331,6 +341,72 @@ private:
     void auditChanged(){
         if(audit_.sequence!=std::numeric_limits<std::uint64_t>::max())++audit_.sequence;
         audit_.pending=pendingCount_;audit_.peak=(std::max)(audit_.peak,pendingCount_);auditDirty_=true;
+    }
+    void resetCorrelationNames(){presentedNames_={};copyInputNames_={};copyOutputNames_={};lastCopyOutputFrame_=0;}
+    void clearCorrelationNames(){
+        for(auto &name:presentedNames_)name.lastFrame=0;
+        for(auto &name:copyInputNames_)name.lastFrame=0;
+        for(auto &name:copyOutputNames_)name.lastFrame=0;
+        lastCopyOutputFrame_=0;
+    }
+    bool recentlySeen(const std::array<CorrelationName,correlationCapacity> &names,std::uint64_t id,GlColorResource resource)const{
+        for(const auto &name:names)if(name.used&&name.lastFrame&&name.space==id&&name.resource==resource
+            &&frame_>=name.lastFrame&&frame_-name.lastFrame<=frameLifetime)return true;
+        return false;
+    }
+    bool recentlyPresented(std::uint64_t id,GlColorResource resource)const{return recentlySeen(presentedNames_,id,resource);}
+    bool recentlyCopied(const std::array<CorrelationName,correlationCapacity> &names,std::uint64_t id,GlColorResource resource)const{
+        return recentlySeen(names,id,resource);
+    }
+    bool recentlyCopiedOutput(std::uint64_t id,GlColorResource resource)const{
+        for(const auto &name:copyOutputNames_)if(name.used&&name.lastFrame&&name.space==id&&name.resource==resource
+            &&frame_>=name.lastFrame&&frame_-name.lastFrame<=frameLifetime)return true;
+        return false;
+    }
+    bool noteRecentName(std::array<CorrelationName,correlationCapacity> &names,std::uint64_t id,GlColorResource resource){
+        for(auto &name:names)if(name.used&&name.space==id&&name.resource==resource){name.lastFrame=frame_;return true;}
+        for(auto &name:names)if(!name.used){name={true,id,resource,frame_,0};return true;}
+        return false;
+    }
+    void notePresentedInputs(std::uint64_t id,const GlTextureUsage &usage){
+        bool changed=false;
+        for(std::size_t i=0;i<usage.readCount;++i){
+            const auto resource=usage.reads[i];if(!resource)continue;
+            ++audit_.presentedInputObservations;changed=true;
+            if(recentlyCopied(copyInputNames_,id,resource))++audit_.presentationInputsRecentCopyInputMatches;
+            if(recentlyCopiedOutput(id,resource))++audit_.presentationInputsRecentCopyOutputMatches;
+            CorrelationName *slot=nullptr;
+            for(auto &name:presentedNames_)if(name.used&&name.space==id&&name.resource==resource){slot=&name;break;}
+            if(slot){slot->lastFrame=frame_;continue;}
+            for(auto &name:presentedNames_)if(!name.used){slot=&name;break;}
+            if(!slot){++audit_.presentedInputUntracked;continue;}
+            *slot={true,id,resource,frame_,0};++audit_.presentedInputDistinct;
+        }
+        if(changed)auditChanged();
+    }
+    void noteCopyCorrelation(std::uint64_t id,const GlTextureUsage &usage){
+        ++audit_.copyObservations;bool inputMatch=false,outputMatch=false,hasOutput=false;
+        for(std::size_t i=0;i<usage.readCount;++i)if(usage.reads[i]){
+            if(recentlyPresented(id,usage.reads[i]))inputMatch=true;
+            if(!noteRecentName(copyInputNames_,id,usage.reads[i]))++audit_.copyInputUntracked;
+        }
+        for(std::size_t i=0;i<usage.writeCount;++i){
+            const auto resource=usage.writes[i];if(!resource)continue;hasOutput=true;
+            if(recentlyPresented(id,resource))outputMatch=true;
+            CorrelationName *slot=nullptr;
+            for(auto &name:copyOutputNames_)if(name.used&&name.space==id&&name.resource==resource){slot=&name;break;}
+            if(!slot){
+                for(auto &name:copyOutputNames_)if(!name.used){slot=&name;break;}
+                if(!slot){++audit_.copyOutputUntracked;continue;}
+                *slot={true,id,resource,0,0};++audit_.copyOutputDistinct;
+            }
+            if(slot->lastFrame!=frame_){slot->lastFrame=frame_;++slot->distinctFrames;
+                audit_.copyOutputMaxFramesPerName=(std::max)(audit_.copyOutputMaxFramesPerName,slot->distinctFrames);}
+        }
+        if(inputMatch)++audit_.copyInputRecentPresentedMatches;
+        if(outputMatch)++audit_.copyOutputRecentPresentedMatches;
+        if(hasOutput&&lastCopyOutputFrame_!=frame_){lastCopyOutputFrame_=frame_;++audit_.copyOutputFrames;}
+        auditChanged();
     }
     void noteQueued(GlColorResource input){
         ++audit_.queued;

@@ -105,6 +105,9 @@ QVariantMap ShaderBridge::metrics()const{
     const auto texture=Runtime::instance().texture();
     const auto number=[](std::uint64_t value){return QVariant::fromValue<qulonglong>(value);};
     const auto depth=[&](TextureDepthFailure reason){return number(m.textureDepthReasons[static_cast<std::size_t>(reason)]);};
+    std::uint64_t deferredRetiredOther=0;
+    for(std::size_t i=0;i<m.textureDeferredAudit.exits.size();++i)
+        if(i!=static_cast<std::size_t>(GlDeferredCopyExit::Expired))deferredRetiredOther+=m.textureDeferredAudit.exits[i];
     const auto label=[](RendererFamily f){return f==RendererFamily::Vulkan?"Vulkan":f==RendererFamily::DirectX?"DirectX":f==RendererFamily::OpenGL?"OpenGL":"Automatic / unknown";};
     return {{"hooksAttached",m.hooks},{"gameSurfaceObserved",m.observed},{"active",m.active},
             {"requestedRenderer",m.requested==RendererFamily::Automatic?QStringLiteral("Automatic"):QString::fromLatin1(label(m.requested))},
@@ -133,10 +136,25 @@ QVariantMap ShaderBridge::metrics()const{
             {"textureDeferredQueued",number(m.textureDeferredAudit.queued)},{"textureDeferredPending",number(m.textureDeferredAudit.pending)},
             {"textureDeferredPeak",number(m.textureDeferredAudit.peak)},{"textureDeferredAuditSequence",number(m.textureDeferredAudit.sequence)},
             {"textureDeferredAuditBalanced",m.textureDeferredAudit.balanced()},
+            {"textureDeferredExpired",number(m.textureDeferredAudit.exits[static_cast<std::size_t>(GlDeferredCopyExit::Expired)])},
+            {"textureDeferredRetiredOther",number(deferredRetiredOther)},
             {"textureDeferredExits",auditCounters(glDeferredExitLabels,m.textureDeferredAudit.exits)},
             {"textureDeferredConsumers",auditCounters(glDeferredConsumerLabels,m.textureDeferredAudit.consumers)},
             {"textureDeferredDiscardSites",auditCounters(glDeferredDiscardLabels,m.textureDeferredAudit.discardSites)},
             {"textureDeferredSources",auditCounters(glDeferredSourceLabels,m.textureDeferredAudit.sources)},
+            {"texturePresentedInputObservations",number(m.textureDeferredAudit.presentedInputObservations)},
+            {"texturePresentedInputDistinct",number(m.textureDeferredAudit.presentedInputDistinct)},
+            {"texturePresentedInputUntracked",number(m.textureDeferredAudit.presentedInputUntracked)},
+            {"textureCopyObservations",number(m.textureDeferredAudit.copyObservations)},
+            {"textureCopyInputRecentPresentationMatches",number(m.textureDeferredAudit.copyInputRecentPresentedMatches)},
+            {"textureCopyOutputRecentPresentationMatches",number(m.textureDeferredAudit.copyOutputRecentPresentedMatches)},
+            {"texturePresentationRecentCopyInputMatches",number(m.textureDeferredAudit.presentationInputsRecentCopyInputMatches)},
+            {"texturePresentationRecentCopyOutputMatches",number(m.textureDeferredAudit.presentationInputsRecentCopyOutputMatches)},
+            {"textureCopyInputUntracked",number(m.textureDeferredAudit.copyInputUntracked)},
+            {"textureCopyOutputDistinct",number(m.textureDeferredAudit.copyOutputDistinct)},
+            {"textureCopyOutputUntracked",number(m.textureDeferredAudit.copyOutputUntracked)},
+            {"textureCopyOutputFrames",number(m.textureDeferredAudit.copyOutputFrames)},
+            {"textureCopyOutputMaxFramesPerName",number(m.textureDeferredAudit.copyOutputMaxFramesPerName)},
             {"textureDeferredHopBlocked",number(m.textureDeferredAudit.hopBlocked)},{"textureDeferredResourceBlocked",number(m.textureDeferredAudit.resourceBlocked)},
             {"textureHookDrawCalls",number(m.textureHookDrawCalls)},{"textureHookTransferCalls",number(m.textureHookTransferCalls)},
             {"textureHookImageCopyCalls",number(m.textureHookImageCopyCalls)},{"textureHookNativeImageCalls",number(m.textureHookNativeImageCalls)},
@@ -187,6 +205,19 @@ QString ShaderBridge::diagnostics()const{
                   m.value("textureDeferredAuditBalanced").toBool()?QStringLiteral("yes"):QStringLiteral("no"),
                   auditLine(m.value("textureDeferredExits")),auditLine(m.value("textureDeferredConsumers")),
                   auditLine(m.value("textureDeferredDiscardSites")),auditLine(m.value("textureDeferredSources")))
+        +QStringLiteral("\nCopy exits: expired=%1; retired for other reasons=%2.")
+             .arg(m.value("textureDeferredExpired").toString(),m.value("textureDeferredRetiredOther").toString())
+        +QStringLiteral("\nCPU-only copy/presentation correlation (typed names compared only in the same observed namespace; recent window=%1 provenance frames): presented input observations=%2; distinct tracked inputs=%3; untracked input observations=%4; copy observations=%5.")
+             .arg(static_cast<qulonglong>(GlTextureProvenance::frameLifetime))
+             .arg(m.value("texturePresentedInputObservations").toString(),m.value("texturePresentedInputDistinct").toString(),
+                  m.value("texturePresentedInputUntracked").toString(),m.value("textureCopyObservations").toString())
+        +QStringLiteral(" Copies matching recent presented inputs: input=%1; output=%2. Presentation inputs matching recent copy names: copy-input=%3; copy-output=%4. Distinct tracked copy outputs=%5; untracked copy-input observations=%6; untracked copy-output observations=%7.")
+             .arg(m.value("textureCopyInputRecentPresentationMatches").toString(),m.value("textureCopyOutputRecentPresentationMatches").toString(),
+                  m.value("texturePresentationRecentCopyInputMatches").toString(),m.value("texturePresentationRecentCopyOutputMatches").toString(),
+                  m.value("textureCopyOutputDistinct").toString(),m.value("textureCopyInputUntracked").toString(),
+                  m.value("textureCopyOutputUntracked").toString())
+        +QStringLiteral(" Frames with copy outputs=%1; most-used output seen in distinct copy-output frames=%2. No names or handles are reported; capacities are bounded at 32 presentation names and 16 output names.")
+             .arg(m.value("textureCopyOutputFrames").toString(),m.value("textureCopyOutputMaxFramesPerName").toString())
         +QStringLiteral("\nReconciliation retry bounds: hops=%1; resource-budget=%2. Retries can repeat for one pending edge; they are not retirements or extra native calls. Queued = pending + all retirements within one interval. Source/settings/Off reset the whole ledger; snapshots can exclude in-flight events. Consumer checks compare destinations ONLY in the same/observed-share namespace; other namespaces is not an equal-name match. This only explains existing metadata retention: no extra GL query, raw identity, readback, ownership, driver-success or game-material proof, and no relaxed expiry/retirement check.")
              .arg(m.value("textureDeferredHopBlocked").toString(),m.value("textureDeferredResourceBlocked").toString());
     const auto inspectionReport=QStringLiteral("Texture inspection since the latest setting/source change: calls=%1; sampler-inspection calls=%2; conservative depth bypass=%3; blended bypass=%4; no eligible mip sampler=%5; other bypass=%6\nLatest bypass: %7\nOffscreen/pbuffer/foreign scene contexts are not inferred from presentation or a share group.")

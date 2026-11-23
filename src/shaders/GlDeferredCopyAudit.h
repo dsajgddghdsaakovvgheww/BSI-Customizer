@@ -32,6 +32,12 @@ struct GlDeferredCopyAudit {
     std::array<std::uint64_t,glDeferredConsumerLabels.size()> consumers{};
     std::array<std::uint64_t,glDeferredDiscardLabels.size()> discardSites{};
     std::array<std::uint64_t,glDeferredSourceLabels.size()> sources{};
+    // Candidate-only CPU name correlation. Names/handles are never serialized;
+    // only bounded aggregate counts leave the provenance owner.
+    std::uint64_t presentedInputObservations=0,presentedInputDistinct=0,presentedInputUntracked=0;
+    std::uint64_t copyObservations=0,copyInputRecentPresentedMatches=0,copyOutputRecentPresentedMatches=0,copyInputUntracked=0;
+    std::uint64_t presentationInputsRecentCopyInputMatches=0,presentationInputsRecentCopyOutputMatches=0;
+    std::uint64_t copyOutputDistinct=0,copyOutputUntracked=0,copyOutputFrames=0,copyOutputMaxFramesPerName=0;
     // Retry observations, NOT retired edges: an edge can remain pending and
     // encounter a bound on more than one reconciliation sweep.
     std::uint64_t hopBlocked=0,resourceBlocked=0;
