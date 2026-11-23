@@ -8,6 +8,7 @@
 #include <windows.h>
 #include <cstdio>
 #include <cstdlib>
+#include <initializer_list>
 #include <thread>
 using namespace BsiShaders;
 namespace {
@@ -19,6 +20,7 @@ struct Fixture {
     LONG count(const char *name){return fn<LONG(*)()>(name)();}
     void current(HDC dc,HGLRC context){require(fn<BOOL(WINAPI*)(HDC,HGLRC)>("wglMakeCurrent")(dc,context)!=FALSE,"make actual authored context current");}
     void resource(unsigned mode,unsigned output=50){fn<void(*)(unsigned,unsigned)>("bsiFixtureResourceState")(mode,output);}
+    void drawFlags(unsigned flags,unsigned secondary=0){fn<void(*)(unsigned,unsigned)>("bsiFixtureDrawFlags")(flags,secondary);}
     void draw(LONG bindings,const char *message,unsigned primitive=4){
         const auto calls=count("bsiFixtureDrawCalls");
         fn<void(*)(unsigned,unsigned,unsigned)>("bsiFixtureDraw")(static_cast<unsigned>(GlDrawKind::ElementsBaseVertex),0,primitive);
@@ -130,11 +132,38 @@ int main(int argc,char **argv){
     consumer(56);producer(0,"a later destination overwrite must cancel the obsolete copy predecessor");
     require(!runtime.metrics().textureDeferredCopies,"actual draw capture revokes an overwritten pending destination");
 
-    reset();consumer(50);producer(0,"uncaptured primitive control begins native");f.copy(59);
-    f.resource(4);f.draw(0,"unsupported primitive still calls its native original and conservatively revokes unknown output",1);
+    // Reproduce a different, authored gap: draw eligibility is NOT an output
+    // footprint. An unrelated blended/line/masked/no-program/no-buffer draw
+    // must neither gain ownership nor revoke an already submitted sibling copy.
+    for(unsigned flags:{1u,0u,2u,4u,16u}){
+        reset();consumer(50);producer(0,"intervening unrelated-draw control begins native");f.copy(60);
+        f.resource(2,61);f.drawFlags(flags);
+        f.draw(0,"ineligible unrelated draws stay native",flags?4:1);
+        require(pending().queued==1&&pending().pending==1&&!runtime.metrics().textureDeferredCopies
+                &&!runtime.metrics().textureProducerDraws&&!runtime.metrics().textureBindings,
+                "a captured unrelated color output must preserve pending metadata WITHOUT authorizing that draw or reconciling the copy");
+        consumer(60);producer(2,"exact later consumption, not the unrelated draw, must authorize this material producer");
+        retired(GlDeferredCopyExit::Reconciled);
+        std::printf("PASS unrelated output: flags=%u, primitive=%u, native interposed draw, exact later consumer only\n",flags,flags?4:1);
+    }
+    // The same exclusions are NOT permission to ignore an actual alias. MRT
+    // buffer 3 must revoke too, even with a zero buffer-0 color mask/program.
+    for(unsigned flags:{0u,1u,2u,4u}){
+        for(bool mrt:{false,true}){
+            reset();consumer(50);producer(0,"intervening alias control begins native");f.copy(60);
+            f.resource(2,mrt?61:60);f.drawFlags(flags,mrt?60:0);
+            f.draw(0,"an excluded draw cannot authorize itself by writing a pending destination",1);
+            retired(GlDeferredCopyExit::DestinationWrite);
+            consumer(60);producer(0,"a possible overwritten destination cannot inherit the old copy predecessor");
+            require(!runtime.metrics().textureDeferredCopies,"all enabled raster color outputs must be included in conservative overwrite invalidation");
+        }
+    }
+
+    reset();consumer(50);producer(0,"uncaptured output control begins native");f.copy(59);
+    f.resource(2,61);f.drawFlags(8);f.draw(0,"unqueryable/incomplete output still revokes the namespace, including for excluded primitives",1);
     retired(GlDeferredCopyExit::UnknownWrite);
-    require(pending().discardSites[static_cast<std::size_t>(GlDeferredDiscardSite::DrawUsage)]==1,"actual uncaptured primitive is distinguished from expiry or an exact overwritten destination");
-    consumer(59);producer(0,"diagnostic accounting must not retain an uncapturable destination or manufacture ownership");
+    require(pending().discardSites[static_cast<std::size_t>(GlDeferredDiscardSite::DrawUsage)]==1,"unknown output is distinguished from an exact overwritten destination; primitive eligibility is not a footprint");
+    consumer(59);producer(0,"a failed complete output capture must not retain metadata or manufacture ownership");
 
     reset();consumer(50);producer(0,"new interval starts native");
     f.fn<void(*)(void(WINAPI*)())>("bsiFixtureOnTransfer")(resetInOriginal);f.copy(52);

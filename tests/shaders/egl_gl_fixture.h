@@ -18,7 +18,9 @@ struct Sampler {
 struct State {
     std::array<Sampler,128> samplers{};
     std::array<U,4> bindings{{1,2,0,0}},textures{{1,2,0,0}};
-    I active=3,depthFunction=0x0203,depthBits=24,framebuffer=0;
+    I active=3,depthFunction=0x0203,depthBits=24,framebuffer=0,program=1;
+    std::array<U,4> extraOutputs{}; // optional MRT color attachments/draw slots 1..3
+    bool drawBufferNone=false;
     U output=50,readOutput=70;
     I readFramebuffer=0,outputType=0x1702,readOutputType=0x1702;
     I defaultDrawBuffer=0x0405,defaultReadBuffer=0x0405;
@@ -53,12 +55,13 @@ inline void WINAPI getInteger(U name,I *out){InterlockedIncrement(&stateQueries)
     auto &g=state();
     switch(name){
     case 0x821d:*out=(g.protectionExtension?1:0)+(g.desktop?1:0);break;case 0x821e:if(!g.protectionExtension)bad();*out=protectedContext()?0x10:0;break;
-    case 0x8b4d:case 0x8cdf:*out=4;break;case 0x8b8d:*out=1;break;
+    case 0x8b4d:case 0x8cdf:case 0x8824:*out=4;break;case 0x8b8d:*out=g.program;break;
     case 0x0d33:*out=16384;break;
     case 0x0b74:*out=g.depthFunction;break;case 0x84e0:*out=0x84c0+g.active;break;
     case 0x8069:*out=I(g.textures.at(std::size_t(g.active)));break;
     case 0x8919:*out=I(g.bindings.at(std::size_t(g.active)));break;
-    case 0x8ca6:*out=g.framebuffer;break;case 0x8825:*out=g.framebuffer?0x8ce0:g.defaultDrawBuffer;break;
+    case 0x8ca6:*out=g.framebuffer;break;case 0x8825:*out=g.drawBufferNone?0:g.framebuffer?0x8ce0:g.defaultDrawBuffer;break;
+    case 0x8826:case 0x8827:case 0x8828:{const U i=name-0x8825;*out=g.framebuffer&&g.extraOutputs[i]?I(0x8ce0+i):0;break;}
     case 0x8caa:*out=g.readFramebuffer;break;case 0x0c02:*out=g.readFramebuffer?0x8ce0:g.defaultReadBuffer;break;
     default:*out=0;bad();break;
     }
@@ -106,7 +109,9 @@ inline void WINAPI attachment(U target,U slot,U name,I *out){InterlockedIncremen
     if(target!=0x8ca9&&!read){bad();*out=0;return;}
     if((read?g.readFramebuffer:g.framebuffer)&&((slot>=0x8ce0&&slot<0x8ce4)||slot==0x8d20)){
         if(name!=0x8cd0&&name!=0x8cd1&&name!=0x8211&&(name<0x8212||name>0x8214))bad();
-        *out=slot!=0x8ce0?0:name==0x8cd0?(read?g.readOutputType:g.outputType):name==0x8cd1?I(read?g.readOutput:g.output):name==0x8211?0x8c17:8;return;
+        const U extra=slot>0x8ce0&&slot<0x8ce4&&!read?g.extraOutputs[slot-0x8ce0]:0;
+        *out=slot!=0x8ce0?(name==0x8cd0?(extra?0x1702:0):name==0x8cd1?I(extra):0)
+            :name==0x8cd0?(read?g.readOutputType:g.outputType):name==0x8cd1?I(read?g.readOutput:g.output):name==0x8211?0x8c17:8;return;
     }
     if(!(read?g.readFramebuffer:g.framebuffer)&&((g.desktop&&slot>=0x0400&&slot<=0x0403)||(!g.desktop&&slot==0x0405))){
         if(name!=0x8211&&(name<0x8212||name>0x8214))bad();
