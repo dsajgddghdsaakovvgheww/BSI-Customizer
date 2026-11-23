@@ -372,7 +372,7 @@ Window {
 
         info = json.loads(evaluate("JSON.stringify(Engine.bridgeInfo)", window))
         assert info["runtimeQtVersion"] == qVersion() and info["publicQtApi"] is True, info
-        assert info["moduleCaptureVersion"] == "gl-copy-consumer-order-v5", info
+        assert info["moduleCaptureVersion"] == "gl-pending-copy-ledger-v6", info
         assert re.fullmatch(r"[0-9a-f]{40}(?:-modified)?|unversioned", info["moduleBuildRevision"]), info
         copied = evaluate("Engine.diagnostics()", window)
         assert info["moduleBuildRevision"] in copied and "Pre-route GL hook coverage" in copied, copied
@@ -381,7 +381,14 @@ Window {
         assert "Deferred copy-subimage reconciliation" in copied and "ORIGINAL two-frame capture deadline" in copied, copied
         ledger = json.loads(evaluate("JSON.stringify(Engine.metrics)", window))
         assert ledger["textureDeferredCopies"] == ledger["textureDeferredInputs"] == 0, ledger
-        for key in ("textureTransferApis", "textureTransferStops", "textureTransferCandidates", "textureTransferDescriptors", "textureTransferCodeProviders"):
+        assert "Pending-copy lifetime ledger" in copied and "queued=0; pending=0; peak=0; balanced=yes" in copied, copied
+        assert "Selected default-FBO consumer checks:" in copied and "Uncaptured-output retirement sites:" in copied, copied
+        assert "Queued = pending + all retirements" in copied and "no relaxed expiry/retirement check" in copied, copied
+        assert ledger["textureDeferredAuditBalanced"] is True, ledger
+        for key in ("textureDeferredQueued", "textureDeferredPending", "textureDeferredPeak", "textureDeferredAuditSequence", "textureDeferredHopBlocked", "textureDeferredResourceBlocked"):
+            assert ledger[key] == 0, (key, ledger)
+        for key in ("textureTransferApis", "textureTransferStops", "textureTransferCandidates", "textureTransferDescriptors", "textureTransferCodeProviders",
+                    "textureDeferredExits", "textureDeferredConsumers", "textureDeferredDiscardSites", "textureDeferredSources"):
             assert isinstance(ledger[key], dict) and ledger[key] and not any(ledger[key].values()), (key, ledger)
         built = tuple(map(int, info["moduleQtVersion"].split(".")))
         runtime = tuple(map(int, info["runtimeQtVersion"].split(".")))

@@ -1,4 +1,5 @@
 #pragma once
+#include "GlDeferredCopyAudit.h"
 #include <algorithm>
 #include <array>
 #include <cstddef>
@@ -62,13 +63,23 @@ public:
     void synchronize(std::uintptr_t source,std::uint64_t revision){
         if(source_==source&&revision_==revision)return;
         source_=source;revision_=revision;clearEvidence();
+        audit_={};auditChanged(); // old-source retirements must not enter the new interval
     }
-    void clearEvidence(){advancePendingEpoch();for(auto &item:textures_)item={};for(auto &copy:pending_)copy={};pendingCount_=0;frame_=1;}
+    void clearEvidence(GlDeferredCopyExit reason=GlDeferredCopyExit::EvidenceReset){
+        advancePendingEpoch();for(auto &item:textures_)item={};
+        for(auto &copy:pending_)if(copy.output)erase(copy,reason);
+        pendingCount_=0;frame_=1;
+    }
+    const GlDeferredCopyAudit &deferredCopyAudit()const{return audit_;} // caller serializes, as for the resource graph
+    bool takeDeferredCopyAudit(GlDeferredCopyAudit *out,std::uint64_t *revision){
+        if(!auditDirty_||!out||!revision)return false;
+        *out=audit_;*revision=revision_;auditDirty_=false;return true;
+    }
     void nextFrame(){
         if(frame_==std::numeric_limits<std::uint64_t>::max()){clearEvidence();return;}
         ++frame_;
         for(auto &item:textures_)if(item.texture&&item.expires<frame_)item={};
-        for(auto &copy:pending_)if(copy.output&&copy.expires<frame_)erase(copy);
+        for(auto &copy:pending_)if(copy.output&&copy.expires<frame_)erase(copy,GlDeferredCopyExit::Expired);
     }
     bool remember(GlContextIdentity key){return space(key,true)!=0;}
     bool known(GlContextIdentity key)const{return knownSpace(key)!=0;}
@@ -99,18 +110,18 @@ public:
         for(auto &entry:contexts_)if(entry.space==b)entry.space=a;
         // A late namespace merge invalidates old name evidence. Re-learn only
         // from subsequent selected presentation draws, not pre-merge guesses.
-        clearEvidence();return true;
+        clearEvidence(GlDeferredCopyExit::ShareChanged);return true;
     }
     void forget(GlContextIdentity key){
         advancePendingEpoch();const auto id=knownSpace(key);
-        for(auto &copy:pending_)if(copy.output&&copy.key==key)erase(copy);
+        for(auto &copy:pending_)if(copy.output&&copy.key==key)erase(copy,GlDeferredCopyExit::ContextRetired);
         for(auto &entry:contexts_)if(entry.space&&entry.key==key)entry={};
         if(id&&std::none_of(contexts_.begin(),contexts_.end(),[&](const Context &c){return c.space==id;}))
             for(auto &item:textures_)if(item.space==id)item={};
     }
     void forgetProvider(unsigned provider){
         for(auto &entry:contexts_)if(entry.space&&entry.key.provider==provider)entry={};
-        invalidate(provider);
+        invalidate(provider,GlDeferredCopyExit::ProviderRetired);
     }
     // Invalidate by provider even if deletion came through an untracked shared
     // context: conservative over-invalidation is preferable to a reused name.
@@ -126,32 +137,34 @@ public:
     }
     void retiredPbuffer(unsigned provider,std::uintptr_t generation){
         advancePendingEpoch();for(const auto &item:textures_)if(item.provider==provider&&item.texture.kind==GlColorResource::Pbuffer&&item.texture.name==generation){
-            invalidate(provider);return;
+            invalidate(provider,GlDeferredCopyExit::NativeSourceRetired);return;
         }
         for(const auto &copy:pending_)if(copy.output&&copy.key.provider==provider
-            &&copy.input.kind==GlColorResource::Pbuffer&&copy.input.name==generation){invalidate(provider);return;}
+            &&copy.input.kind==GlColorResource::Pbuffer&&copy.input.name==generation){invalidate(provider,GlDeferredCopyExit::NativeSourceRetired);return;}
     }
     // Drop inherited ancestors too: they no longer have an intact observed
     // path if a downstream/root resource was retired. Keep valid namespaces.
-    void discardPendingProvider(unsigned provider){
+    void discardPendingProvider(unsigned provider,GlDeferredCopyExit reason=GlDeferredCopyExit::MissedCallback){
         advancePendingEpoch();if(!pendingCount_)return;
-        for(auto &copy:pending_)if(copy.output&&copy.key.provider==provider)erase(copy);
+        for(auto &copy:pending_)if(copy.output&&copy.key.provider==provider)erase(copy,reason);
     }
-    void invalidate(unsigned provider){
+    void invalidate(unsigned provider,GlDeferredCopyExit reason=GlDeferredCopyExit::ResourceRetired){
         for(auto &item:textures_)if(item.provider==provider)item={};
-        discardPendingProvider(provider);
+        discardPendingProvider(provider,reason);
     }
     // An observed later write replaces the earlier copy's destination. If an
     // already-qualified callback cannot capture its output, revoke that space's
     // pending metadata without probing more GL state. Revocation is not adoption.
-    void discardPendingWrites(GlContextIdentity key,const GlTextureUsage *usage){
+    void discardPendingWrites(GlContextIdentity key,const GlTextureUsage *usage,GlDeferredDiscardSite site=GlDeferredDiscardSite::Unspecified){
         // Also revoke an IN-FLIGHT capture not yet queued. Interleaved callback
         // writes are conservatively unordered; they never gain new lineage.
         if(!usage||usage->writeCount)advancePendingEpoch();
         if(!pendingCount_)return;
         const auto id=knownSpace(key);if(!id)return;
+        const bool unknown=!usage||usage->writeCount>usage->capacity;
         for(auto &copy:pending_)if(copy.output&&copy.space==id
-            &&(!usage||usage->writeCount>usage->capacity||contains(usage->writes,usage->writeCount,copy.output)))erase(copy);
+            &&(unknown||contains(usage->writes,usage->writeCount,copy.output)))
+                erase(copy,unknown?GlDeferredCopyExit::UnknownWrite:GlDeferredCopyExit::DestinationWrite,site);
     }
     // Called only AFTER a native CopyTexSubImage2D returns with its existing
     // descriptor/current/route/resource checks intact. A queued edge cannot
@@ -173,9 +186,13 @@ public:
         // Keep only the latest captured copy into a given output, not an
         // obsolete predecessor overwritten by a later observed copy.
         for(auto &copy:pending_)if(copy.output&&copy.space==id&&copy.output==output){
-            copy={key,input,output,id,capture.expires};return GlDeferredCopyResult::Queued;
+            copy={key,input,output,id,capture.expires};
+            ++audit_.exits[static_cast<std::size_t>(GlDeferredCopyExit::Superseded)];noteQueued(input);
+            return GlDeferredCopyResult::Queued;
         }
-        for(auto &copy:pending_)if(!copy.output){copy={key,input,output,id,capture.expires};++pendingCount_;return GlDeferredCopyResult::Queued;}
+        for(auto &copy:pending_)if(!copy.output){
+            copy={key,input,output,id,capture.expires};++pendingCount_;noteQueued(input);return GlDeferredCopyResult::Queued;
+        }
         return GlDeferredCopyResult::Capacity;
     }
     bool producer(GlContextIdentity key,const GlTextureUsage &usage)const{
@@ -195,7 +212,7 @@ public:
         const auto id=space(key,selectedDrawable||nativeOutput);if(!id)return 0;
         unsigned hops=0;std::uint64_t expires=0;
         if(selectedDrawable&&usage.defaultFramebuffer){
-            expires=deadline();
+            noteConsumer(id,usage);expires=deadline();
         }else{
             hops=maximumHops;
             for(const auto &item:textures_)if((live(item,id)||nativeMatch(item,key,item.texture))&&contains(usage.writes,usage.writeCount,item.texture)){
@@ -209,6 +226,9 @@ public:
             const auto texture=usage.reads[i];
             if(!texture||contains(usage.writes,usage.writeCount,texture))continue;
             if(note(key,id,texture,expires,hops))++count;
+            else if(pendingCount_)for(const auto &copy:pending_)if(copy.output==texture&&copy.space==id){
+                ++audit_.resourceBlocked;auditChanged();break; // matching consumer could not store its proof
+            }
         }
         if(count)resolvePending(resolved);
         return count;
@@ -221,6 +241,8 @@ private:
     std::array<Texture,textureCapacity> textures_{};
     std::array<PendingCopy,pendingCopyCapacity> pending_{};
     unsigned pendingCount_=0;
+    GlDeferredCopyAudit audit_{};
+    bool auditDirty_=false;
     std::uintptr_t source_=0;
     std::uint64_t revision_=0,frame_=1,nextSpace_=1,pendingEpoch_=1;
     void advancePendingEpoch(){if(pendingEpoch_)++pendingEpoch_;} // wrap disables new deferred captures, never aliases an old token
@@ -228,7 +250,33 @@ private:
         return frame_>std::numeric_limits<std::uint64_t>::max()-frameLifetime
             ?std::numeric_limits<std::uint64_t>::max():frame_+frameLifetime;
     }
-    void erase(PendingCopy &copy){copy={};--pendingCount_;}
+    void auditChanged(){
+        if(audit_.sequence!=std::numeric_limits<std::uint64_t>::max())++audit_.sequence;
+        audit_.pending=pendingCount_;audit_.peak=(std::max)(audit_.peak,pendingCount_);auditDirty_=true;
+    }
+    void noteQueued(GlColorResource input){
+        ++audit_.queued;
+        const auto kind=static_cast<unsigned>(input.kind);
+        ++audit_.sources[kind<3?kind:3];auditChanged();
+    }
+    void noteConsumer(std::uint64_t id,const GlTextureUsage &usage){
+        auto stop=GlDeferredConsumerStop::NoPending;
+        if(pendingCount_){
+            stop=GlDeferredConsumerStop::OtherNamespace;
+            for(const auto &copy:pending_)if(copy.output&&copy.space==id){
+                stop=GlDeferredConsumerStop::NoDestination;
+                if(contains(usage.reads,usage.readCount,copy.output)){stop=GlDeferredConsumerStop::ExactDestination;break;}
+            }
+        }
+        ++audit_.consumers[static_cast<std::size_t>(stop)];auditChanged();
+    }
+    void erase(PendingCopy &copy,GlDeferredCopyExit reason,GlDeferredDiscardSite site=GlDeferredDiscardSite::Unspecified){
+        copy={};--pendingCount_;
+        const auto why=static_cast<std::size_t>(reason),where=static_cast<std::size_t>(site);
+        ++audit_.exits[why<audit_.exits.size()?why:static_cast<std::size_t>(GlDeferredCopyExit::EvidenceReset)];
+        if(reason==GlDeferredCopyExit::UnknownWrite)++audit_.discardSites[where<audit_.discardSites.size()?where:0];
+        auditChanged();
+    }
     void resolvePending(GlDeferredCopyResolution *resolved){
         // No GL queries, allocation or ownership from a pending edge. A real
         // consumer has just seeded/refreshed an exact destination proof. Resolve
@@ -237,16 +285,20 @@ private:
         for(unsigned pass=0;pendingCount_&&pass<maximumHops;++pass){
             bool progress=false;
             for(auto &copy:pending_)if(copy.output){
-                if(copy.expires<frame_||knownSpace(copy.key)!=copy.space){erase(copy);continue;}
+                if(copy.expires<frame_||knownSpace(copy.key)!=copy.space){
+                    erase(copy,copy.expires<frame_?GlDeferredCopyExit::Expired:GlDeferredCopyExit::NamespaceLost);continue;
+                }
                 unsigned hops=maximumHops;std::uint64_t expires=0;
                 for(const auto &item:textures_)if(live(item,copy.space)&&item.texture==copy.output){
                     const auto until=(std::min)(item.expires,copy.expires);
                     if(until>expires){expires=until;hops=item.hops+1;}
                     else if(until==expires)hops=(std::min)(hops,item.hops+1);
                 }
-                if(!expires||hops>=maximumHops||!note(copy.key,copy.space,copy.input,expires,hops))continue;
+                if(!expires)continue;
+                if(hops>=maximumHops){++audit_.hopBlocked;auditChanged();continue;}
+                if(!note(copy.key,copy.space,copy.input,expires,hops)){++audit_.resourceBlocked;auditChanged();continue;}
                 if(resolved){++resolved->copies;++resolved->inputs;}
-                erase(copy);progress=true;
+                erase(copy,GlDeferredCopyExit::Reconciled);progress=true;
             }
             if(!progress)break;
         }

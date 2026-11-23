@@ -175,6 +175,30 @@ int main(){
     require(runtime.metrics().textureDeferredCopies==1&&runtime.metrics().textureDeferredInputs==1
             &&!runtime.metrics().textureTransferCalls&&!runtime.metrics().textureProducerDraws&&!runtime.metrics().textureBindings,
             "late submitted-copy reconciliation is separate from native calls, ownership/private binding counts and invalid epochs");
+    GlDeferredCopyAudit pendingSnapshot;pendingSnapshot.sequence=1;pendingSnapshot.queued=pendingSnapshot.pending=pendingSnapshot.peak=1;pendingSnapshot.sources[2]=1;
+    runtime.textureDeferredAuditReport(pendingSnapshot,0);
+    require(!runtime.metrics().textureDeferredAudit.sequence,"pending snapshot without a source epoch is never published");
+    runtime.textureDeferredAuditReport(pendingSnapshot,route.revision);
+    require(runtime.metrics().textureDeferredAudit.pending==1&&runtime.metrics().textureDeferredAudit.queued==1
+            &&runtime.metrics().textureDeferredCopies==1&&!runtime.metrics().textureTransferCalls&&!runtime.metrics().textureBindings,
+            "admitted pending metadata is a separate cumulative diagnostic snapshot, not another native call or prepared effect");
+    auto invalidSnapshot=pendingSnapshot;invalidSnapshot.sequence=2;invalidSnapshot.pending=33;
+    runtime.textureDeferredAuditReport(invalidSnapshot,route.revision);
+    invalidSnapshot=pendingSnapshot;invalidSnapshot.sequence=2;invalidSnapshot.sources={};runtime.textureDeferredAuditReport(invalidSnapshot,route.revision);
+    invalidSnapshot={};invalidSnapshot.sequence=2;invalidSnapshot.peak=1;runtime.textureDeferredAuditReport(invalidSnapshot,route.revision);
+    require(runtime.metrics().textureDeferredAudit.sequence==1,"invalid gauge, impossible peak or unbalanced source/exit accounting cannot replace a valid snapshot");
+    const auto snapshots=[&](unsigned start,bool expired){
+        for(unsigned i=1;i<=100;++i){
+            auto sample=pendingSnapshot;sample.sequence=start+i;
+            if(expired){sample.pending=0;sample.exits[static_cast<std::size_t>(GlDeferredCopyExit::Expired)]=1;}
+            runtime.textureDeferredAuditReport(sample,route.revision);
+        }
+    };
+    std::thread snapshotA(snapshots,100,false),snapshotB(snapshots,200,true);snapshotA.join();snapshotB.join();
+    runtime.textureDeferredAuditReport(pendingSnapshot,route.revision);
+    require(runtime.metrics().textureDeferredAudit.sequence==300&&runtime.metrics().textureDeferredAudit.queued==1
+            &&!runtime.metrics().textureDeferredAudit.pending&&runtime.metrics().textureDeferredCopies==1,
+            "out-of-order/concurrent snapshots keep the newest sequence; they are NEVER summed or allowed to replay an old pending gauge");
     attempt.api=999;runtime.textureTransferAuditReport(attempt);
     require(runtime.metrics().textureTransferAudit.calls==audit.calls,"unrecognized transfer audit enums are bounded before indexing");
     attempt.api=GlColorTransfer::CopyTexSubImage2D;attempt.providers=2;attempt.stop=GlTransferStop::NoCandidate;attempt.candidates={};
@@ -217,10 +241,10 @@ int main(){
             "retain the real producer's precise refusal separately; a later compositor must not overwrite it with a misleading no-mip diagnosis");
     runtime.setTexture({true,true,TextureDrawPolicy::OwnedMipCompatibility,50});
     const auto halfRoute=runtime.textureRoute();m=runtime.metrics();
-    runtime.textureTransferAuditReport(attempt);runtime.textureDeferredCopyReport(50,50,route.revision);
+    runtime.textureTransferAuditReport(attempt);runtime.textureDeferredCopyReport(50,50,route.revision);runtime.textureDeferredAuditReport(pendingSnapshot,route.revision);
     require(runtime.metrics().textureTransferAudit.calls==decltype(audit.calls){}
             &&runtime.metrics().textureTransferAudit.stops==decltype(audit.stops){}
-            &&!runtime.metrics().textureDeferredCopies&&!runtime.metrics().textureDeferredInputs,
+            &&!runtime.metrics().textureDeferredCopies&&!runtime.metrics().textureDeferredInputs&&!runtime.metrics().textureDeferredAudit.sequence,
             "strength/source resets clear the full routing ledger and reject late old-epoch diagnostic reports");
     std::uint64_t hookRevision=0;
     require(runtime.textureHookEntry(TextureHookKind::Draw,&hookRevision)&&hookRevision==halfRoute.revision,
@@ -228,6 +252,8 @@ int main(){
     runtime.setTexture({false,true,TextureDrawPolicy::OwnedMipCompatibility,50});
     require(!runtime.textureHookEntry(TextureHookKind::Draw,&hookRevision)&&!hookRevision,
             "Off zeroes even a previously nonzero diagnostic epoch token");
+    runtime.textureDeferredAuditReport(pendingSnapshot,runtime.textureRoute().revision);
+    require(!runtime.metrics().textureDeferredAudit.sequence,"Off rejects even a current-epoch pending audit snapshot");
     runtime.setTexture({true,true,TextureDrawPolicy::OwnedMipCompatibility,50});
     require(halfRoute.revision!=route.revision&&halfRoute.configuration.strength==50&&!m.textureInspected&&!m.textureBindings&&m.textureProducerStatus.empty()
             &&!m.textureHookDrawCalls&&!m.textureHookTransferCalls&&!m.textureHookImageCopyCalls&&!m.textureHookNativeImageCalls,
@@ -238,10 +264,10 @@ int main(){
     const auto zeroRevision=runtime.textureRoute().revision;
     require(!runtime.textureHookEntry(TextureHookKind::Draw)&&!runtime.textureHookEntry(TextureHookKind::NamedImageCopy)
             &&!runtime.metrics().textureHookDrawCalls&&!runtime.metrics().textureHookTransferCalls,"zero strength cannot collect active raw capture counters");
-    runtime.textureConsumerReport(1,zeroRevision);runtime.textureTransferReport(1,zeroRevision);runtime.textureDeferredCopyReport(1,1,zeroRevision);
+    runtime.textureConsumerReport(1,zeroRevision);runtime.textureTransferReport(1,zeroRevision);runtime.textureDeferredCopyReport(1,1,zeroRevision);runtime.textureDeferredAuditReport(pendingSnapshot,zeroRevision);
     runtime.textureReport(2,"zero is not a weak preparation",true,TextureDrawReason::Prepared,TextureDepthFailure::None,false,true,zeroRevision);
     require(!runtime.texture().active()&&!runtime.metrics().textureInspected&&!runtime.metrics().textureConsumerDraws
-            &&!runtime.metrics().textureTransferCalls&&!runtime.metrics().textureDeferredCopies&&!runtime.metrics().textureDeferredInputs
+            &&!runtime.metrics().textureTransferCalls&&!runtime.metrics().textureDeferredCopies&&!runtime.metrics().textureDeferredInputs&&!runtime.metrics().textureDeferredAudit.sequence
             &&runtime.metrics().textureStatus.find("0%")!=std::string::npos,"zero strength is explicit native sampling, not an unconfirmed small effect");
     runtime.setTexture({true,true,TextureDrawPolicy::OwnedMipCompatibility,101});
     require(runtime.texture().strength==0&&runtime.textureRoute().revision==zeroRevision,"invalid runtime percentages cannot alter the current setting or evidence revision");
@@ -267,11 +293,15 @@ int main(){
     require(runtime.metrics().textureDraws==1&&runtime.metrics().textureNestedInspected==2,"on starts a new evidence interval");
     runtime.textureReport(0,"new source producer refusal",true,TextureDrawReason::NoSampler,TextureDepthFailure::None,false,true);
     runtime.releasePresentation(Renderer::OpenGLES,901);
+    runtime.textureDeferredAuditReport(pendingSnapshot,runtime.textureRoute().revision);
+    require(!runtime.metrics().textureDeferredAudit.sequence,"an unobserved source cannot publish current-epoch pending diagnostics");
     m=runtime.metrics();
     require(!runtime.isPresentation(Renderer::OpenGLES,901,window)&&!m.textureDraws&&!m.textureBindings
             &&!m.textureNestedInspected&&!m.textureNestedDraws&&m.textureDepthReasons==decltype(m.textureDepthReasons){}
             &&m.textureLastBypass.empty()&&m.textureProducerStatus.empty(),"source destruction revokes scene authorization and every depth/nested/preparation counter/last bypass/producer diagnosis");
     require(runtime.claimPresentation(Renderer::Direct3D11,903,window),"another actual renderer can replace the destroyed GL source");
+    runtime.textureDeferredAuditReport(pendingSnapshot,runtime.textureRoute().revision);
+    require(!runtime.metrics().textureDeferredAudit.sequence,"a D3D presentation cannot inherit GL pending-copy diagnostics");
     runtime.textureReport(4,"a presentation shader is not a D3D texture implementation",true,TextureDrawReason::Prepared);
     require(!runtime.metrics().textureDraws&&!runtime.metrics().textureSupported,"missing D3D/Vulkan texture binding implementation cannot be reported as successful");
     runtime.releasePresentation(Renderer::Direct3D11,903);runtime.setTexture({});

@@ -4,6 +4,7 @@
 #include "VulkanCapture.h"
 #include "TextureQuality.h"
 #include "GlTransferAudit.h"
+#include "GlDeferredCopyAudit.h"
 #include <array>
 #include <cstdint>
 #include <mutex>
@@ -37,6 +38,7 @@ struct Metrics {
     // Asynchronous reconciliation of submitted copies, NOT extra native calls
     // or private bindings. Kept separate from synchronous transfer observations.
     std::uint64_t textureDeferredCopies=0,textureDeferredInputs=0;
+    GlDeferredCopyAudit textureDeferredAudit;
     // Non-injected hook entries anywhere in this process while a GL game source
     // is selected and Potato is active. May include aliases/foreign routes.
     std::uint64_t textureHookDrawCalls=0,textureHookTransferCalls=0,textureHookImageCopyCalls=0,textureHookNativeImageCalls=0;
@@ -90,6 +92,7 @@ public:
     void textureConsumerReport(unsigned inputs,std::uint64_t revision);
     void textureTransferReport(unsigned inputs,std::uint64_t revision);
     void textureDeferredCopyReport(unsigned copies,unsigned inputs,std::uint64_t revision);
+    void textureDeferredAuditReport(const GlDeferredCopyAudit &audit,std::uint64_t revision);
     void textureReport(unsigned bindings,const std::string &detail,bool supported,
                        TextureDrawReason reason=TextureDrawReason::NotInspected,
                        TextureDepthFailure depthFailure=TextureDepthFailure::None,bool nested=false,

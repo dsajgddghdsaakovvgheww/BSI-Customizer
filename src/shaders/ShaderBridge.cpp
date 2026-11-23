@@ -93,7 +93,7 @@ QVariantMap ShaderBridge::bridgeInfo()const{
     return {{"moduleQtVersion",QString::fromLatin1(QT_VERSION_STR)},
             {"runtimeQtVersion",QString::fromLatin1(qVersion())},{"publicQtApi",true},
             {"moduleBuildRevision",QStringLiteral(BSI_SHADERS_BUILD_REVISION)},
-            {"moduleCaptureVersion",QStringLiteral("gl-copy-consumer-order-v5")}};
+            {"moduleCaptureVersion",QStringLiteral("gl-pending-copy-ledger-v6")}};
 }
 QVariantList ShaderBridge::controlList()const{
     QVariantList out;
@@ -130,6 +130,14 @@ QVariantMap ShaderBridge::metrics()const{
             {"textureProducerBindings",number(m.textureProducerBindings)},{"textureProducerStatus",QString::fromStdString(m.textureProducerStatus)},
             {"textureTransferCalls",number(m.textureTransferCalls)},{"textureTransferInputs",number(m.textureTransferInputs)},
             {"textureDeferredCopies",number(m.textureDeferredCopies)},{"textureDeferredInputs",number(m.textureDeferredInputs)},
+            {"textureDeferredQueued",number(m.textureDeferredAudit.queued)},{"textureDeferredPending",number(m.textureDeferredAudit.pending)},
+            {"textureDeferredPeak",number(m.textureDeferredAudit.peak)},{"textureDeferredAuditSequence",number(m.textureDeferredAudit.sequence)},
+            {"textureDeferredAuditBalanced",m.textureDeferredAudit.balanced()},
+            {"textureDeferredExits",auditCounters(glDeferredExitLabels,m.textureDeferredAudit.exits)},
+            {"textureDeferredConsumers",auditCounters(glDeferredConsumerLabels,m.textureDeferredAudit.consumers)},
+            {"textureDeferredDiscardSites",auditCounters(glDeferredDiscardLabels,m.textureDeferredAudit.discardSites)},
+            {"textureDeferredSources",auditCounters(glDeferredSourceLabels,m.textureDeferredAudit.sources)},
+            {"textureDeferredHopBlocked",number(m.textureDeferredAudit.hopBlocked)},{"textureDeferredResourceBlocked",number(m.textureDeferredAudit.resourceBlocked)},
             {"textureHookDrawCalls",number(m.textureHookDrawCalls)},{"textureHookTransferCalls",number(m.textureHookTransferCalls)},
             {"textureHookImageCopyCalls",number(m.textureHookImageCopyCalls)},{"textureHookNativeImageCalls",number(m.textureHookNativeImageCalls)},
             {"textureTransferApis",auditCounters(glTransferApiLabels,m.textureTransferAudit.calls)},
@@ -167,7 +175,14 @@ QString ShaderBridge::diagnostics()const{
                   auditLine(m.value("textureTransferCandidates")),auditLine(m.value("textureTransferDescriptors")),
                   auditLine(m.value("textureTransferCodeProviders")))
         +QStringLiteral("\nDeferred copy-subimage reconciliation: edges=%1; linked inputs=%2. Awaiting-exact-consumer callbacks are NOT ownership or qualified links. Only later exact consumption in the same/observed-share namespace can reconcile submitted metadata, within the ORIGINAL two-frame capture deadline and eight-hop bound. Reconciliation is separate from native call totals and NOT proof of driver success, private bindings or game pixels.")
-             .arg(m.value("textureDeferredCopies").toString(),m.value("textureDeferredInputs").toString());
+             .arg(m.value("textureDeferredCopies").toString(),m.value("textureDeferredInputs").toString())
+        +QStringLiteral("\nPending-copy lifetime ledger (same source/settings interval): queued=%1; pending=%2; peak=%3; balanced=%4.\nPending retirements (one reason per removed queued edge): %5\nSelected default-FBO consumer checks: %6\nUncaptured-output retirement sites: %7\nQueued copy source kinds: %8")
+             .arg(m.value("textureDeferredQueued").toString(),m.value("textureDeferredPending").toString(),m.value("textureDeferredPeak").toString(),
+                  m.value("textureDeferredAuditBalanced").toBool()?QStringLiteral("yes"):QStringLiteral("no"),
+                  auditLine(m.value("textureDeferredExits")),auditLine(m.value("textureDeferredConsumers")),
+                  auditLine(m.value("textureDeferredDiscardSites")),auditLine(m.value("textureDeferredSources")))
+        +QStringLiteral("\nReconciliation retry bounds: hops=%1; resource-budget=%2. Retries can repeat for one pending edge; they are not retirements or extra native calls. Queued = pending + all retirements within one interval. Source/settings/Off reset the whole ledger; snapshots can exclude in-flight events. Consumer checks compare destinations ONLY in the same/observed-share namespace; other namespaces is not an equal-name match. This only explains existing metadata retention: no extra GL query, raw identity, readback, ownership, driver-success or game-material proof, and no relaxed expiry/retirement check.")
+             .arg(m.value("textureDeferredHopBlocked").toString(),m.value("textureDeferredResourceBlocked").toString());
     const auto inspectionReport=QStringLiteral("Texture inspection since the latest setting/source change: calls=%1; sampler-inspection calls=%2; conservative depth bypass=%3; blended bypass=%4; no eligible mip sampler=%5; other bypass=%6\nLatest bypass: %7\nOffscreen/pbuffer/foreign scene contexts are not inferred from presentation or a share group.")
         .arg(m.value("textureInspected").toString(),m.value("textureEligibleDraws").toString(),
              m.value("textureDepthBypasses").toString(),m.value("textureBlendBypasses").toString(),

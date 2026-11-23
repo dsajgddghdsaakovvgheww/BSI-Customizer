@@ -193,6 +193,21 @@ void drainResources(){
     }
     h.drainedResourceSerial=serial;
 }
+// All callers still own renderMutex. Publish only bounded CPU counters, never
+// GL identities, and never extend a render/Runtime lease across a copy original.
+void publishDeferredCopyAudit()noexcept{
+    try{
+        GlDeferredCopyAudit audit;std::uint64_t revision=0;
+        if(hooks().provenance.takeDeferredCopyAudit(&audit,&revision))Runtime::instance().textureDeferredAuditReport(audit,revision);
+    }catch(...){} // An unavailable diagnostic sink cannot affect native rendering.
+}
+void releaseAuditedBypass(GlDrawScope &scope)noexcept{
+    if(scope.ownsLock())publishDeferredCopyAudit();
+    scope.releaseBypass();
+}
+struct DeferredCopyAuditPublication {
+    ~DeferredCopyAuditPublication(){publishDeferredCopyAudit();}
+};
 void contextCreated(unsigned provider,std::uintptr_t display,std::uintptr_t context,std::uintptr_t share)noexcept{
     if(!context)return;
     if(!provider)hooks().wglDispatchRevision.fetch_add(1);
@@ -345,27 +360,27 @@ struct GameDraw {
             drainResources();const auto route=runtime.textureRoute();const auto quality=route.configuration;
             h.provenance.synchronize(route.object,route.revision);
             if(!quality.active()||!route.object||!runtime.eligible(route.window)
-               ||h.drainedResourceSerial!=h.resourceSerial.load()){scope.releaseBypass();return;}
+               ||h.drainedResourceSerial!=h.resourceSerial.load()){releaseAuditedBypass(scope);return;}
             for(unsigned provider=0;provider<=maximumEglProviders;++provider){
                 if(!(providers&(1u<<provider)))continue;
                 GameCandidate candidate;
-                if(!candidate.find(provider,route)){h.provenance.discardPendingWrites(candidate.identity,nullptr);continue;}
+                if(!candidate.find(provider,route)){h.provenance.discardPendingWrites(candidate.identity,nullptr,GlDeferredDiscardSite::DrawCandidate);continue;}
                 const auto exact=candidate.exact;const auto identity=candidate.identity;
                 auto &session=*candidate.session;selected=&session;scope.guardInspection();
                 std::string detail;
                 if(!candidate.initialize(&detail)){
-                    h.provenance.discardPendingWrites(identity,nullptr);
+                    h.provenance.discardPendingWrites(identity,nullptr,GlDeferredDiscardSite::DrawInspector);
                     runtime.textureReport(0,detail.empty()?"This game context has no safe sampler-inspection path; native sampling retained.":detail,false,
                                           TextureDrawReason::NotInspected,TextureDepthFailure::None,scope.nested(),!exact,route.revision);
-                    selected=nullptr;scope.releaseBypass();return;
+                    selected=nullptr;releaseAuditedBypass(scope);return;
                 }
                 if(quality.drawPolicy==TextureDrawPolicy::OwnedMipCompatibility&&quality.externalOverridesReviewed){
                     if(!session.resourceHooks)session.resourceHooks=installResourceHooks(provider,candidate.egl);
                     const auto serial=h.drainedResourceSerial;GlTextureUsage usage;
                     const bool captured=session.resourceHooks&&(primitive==4||primitive==5||primitive==6)&&session.potato.usage(&usage)
                         &&candidate.qualifyOutput(usage)&&serial==h.resourceSerial.load();
-                    h.provenance.discardPendingWrites(identity,captured?&usage:nullptr);
-                    if(!exact&&(!captured||!h.provenance.producer(identity,usage))){selected=nullptr;scope.releaseBypass();return;}
+                    h.provenance.discardPendingWrites(identity,captured?&usage:nullptr,GlDeferredDiscardSite::DrawUsage);
+                    if(!exact&&(!captured||!h.provenance.producer(identity,usage))){selected=nullptr;releaseAuditedBypass(scope);return;}
                     if(captured){
                         GlDeferredCopyResolution resolved;
                         const auto inputs=h.provenance.observe(identity,usage,exact,&resolved);
@@ -373,7 +388,7 @@ struct GameDraw {
                         if(exact&&usage.defaultFramebuffer)runtime.textureConsumerReport(inputs,route.revision);
                     }
                 }
-                if(runtime.textureRoute().revision!=route.revision){selected=nullptr;scope.releaseBypass();return;}
+                if(runtime.textureRoute().revision!=route.revision){selected=nullptr;releaseAuditedBypass(scope);return;}
                 TextureDrawReason reason=TextureDrawReason::NotInspected;TextureDepthFailure depth=TextureDepthFailure::None;
                 const auto changed=selected->potato.begin(quality.quality(),quality.externalOverridesReviewed,primitive,&detail,&reason,&depth,quality.drawPolicy,quality.strength);
                 if(!exact)detail="Presentation-linked color-resource producer: "+detail;
@@ -381,11 +396,11 @@ struct GameDraw {
                 if(!changed){
                     // Zero-binding wrappers release their leases BEFORE the
                     // original, allowing its later real nested draw inspection.
-                    selected=nullptr;scope.releaseBypass();
+                    selected=nullptr;releaseAuditedBypass(scope);
                 }
                 return;
             }
-            scope.releaseBypass();
+            releaseAuditedBypass(scope);
         }catch(...){
             // Even an allocation failure BEFORE selecting/initializing a
             // context must fail closed around the original. Idempotent when
@@ -397,7 +412,10 @@ struct GameDraw {
             try{Runtime::instance().textureReport(0,"Potato inspection failed; native game sampler bindings retained.",false);}catch(...){}
         }
     }
-    ~GameDraw(){if(selected)selected->potato.end();} // restore bindings BEFORE scope releases its guard/lock
+    ~GameDraw(){
+        if(selected)selected->potato.end(); // restore bindings BEFORE releasing guard/lock
+        if(scope.ownsLock())publishDeferredCopyAudit();
+    }
 };
 // Transfer callbacks never borrow samplers or hold renderMutex across a native
 // copy/resolve (a driver may join workers). Keep only value identities; publish
@@ -438,17 +456,17 @@ struct GameTransfer {
                     GameCandidate candidate;GlCandidateStop reason=GlCandidateStop::Qualified;
                     const bool qualified=candidate.find(provider,route,&reason);
                     ++audit.candidates[static_cast<std::size_t>(reason)];
-                    if(!qualified){h.provenance.discardPendingWrites(candidate.identity,nullptr);continue;}
+                    if(!qualified){h.provenance.discardPendingWrites(candidate.identity,nullptr,GlDeferredDiscardSite::TransferCandidate);continue;}
                     scope.guardInspection();std::string detail;
                     audit.stop=GlTransferStop::Initialize;
-                    if(!candidate.initialize(&detail)){h.provenance.discardPendingWrites(candidate.identity,nullptr);return;}
+                    if(!candidate.initialize(&detail)){h.provenance.discardPendingWrites(candidate.identity,nullptr,GlDeferredDiscardSite::TransferInspector);return;}
                     auto &session=*candidate.session;
                     if(!session.resourceHooks)session.resourceHooks=installResourceHooks(provider,candidate.egl);
                     serial=h.drainedResourceSerial;
                     audit.stop=GlTransferStop::ResourceHooks;
-                    if(!session.resourceHooks){h.provenance.discardPendingWrites(candidate.identity,nullptr);return;}
+                    if(!session.resourceHooks){h.provenance.discardPendingWrites(candidate.identity,nullptr,GlDeferredDiscardSite::TransferInspector);return;}
                     audit.stop=GlTransferStop::Descriptor;
-                    if(!session.potato.transfer(call,&usage,&audit.descriptor)){h.provenance.discardPendingWrites(candidate.identity,nullptr);return;}
+                    if(!session.potato.transfer(call,&usage,&audit.descriptor)){h.provenance.discardPendingWrites(candidate.identity,nullptr,GlDeferredDiscardSite::TransferDescriptor);return;}
                     h.provenance.discardPendingWrites(candidate.identity,&usage);
                     audit.stop=GlTransferStop::Output;if(!candidate.qualifyOutput(usage))return;
                     audit.stop=GlTransferStop::Input;if(!candidate.qualifyTransferInput(usage))return;
@@ -468,7 +486,7 @@ struct GameTransfer {
             };
             capture();
         }catch(...){audit.stop=GlTransferStop::Exception;} // Diagnostics cannot modify/prevent the native call.
-        scope.releaseBypass(); // NEVER hold a render lock or guard across the native original.
+        releaseAuditedBypass(scope); // NEVER hold a render lock or guard across the native original.
     }
     void complete()noexcept{
         if(!captured)return;
@@ -477,6 +495,7 @@ struct GameTransfer {
             if(h.stopping.load()||serial!=h.resourceSerial.load())return;
             audit.stop=GlTransferStop::Busy;
             std::unique_lock<std::mutex> lock(h.renderMutex,std::try_to_lock);if(!lock.owns_lock())return;
+            DeferredCopyAuditPublication publication;
             drainResources();audit.stop=GlTransferStop::ResourceChanged;if(serial!=h.resourceSerial.load())return;
             auto &runtime=Runtime::instance();const auto route=runtime.textureRoute();
             audit.stop=GlTransferStop::RouteChanged;
@@ -533,7 +552,7 @@ struct GameImageBinding {
                 // OLD lifetime with a newly captured otherwise-stable serial.
                 GameCandidate candidate;
                 const bool qualified=candidate.find(provider,route);
-                h.provenance.discardPendingWrites(candidate.identity,nullptr);
+                h.provenance.discardPendingWrites(candidate.identity,nullptr,GlDeferredDiscardSite::NativeImageBinding);
                 if(qualified){
                     scope.guardInspection();std::string detail;
                     if(candidate.initialize(&detail)){
@@ -548,13 +567,14 @@ struct GameImageBinding {
                 }
             }
         }catch(...){} // Native rendering always continues unchanged.
-        scope.releaseBypass();
+        releaseAuditedBypass(scope);
     }
     void complete()noexcept{
         if(!captured)return;
         try{
             auto &h=hooks();if(h.stopping.load()||serial!=h.resourceSerial.load())return;
             std::unique_lock<std::mutex> lock(h.renderMutex,std::try_to_lock);if(!lock.owns_lock())return;
+            DeferredCopyAuditPublication publication;
             drainResources();if(serial!=h.resourceSerial.load())return;
             auto &runtime=Runtime::instance();const auto route=runtime.textureRoute();
             if(route.object!=object||route.revision!=revision||!route.configuration.active()||!runtime.eligible(route.window))return;
@@ -941,6 +961,7 @@ void process(unsigned provider,std::uintptr_t context,HWND window,DrawableKey dr
     if(!provider)discoverCurrentWgl(h.currentDc?h.currentDc():nullptr,reinterpret_cast<HGLRC>(context));
     else discoverCurrentEgl(provider,reinterpret_cast<void*>(drawable.first),reinterpret_cast<void*>(drawable.second),egl->currentSurface(0x305a),reinterpret_cast<void*>(context));
     std::unique_lock<std::mutex> lock(h.renderMutex,std::try_to_lock);if(!lock.owns_lock())return;
+    DeferredCopyAuditPublication publication;
     Recursion guard;
     try {
         drainResources();
@@ -986,7 +1007,7 @@ void processWgl(HDC dc){
 }
 template<int Index> BOOL WINAPI swapWgl(HDC dc){try{processWgl(dc);}catch(...){}Recursion guard;return hooks().swaps[Index](dc);}
 void removeContextState(unsigned provider,std::uintptr_t display,std::uintptr_t context){
-    auto &h=hooks();std::lock_guard<std::mutex> lock(h.renderMutex);drainResources();
+    auto &h=hooks();std::lock_guard<std::mutex> lock(h.renderMutex);DeferredCopyAuditPublication publication;drainResources();
     h.provenance.forget({provider,display,context});const auto it=h.contexts.find({provider,display,context});
     if(it==h.contexts.end())return;
     Runtime::instance().releasePresentation(it->second->renderer,reinterpret_cast<std::uintptr_t>(it->second.get()));h.contexts.erase(it);
