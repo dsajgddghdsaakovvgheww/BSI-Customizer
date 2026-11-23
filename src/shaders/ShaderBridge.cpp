@@ -208,7 +208,7 @@ QString ShaderBridge::diagnostics()const{
         +QStringLiteral("\nCopy exits: expired=%1; retired for other reasons=%2.")
              .arg(m.value("textureDeferredExpired").toString(),m.value("textureDeferredRetiredOther").toString())
         +QStringLiteral("\nCPU-only copy/presentation correlation (typed names compared only in the same observed namespace; recent window=%1 provenance frames): presented input observations=%2; distinct tracked inputs=%3; untracked input observations=%4; copy observations=%5.")
-             .arg(static_cast<qulonglong>(GlTextureProvenance::frameLifetime))
+             .arg(static_cast<qulonglong>(GlDeferredCopyAudit::correlationWindowFrames))
              .arg(m.value("texturePresentedInputObservations").toString(),m.value("texturePresentedInputDistinct").toString(),
                   m.value("texturePresentedInputUntracked").toString(),m.value("textureCopyObservations").toString())
         +QStringLiteral(" Copies matching recent presented inputs: input=%1; output=%2. Presentation inputs matching recent copy names: copy-input=%3; copy-output=%4. Distinct tracked copy outputs=%5; untracked copy-input observations=%6; untracked copy-output observations=%7.")

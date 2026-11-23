@@ -351,7 +351,7 @@ private:
     }
     bool recentlySeen(const std::array<CorrelationName,correlationCapacity> &names,std::uint64_t id,GlColorResource resource)const{
         for(const auto &name:names)if(name.used&&name.lastFrame&&name.space==id&&name.resource==resource
-            &&frame_>=name.lastFrame&&frame_-name.lastFrame<=frameLifetime)return true;
+            &&frame_>=name.lastFrame&&frame_-name.lastFrame<=GlDeferredCopyAudit::correlationWindowFrames)return true;
         return false;
     }
     bool recentlyPresented(std::uint64_t id,GlColorResource resource)const{return recentlySeen(presentedNames_,id,resource);}
@@ -360,7 +360,7 @@ private:
     }
     bool recentlyCopiedOutput(std::uint64_t id,GlColorResource resource)const{
         for(const auto &name:copyOutputNames_)if(name.used&&name.lastFrame&&name.space==id&&name.resource==resource
-            &&frame_>=name.lastFrame&&frame_-name.lastFrame<=frameLifetime)return true;
+            &&frame_>=name.lastFrame&&frame_-name.lastFrame<=GlDeferredCopyAudit::correlationWindowFrames)return true;
         return false;
     }
     bool noteRecentName(std::array<CorrelationName,correlationCapacity> &names,std::uint64_t id,GlColorResource resource){

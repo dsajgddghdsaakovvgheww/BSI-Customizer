@@ -23,6 +23,7 @@ inline constexpr std::array<const char*,static_cast<std::size_t>(GlDeferredDisca
     "transfer-candidate-refused", "transfer-inspector-or-hooks-unavailable", "transfer-descriptor-refused", "native-image-binding"}};
 inline constexpr std::array<const char*,4> glDeferredSourceLabels{{"texture", "renderbuffer", "native-pbuffer", "other"}};
 struct GlDeferredCopyAudit {
+    static constexpr std::uint64_t correlationWindowFrames=2;
     // One cumulative snapshot per source/review interval, not additive deltas.
     // sequence orders snapshots; only pending/peak are gauges. Source/settings
     // reset discards the entire old interval, as do the existing Potato totals.
