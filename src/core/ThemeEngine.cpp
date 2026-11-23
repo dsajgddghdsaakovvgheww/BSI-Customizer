@@ -1988,17 +1988,15 @@ ThemeQmlRec scanThemeQmlRec(const QByteArray &data)
 }
 
 // One-entry memo: the hex page asks findQmlColor once per color name, and
-// findThemeZlib is a full-file scan - caching the last scan keyed by a cheap
-// size+sample hash keeps a 40-name listing at one scan.
+// findThemeZlib is a full-file scan - caching the last scan keyed by the
+// content hash keeps a 40-name listing at one scan while still re-scanning
+// after an in-place apply (same size, middle bytes changed).
 const ThemeQmlRec &themeQmlFor(const QByteArray &data)
 {
     static QMutex mutex;
-    static qint64 key = 0;
+    static QByteArray key;
     static ThemeQmlRec cache;
-    const qint64 k = data.size() * 1315423911LL
-        + ((data.size() > 128) ? (qint64(qHash(data.mid(0, 64)))
-                                  ^ (qint64(qHash(data.mid(data.size() - 64))) << 20))
-                               : qint64(qHash(data)));
+    const QByteArray k = QCryptographicHash::hash(data, QCryptographicHash::Sha1);
     QMutexLocker lock(&mutex);
     if (cache.found && key == k)
         return cache;
@@ -2007,22 +2005,26 @@ const ThemeQmlRec &themeQmlFor(const QByteArray &data)
     return cache;
 }
 
-// Build the in-place rewrite of one declaration literal inside the compressed
-// record. The record's byte span never changes: the recompressed payload must
-// fit the measured slot (tighter deflate levels are tried first, since a
-// same-length literal swap can still grow a byte at level 9) and shorter
-// payloads are padded with trailing NULs, which zlib decoders ignore.
-// Returns false with a note when the new record would grow past the slot.
+// Build the in-place rewrite of the declaration literals inside the compressed
+// record. All edits for the record are merged into ONE rewrite (the record is
+// recompressed once, with every selected literal replaced), spliced back to
+// front so earlier offsets stay valid. The record's byte span never changes:
+// the recompressed payload must fit the measured slot (tighter deflate levels
+// are tried first, since a same-length literal swap can still grow a byte at
+// level 9) and shorter payloads are padded with trailing NULs, which zlib
+// decoders ignore. Returns false with a note when the new record would grow
+// past the slot.
 bool buildStreamReplacement(const QByteArray &data, const ThemeQmlRec &rec,
-                            const QPair<int, int> &span, const QString &newHex,
+                            const QMap<int, QPair<int, QByteArray>> &edits,
                             QString *note, ThemeEngine::Replacement *out)
 {
-    const QByteArray token = (rec.raw.mid(span.first, span.second).startsWith('"')
-                              || rec.raw.mid(span.first, span.second).startsWith('\''))
-        ? "\"" + newHex.toLatin1() + "\""
-        : newHex.toLatin1();
     QByteArray newRaw = rec.raw;
-    newRaw.replace(span.first, span.second, token);
+    QList<int> offs = edits.keys();
+    std::sort(offs.begin(), offs.end(), std::greater<int>());
+    for (const int off : offs) {
+        const QPair<int, QByteArray> e = edits.value(off);
+        newRaw.replace(off, e.first, e.second);
+    }
     QByteArray newComp;
     for (int level = 9; level >= 1; --level) {
         const QByteArray cand = qCompress(newRaw, level).mid(4); // raw zlib stream
@@ -2165,6 +2167,7 @@ QList<ThemeEngine::Replacement> ThemeEngine::collectThemeReplacements(
     }
 
     // ---- QML color names stored as EXE strings ----
+    QMap<int, QPair<int, QByteArray>> streamEdits; // declaration edits for the record
     for (const HexColorItem &item : qmlColors) {
         if (!item.enabled)
             continue;
@@ -2211,25 +2214,39 @@ QList<ThemeEngine::Replacement> ThemeEngine::collectThemeReplacements(
         }
 
         // Compressed theme-QML declaration (the decompression-based palette):
-        // rewrite the literal inside the compressed record and recompress it in
-        // place, so apply -> reload round-trips on builds whose table only
-        // exists decompressed. Keep the declaration's alpha when the new value
-        // supplies none, exactly like the #AARRGGBB slot path above.
-        const ThemeQmlRec rec = themeQmlFor(data);
-        const auto declIt = rec.declSpans.constFind(item.name);
-        if (declIt != rec.declSpans.constEnd()) {
-            QString literal = newHex;
-            const QString declVal = rec.declValues.value(item.name);
-            if (declVal.size() == 9 && literal.size() == 7)
-                literal = QLatin1Char('#') + declVal.mid(1, 2) + literal.mid(1);
-            QString note;
-            Replacement sr;
-            if (buildStreamReplacement(data, rec, qMakePair(declIt->first, declIt->second),
-                                       literal, &note, &sr))
-                repls << sr;
-            else if (skipped)
-                skipped->append(QStringLiteral("%1: %2").arg(item.name, note));
+        // the literal inside the compressed record is rewritten and the record
+        // recompressed in place, so apply -> reload round-trips on builds whose
+        // table only exists decompressed. Keep the declaration's alpha when the
+        // new value supplies none, exactly like the #AARRGGBB slot path above.
+        // All edits are collected first - the record is rewritten once at the
+        // end with every selected literal replaced.
+        {
+            const ThemeQmlRec rec = themeQmlFor(data);
+            const auto declIt = rec.declSpans.constFind(item.name);
+            if (declIt != rec.declSpans.constEnd()) {
+                QString literal = newHex;
+                const QString declVal = rec.declValues.value(item.name);
+                if (declVal.size() == 9 && literal.size() == 7)
+                    literal = QLatin1Char('#') + declVal.mid(1, 2) + literal.mid(1);
+                const QByteArray oldTok = rec.raw.mid(declIt->first, declIt->second);
+                const QByteArray token =
+                    (oldTok.startsWith('"') || oldTok.startsWith('\''))
+                    ? "\"" + literal.toLatin1() + "\""
+                    : literal.toLatin1();
+                streamEdits.insert(declIt->first, qMakePair(int(declIt->second), token));
+            }
         }
+    }
+
+    // One rewrite per compressed record, carrying every selected edit.
+    if (!streamEdits.isEmpty()) {
+        const ThemeQmlRec rec = themeQmlFor(data);
+        QString note;
+        Replacement sr;
+        if (buildStreamReplacement(data, rec, streamEdits, &note, &sr))
+            repls << sr;
+        else if (skipped)
+            skipped->append(QStringLiteral("theme record: %1").arg(note));
     }
 
     std::sort(repls.begin(), repls.end(),

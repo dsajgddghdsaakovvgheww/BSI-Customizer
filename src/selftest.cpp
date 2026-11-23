@@ -1096,6 +1096,10 @@ int runSelfTest()
             d += QByteArray(0x200, '\0');
             return d;
         };
+        // The QML carries a long trailing comment so the level-1 slot has
+        // real slack over any level-9 rewrite (on a tiny text the two levels
+        // compress to nearly the same size and a 6 -> 8 digit edit could
+        // legitimately hit grow-refusal).
         const QString qmlText = QStringLiteral(
             "import QtQuick 2.0\n"
             "QtObject {\n"
@@ -1103,7 +1107,8 @@ int runSelfTest()
             "        property color primary80: \"#21242C\"\n"
             "        property color accentNormal: \"#EB2C43AA\"\n"
             "    }\n"
-            "}\n");
+            "}\n")
+            + QStringLiteral("// pad\n").repeated(300);
         const QByteArray pe = makeStreamFixture(qmlText);
 
         check(ThemeEngine::findQmlColor(pe, QStringLiteral("primary80"))
@@ -1167,18 +1172,25 @@ int runSelfTest()
         }
 
         // 6 -> 8 digit rewrite (literal and size prefix grow) and the alpha
-        // kept when a new value supplies none.
+        // kept when a new value supplies none - both colors in ONE apply, so
+        // the single record rewrite carries both edits.
         {
             const QString exePath = tmp.path() + QStringLiteral("/streamalpha.exe");
             writeFixture(exePath);
-            const auto r = applyOne(exePath, QStringLiteral("primary80"),
-                                    QStringLiteral("#21242C"),
-                                    QStringLiteral("#101820FF"));
-            check(r.ok, "hex-qml-stream: 8-digit value applied");
-            const auto r2 = applyOne(exePath, QStringLiteral("accentNormal"),
-                                     QStringLiteral("#EB2C43AA"),
-                                     QStringLiteral("#0088FF"));
-            check(r2.ok, "hex-qml-stream: alpha-kept value applied");
+            HexColorItem rowA;
+            rowA.name = QStringLiteral("primary80");
+            rowA.currentHex = QStringLiteral("#21242C");
+            rowA.color = QStringLiteral("#101820FF");
+            rowA.enabled = true;
+            HexColorItem rowB;
+            rowB.name = QStringLiteral("accentNormal");
+            rowB.currentHex = QStringLiteral("#EB2C43AA");
+            rowB.color = QStringLiteral("#0088FF");
+            rowB.enabled = true;
+            const auto r = ThemeEngine::applyHexTheme(
+                exePath, QStringLiteral("MSI5"), {},
+                QList<HexColorItem> { rowA, rowB });
+            check(r.ok, "hex-qml-stream: multi-color apply patches both declarations");
             QFile f(exePath);
             f.open(QIODevice::ReadOnly);
             const QByteArray after = f.readAll();
