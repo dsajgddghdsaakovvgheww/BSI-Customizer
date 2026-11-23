@@ -18,6 +18,7 @@ constexpr BsiShaders::GlContextIdentity authoredContext{1,1,1};
 constexpr auto authoredPbuffer=BsiShaders::GlColorResource::pbuffer(1000001);
 BsiShaders::GlTextureUsage pendingTransfer;
 BsiShaders::GlDeferredCopyResolution lastDeferred;
+BsiShaders::GlDeferredCopyCapture transferCapture;
 bool transferCaptured=false,transferIsSubimage=false;
 unsigned producerBegin(int mode,bool pbuffer,bool namedOnly=false,int strength=100){
     // Python verifies the actual current EGL context/display and BOTH null
@@ -110,7 +111,7 @@ unsigned bsi_test_dependency_transfer_capture(int copy,int qualifyNativeRead){
         pendingTransfer.reads[i]=authoredPbuffer;
     }
     if(pendingTransfer.defaultFramebuffer)pendingTransfer.writeCount=0;
-    transferCaptured=true;return 1;
+    transferCapture=dependencies.captureDeferredCopy();transferCaptured=true;return 1;
 }
 unsigned bsi_test_dependency_image_capture(unsigned source,unsigned sourceTarget,unsigned destination,unsigned destinationTarget,int width,int height,unsigned apis){
     using namespace BsiShaders;transferCaptured=false;transferIsSubimage=false;
@@ -125,7 +126,7 @@ unsigned bsi_test_dependency_transfer_complete(){
 unsigned bsi_test_dependency_transfer_defer(){
     if(!transferCaptured||!transferIsSubimage)return 0;
     transferCaptured=false;
-    return dependencies.deferCopy(authoredContext,pendingTransfer)==BsiShaders::GlDeferredCopyResult::Queued;
+    return dependencies.deferCopy(authoredContext,pendingTransfer,transferCapture)==BsiShaders::GlDeferredCopyResult::Queued;
 }
 // The real EGL fixture creates a NONSHARING producer context and a native
 // texture-capable pbuffer, calls the actual native bind between these exports,

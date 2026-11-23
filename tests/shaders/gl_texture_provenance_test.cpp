@@ -196,6 +196,29 @@ int main(){
         require(!resolved.copies&&!p.hasNativeOutput(unknown,front),"lost retirement coverage drops pending and qualified dependencies together");
     }
     {
+        GlTextureProvenance p;const auto front=GlColorResource::pbuffer(800,0x0400);const auto copy=usage(false,{front},{51});
+        const auto reset=[&]{p.synchronize(0,1);p.synchronize(123,1);p.observe(presenter,composite,true);return p.captureDeferredCopy();};
+        GlDeferredCopyResolution resolved;auto capture=reset();p.nextFrame();p.nextFrame();
+        require(p.deferCopy(presenter,copy,capture)==GlDeferredCopyResult::Queued,"time inside the original still permits its ORIGINAL inclusive two-frame deadline");
+        p.observe(presenter,usage(true,{51}),true,&resolved);require(resolved.copies==1,"original-deadline completion can reconcile once");
+        p.nextFrame();require(!p.hasNativeOutput(unknown,front),"native completion cannot give a fresh deadline to an older captured copy");
+        capture=reset();for(unsigned i=0;i<3;++i)p.nextFrame();p.observe(presenter,composite,true);
+        require(p.deferCopy(presenter,copy,capture)==GlDeferredCopyResult::Refused,"a fresh unrelated consumer cannot revive an in-flight copy past its capture deadline");
+        capture=reset();const auto write=usage(false,{1},{51});p.discardPendingWrites(presenter,&write);
+        require(p.deferCopy(presenter,copy,capture)==GlDeferredCopyResult::Refused,"an intervening write revokes an IN-FLIGHT copy even when no pending slot exists yet");
+        capture=reset();p.discardPendingProvider(1);
+        require(p.deferCopy(presenter,copy,capture)==GlDeferredCopyResult::Refused,"a missed guarded/busy callback revokes an unqueued capture without deleting consumer proof");
+        capture=reset();p.synchronize(123,2);p.observe(presenter,composite,true);
+        require(p.deferCopy(presenter,copy,capture)==GlDeferredCopyResult::Refused,"source/review reset prevents old in-flight stamps aliasing a reset frame clock");
+        capture=reset();unsigned name=51;p.deleted(1,1,&name);
+        require(p.deferCopy(presenter,copy,capture)==GlDeferredCopyResult::Refused,"deletion revokes an unqueued destination before numeric name reuse");
+        capture=reset();p.retiredPbuffer(1,800);
+        require(p.deferCopy(presenter,copy,capture)==GlDeferredCopyResult::Refused,"native-source retirement revokes an unqueued capture too");
+        capture=reset();++capture.expires;
+        require(p.deferCopy(presenter,copy,{})==GlDeferredCopyResult::Refused
+                &&p.deferCopy(presenter,copy,capture)==GlDeferredCopyResult::Refused,"empty/future deadline stamps cannot enlarge the capture lifetime");
+    }
+    {
         GlTextureProvenance p;p.synchronize(123,1);p.observe(presenter,composite,true);
         const auto a=GlColorResource::pbuffer(800,0x0400),b=GlColorResource::pbuffer(801,0x0400);
         require(p.deferCopy(presenter,usage(false,{a},{51}))==GlDeferredCopyResult::Queued

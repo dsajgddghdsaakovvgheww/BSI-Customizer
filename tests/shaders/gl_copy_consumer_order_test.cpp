@@ -149,6 +149,6 @@ int main(int argc,char **argv){
     require(f.fn<BOOL(WINAPI*)(HGLRC)>("wglDeleteContext")(isolated)!=FALSE,"retire independent namespace");
     require(f.fn<BOOL(WINAPI*)(HGLRC)>("wglDeleteContext")(context)!=FALSE,"retire authored context");runtime.stop();
     ReleaseDC(child,dc);DestroyWindow(child);DestroyWindow(root);
-    std::puts("PASS: actual copy-before-consumer ordering, no pre-consumption adoption, material bindings inside original only after exact late consumption, native arguments/LastError/state, reset and Off");
+    std::puts("PASS: actual copy-before-consumer ordering, no pre-consumption adoption, exact late material binding, original entry-time TTL, in-flight overwrite revocation, native arguments/LastError/state, reset and Off");
     std::puts("LIMIT: authored native dispatch regression, not the installed game's proven resource graph or pixels");
 }

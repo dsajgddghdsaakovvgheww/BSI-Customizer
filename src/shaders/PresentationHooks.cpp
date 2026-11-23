@@ -410,6 +410,7 @@ struct GameTransfer {
     const bool outer;
     GlTransferAttempt audit;
     GlTextureUsage usage;
+    GlDeferredCopyCapture deferredCapture{};
     GlContextIdentity identity{};
     DrawableKey drawable{};
     std::uint64_t revision=0,serial=0;
@@ -458,7 +459,7 @@ struct GameTransfer {
                         // copy's value metadata after its native completion; a
                         // later exact consumer must independently prove it.
                         if(call.kind!=GlColorTransfer::CopyTexSubImage2D)return;
-                        mayDefer=true;
+                        mayDefer=true;deferredCapture=h.provenance.captureDeferredCopy();
                     }
                     identity=candidate.identity;drawable=candidate.drawable;exact=candidate.exact;
                     revision=route.revision;object=route.object;captured=true;audit.stop=GlTransferStop::NativePending;return;
@@ -484,8 +485,8 @@ struct GameTransfer {
             if(contextFor(identity.provider)!=identity.context)return;
             DrawableKey current{};drawableFor(identity.provider,&current);if(current!=drawable)return;
             audit.stop=GlTransferStop::ResourceChanged;if(serial!=h.resourceSerial.load())return;
-            if(mayDefer&&!h.provenance.producer(identity,usage)){
-                const auto queued=h.provenance.deferCopy(identity,usage);
+            if(mayDefer){
+                const auto queued=h.provenance.deferCopy(identity,usage,deferredCapture);
                 audit.stop=queued==GlDeferredCopyResult::Queued?GlTransferStop::DeferredOutput
                     :queued==GlDeferredCopyResult::Capacity?GlTransferStop::DeferredCapacity:GlTransferStop::UnlinkedOutput;
                 return; // A queued callback is NOT a qualified transfer/link.
