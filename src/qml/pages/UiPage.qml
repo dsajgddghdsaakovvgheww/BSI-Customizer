@@ -9,8 +9,6 @@ Item {
 
     signal notify(string message)
 
-    Component.onCompleted: page.loadProfileLinks()
-
     // how many removal rows are ticked (drives the Apply button state/label)
     property int checkedCount: 0
     // player layout tweaks with their live applied/supported state
@@ -54,7 +52,10 @@ Item {
                            detail: qsTr("Load the player UI to inspect its Settings window.") })
     // Only overrides live in the saved profile. The inspected state's
     // defaultTabIcons supplies the bundled pack without seeding QSettings.
-    property var panelProfile: ({ hiddenTabs: [], tabIcons: {}, logo: null })
+    property var panelProfile: ({ hiddenTabs: [], tabIcons: {}, linkIcons: {}, logo: null })
+    property var panelLinks: []
+    property bool panelLinksReady: false
+    property int panelLinkSerial: 0
     property string panelMsg: ""
     // True when the player carries a patch whose recovery snapshot is unusable,
     // so only the stock .bak can unblock a rebuild.
@@ -72,8 +73,6 @@ Item {
     // dynamic rather than treating a generic itemAt() result as a typed row.
     function removalItem(index: int): var { return removalList.itemAtIndex(index); }
     function linkItem(index: int): var { return linkRepeater.itemAt(index); }
-
-    function profileLinkItem(index: int): var { return profileLinkRepeater.itemAt(index); }
 
     function recountChecked() {
         let n = 0;
@@ -210,59 +209,6 @@ Item {
         return out;
     }
 
-    // ---- custom About buttons -------------------------------------------
-    // The rebuild writes these profile links { kind, title, url } to the
-    // player’s About page (up to eight). The same profile drives the gear →
-    // About tab editor and the web UI; this card keeps the editor next to
-    // the rebuild it feeds.
-    property var profileLinks: []
-
-    function loadProfileLinks() {
-        const rows = [];
-        const links = settings.aboutLinks || [];
-        for (let i = 0; i < links.length; ++i) {
-            const l = links[i] || {};
-            rows.push({ kind: l.kind || "custom", title: l.title || "", url: l.url || "" });
-        }
-        page.profileLinks = rows;
-    }
-
-    // Rows are read back when they are saved or applied, exactly like the
-    // stock rows above. When the tab’s delegates are not instantiated the
-    // draft itself is the record, so an invisible tab can never save an
-    // empty button list over the user’s buttons.
-    function collectProfileLinks() {
-        const rows = [];
-        const kinds = ["github", "discord", "youtube", "custom"];
-        for (let i = 0; i < profileLinkRepeater.count; i++) {
-            const row = page.profileLinkItem(i);
-            rows.push({
-                kind: row ? kinds[Math.max(0, row.kindBox.currentIndex)] : (page.profileLinks[i] || {}).kind,
-                title: row ? row.titleInput.text : ((page.profileLinks[i] || {}).title || ""),
-                url: row ? row.urlInput.text : ((page.profileLinks[i] || {}).url || "")
-            });
-        }
-        return rows.length ? rows : page.profileLinks.slice();
-    }
-
-    function addProfileLink() {
-        if (page.profileLinks.length >= 8) {
-            page.notify(qsTr("Up to eight About buttons."));
-            return;
-        }
-        page.profileLinks = page.profileLinks.concat([{ kind: "custom", title: "", url: "" }]);
-    }
-
-    function removeProfileLink(index) {
-        const copy = page.profileLinks.slice();
-        copy.splice(index, 1);
-        page.profileLinks = copy;
-    }
-
-    function saveProfileLinks() {
-        settings.aboutLinks = page.collectProfileLinks();
-    }
-
     // The About card reads the player, so it follows the file: on first show,
     // whenever the path changes, and every time the tab is opened again (the
     // EXE may have been patched or restored from another tab meanwhile).
@@ -329,7 +275,15 @@ Item {
         const profile = settings.settingsPanelProfile || {};
         page.panelProfile = { hiddenTabs: profile.hiddenTabs || [],
                               tabIcons: profile.tabIcons || {},
+                              linkIcons: profile.linkIcons || {},
                               logo: profile.logo || null };
+        if (!page.panelLinksReady) {
+            const links = profile.links !== undefined ? profile.links : (settings.aboutLinks || []);
+            page.panelLinks = links.filter(row => row.id || row.title || row.url).map((row, index) => ({
+                id: row.id || "link-" + (index + 1), kind: row.kind || "link", title: row.title || "", url: row.url || ""
+            }));
+            page.panelLinksReady = true;
+        }
         page.panelReady = true;
     }
 
@@ -380,7 +334,7 @@ Item {
         const result = backend.saveSettingsPanelProfile(
                     name === undefined ? settings.aboutDeveloperName : name,
                     tagline === undefined ? settings.aboutTagline : tagline,
-                    hidden || page.panelProfile.hiddenTabs || [], ids);
+                    hidden || page.panelProfile.hiddenTabs || [], ids, page.panelLinks);
         page.panelMsg = (result && result.msg) ? result.msg : "";
         if (result && result.ok) {
             page.refreshPanel();
@@ -388,8 +342,31 @@ Item {
         }
     }
 
+    function addPanelLink() {
+        if (page.panelLinks.length >= 24) return;
+        let id;
+        do { id = "link-" + (++page.panelLinkSerial); } while (page.panelLinks.some(row => row.id === id));
+        page.panelLinks = page.panelLinks.concat([{id: id, kind: "link", title: "", url: ""}]);
+    }
+
+    function removePanelLink(id) {
+        page.panelLinks = page.panelLinks.filter(row => row.id !== id);
+    }
+
+    function editPanelLink(id, key, value) {
+        // Repeater's modelData can be a value-copy of a JS object. Update the
+        // actual draft, without replacing the model on every keystroke (which
+        // would destroy the focused field). Add/remove/save consume this array.
+        for (let i = 0; i < page.panelLinks.length; ++i)
+            if (page.panelLinks[i].id === id) { page.panelLinks[i][key] = value; return; }
+    }
+
+    function panelLinkIconSource(id) {
+        const asset = (page.panelProfile.linkIcons || {})[id];
+        return asset && asset.mime && asset.data ? "data:" + asset.mime + ";base64," + asset.data : "";
+    }
+
     function savePanelIdentity() {
-        page.saveProfileLinks();
         page.savePanelOptions(undefined, panelDeveloperField.text, panelTaglineField.text);
     }
 
@@ -417,6 +394,8 @@ Item {
         const icons = page.panelProfile.tabIcons || {};
         for (const id in icons)
             backend.clearSettingsPanelAsset("tab-icon", id);
+        for (const linkId in (page.panelProfile.linkIcons || {}))
+            backend.clearSettingsPanelAsset("link-icon", linkId);
         if (page.panelProfile.logo)
             backend.clearSettingsPanelAsset("logo", "");
         page.savePanelOptions([]);
@@ -427,9 +406,6 @@ Item {
     // Apply / Restore run the real patcher: it verifies every embedded QML
     // resource, writes a feature-local recovery snapshot, then commits.
     function applyPanel(enabled) {
-        // The rebuild embeds the profile buttons, so the rows as they stand
-        // are saved first: pressing Apply can never write stale buttons.
-        page.saveProfileLinks();
         const result = backend.applySettingsPanelRebuild(enabled);
         page.panelMsg = (result && result.msg) ? result.msg : "";
         page.refreshPanel();
@@ -492,7 +468,7 @@ Item {
                             embeddedQmlResourceCount: 0, qmlResourceSamples: [],
                             logoStatus: "", logoFallback: false,
                             detail: qsTr("Load the player UI to inspect its Settings window.") });
-            page.panelReady = false;
+            page.panelReady = false; page.panelLinksReady = false; page.panelLinks = [];
             page.panelMsg = "";
         }
         // Worker completion marks stale, never starts another synchronous scan.
@@ -594,6 +570,14 @@ Item {
                     StudioTabButton { text: qsTr("Remove items") }
                     StudioTabButton { text: qsTr("Appearance studio") }
                     StudioTabButton { objectName: "settingsPanelRebuildTab"; text: qsTr("Settings panel") }
+                    StudioTabButton { objectName: "nativeShadersTab"; text: qsTr("Shaders") }
+                }
+
+                ShaderInstallPanel {
+                    visible: page.currentSection === 5
+                    Layout.fillWidth: true
+                    onNotify: (message) => page.notify(message)
+                    onPrepareSettingsPanel: page.currentSection = 4
                 }
 
                 // ---------------- one-click clean-up ----------------
@@ -622,17 +606,17 @@ Item {
                                 Text {
                                     Layout.fillWidth: true
                                     wrapMode: Text.Wrap
-                                    text: qsTr("One apply hides every extra button. Title bar: help, "
-                                               + "menu/settings, quests, rewards, account, nowbuX, "
+                                    text: qsTr("One apply hides extra buttons while keeping sidebar Settings accessible. Title bar: three-line menu, help, "
+                                               + "quests, rewards, account, nowbuX, "
                                                + "pin-to-top, top-bar icons, macro, sync and screen "
                                                + "recording. Sidebar: screenshot, screen record, media "
                                                + "folder, rotate, location, shake, lock cursor, macro, "
                                                + "sync, eco mode, instance manager, side panel, live "
-                                               + "stream, chat, settings and its own Back / Home / "
+                                               + "stream, chat and its own Back / Home / "
                                                + "Recent. Back, Home, Recent, the BlueStacks logo, the "
                                                + "title/version and the window controls stay, and the "
                                                + "sidebar keeps fullscreen, volume, game controls, "
-                                               + "install APK and trim memory — it is not removed. To "
+                                               + "install APK, trim memory and Settings. To "
                                                + "remove the sidebar itself, turn on “Sidebar buttons "
                                                + "to the top bar” below.")
                                     color: Theme.textDim
@@ -645,6 +629,7 @@ Item {
                                 accent: !page.cleanTweak.applied || !!page.cleanTweak.needsUpdate
                                 implicitHeight: 30
                                 enabled: !!page.cleanTweak.supported
+                                objectName: "cleanPlayerUiAction"
                                 text: !page.cleanTweak.supported
                                       ? qsTr("Unavailable")
                                       : (page.cleanTweak.applied
@@ -652,7 +637,7 @@ Item {
                                                                         : qsTr("Restore stock UI"))
                                          : qsTr("Clean in one click"))
                                 onClicked: {
-                                    // Update keeps the clean-up on and writes the missing half.
+                                    // Update hides the title-bar menu and keeps sidebar Settings without restoring other extras.
                                     const target = !(page.cleanTweak.applied
                                                      && !page.cleanTweak.needsUpdate);
                                     const result = backend.applyLayoutTweak("clean-player-ui", target);
@@ -675,12 +660,12 @@ Item {
                             font.pixelSize: 11
                             font.weight: Font.DemiBold
                             text: page.cleanTweak.needsUpdate
-                                  ? qsTr("An older clean-up is applied — press “Update clean-up” to hide "
-                                         + "the extra sidebar buttons too.")
+                                  ? qsTr("An older clean-up is applied — press “Update clean-up” to hide the three-line menu "
+                                         + "while keeping sidebar Settings accessible.")
                                   : (page.cleanTweak.applied
-                                     ? qsTr("Applied — the extra buttons are hidden and the sidebar keeps "
-                                            + "fullscreen, volume, game controls, install APK and trim "
-                                            + "memory. Press “Restore stock UI” to bring everything back.")
+                                     ? qsTr("Applied — the three-line menu and extra buttons are hidden; the sidebar keeps "
+                                            + "fullscreen, volume, game controls, install APK, trim "
+                                            + "memory and Settings. Press “Restore stock UI” to bring everything back.")
                                      : (page.cleanTweak.supported
                                         ? qsTr("Ready — one click hides every button listed above.")
                                         : (page.cleanTweak.state || page.cleanTweak.detail)))
@@ -987,8 +972,9 @@ Item {
                                 Text {
                                     Layout.fillWidth: true
                                     wrapMode: Text.Wrap
-                                    text: qsTr("Nulls out the selected ad/UI strings in the binary so "
-                                               + "those elements never render.")
+                                    text: qsTr("Hide selected controls. Remove title details hides the version and instance label together, "
+                                               + "collapses their row and vertically centres the player name with equal space above and below. Settings text and shared strings stay intact. "
+                                               + "Use Restore Backup to undo removals.")
                                     color: Theme.textDim
                                     font.pixelSize: 11
                                 }
@@ -1012,6 +998,7 @@ Item {
                                 accent: true
                                 enabled: page.checkedCount > 0
                                 implicitHeight: 28
+                                objectName: "applyPlayerUiRemovals"
                                 text: page.checkedCount > 0
                                       ? qsTr("Apply Removals (%1)").arg(page.checkedCount)
                                       : qsTr("Apply Removals")
@@ -1029,6 +1016,7 @@ Item {
 
                         ListView {
                             id: removalList
+                            objectName: "playerUiRemovalList"
                             Layout.fillWidth: true
                             Layout.fillHeight: true
                             clip: true
@@ -1765,8 +1753,10 @@ Item {
                                     text: qsTr("Customize the in-player Settings window: centre the "
                                                + "native page content, choose which native tabs stay "
                                                + "visible, give each tab its own SVG icon and edit the "
-                                               + "About logo, name and links. These choices are saved "
-                                               + "on this PC; the selected HD-Player.exe changes only "
+                                               + "About logo, name and links. The whole window uses the "
+                                               + "opaque native theme; glass is limited to the selected "
+                                               + "tab. Native pages and controls keep their own materials. "
+                                               + "These choices are saved on this PC; the selected HD-Player.exe changes only "
                                                + "when you apply.")
                                     color: Theme.textDim
                                     font.pixelSize: 11
@@ -2049,9 +2039,9 @@ Item {
                             Layout.fillWidth: true
                             wrapMode: Text.Wrap
                             text: qsTr("This is the About page inside the emulator’s rebuilt Settings "
-                                       + "window. The logo and the fields below come from your local "
-                                       + "profile; the buttons are edited below and written to the "
-                                       + "player when the rebuild is applied.")
+                                       + "window. Edit its logo, identity and links here. This list is "
+                                       + "independent of the Customizer’s own About page. Add or remove "
+                                       + "up to 24 HTTP(S) links, with custom icons saved as local assets.")
                             color: Theme.textDim
                             font.pixelSize: 10
                             font.italic: true
@@ -2171,93 +2161,81 @@ Item {
                             }
                         }
 
-                        // ---- custom About buttons -----------------------
-                        Text {
-                            Layout.fillWidth: true
-                            wrapMode: Text.Wrap
-                            text: qsTr("Buttons — up to eight, each with a service icon, your own name and your own link")
-                            color: Theme.text
-                            font.pixelSize: 11
-                            font.weight: Font.DemiBold
-                        }
-                        Text {
-                            Layout.fillWidth: true
-                            wrapMode: Text.Wrap
-                            text: qsTr("Pick a Service and type any label and https link — Custom is a plain link button. "
-                                       + "These buttons are written to the player’s About page when you apply the rebuild below.")
-                            color: Theme.textDim
-                            font.pixelSize: 10
-                            font.italic: true
-                        }
                         Repeater {
-                            id: profileLinkRepeater
-                            model: page.profileLinks
-                            delegate: RowLayout {
-                                id: profileLinkRow
+                            model: page.panelLinks
+                            delegate: ColumnLayout {
                                 required property var modelData
                                 required property int index
+                                objectName: "settingsPanelLinkRow-" + modelData.id
                                 Layout.fillWidth: true
-                                spacing: 8
-
-                                ComboBox {
-                                    id: profileKindBox
-                                    property var kinds: ["github", "discord", "youtube", "custom"]
-                                    Layout.preferredWidth: 104
-                                    model: [qsTr("GitHub"), qsTr("Discord"), qsTr("YouTube"), qsTr("Custom")]
-                                    currentIndex: Math.max(0, profileKindBox.kinds.indexOf(profileLinkRow.modelData.kind || "custom"))
-                                    font.pixelSize: 10
-                                    contentItem: Text {
-                                        text: profileKindBox.displayText
-                                        color: Theme.text
-                                        font.pixelSize: 10
-                                        verticalAlignment: Text.AlignVCenter
-                                        elide: Text.ElideRight
+                                spacing: 6
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 8
+                                    Text { text: qsTr("Link ") + (index + 1); color: Theme.textDim; font.pixelSize: 11 }
+                                    StudioComboBox {
+                                        objectName: "settingsPanelLinkKind-" + modelData.id
+                                        model: [qsTr("Website / custom"), "GitHub", "Discord", "YouTube"]
+                                        currentIndex: Math.max(0, ["link", "github", "discord", "youtube"].indexOf(modelData.kind))
+                                        onActivated: page.editPanelLink(modelData.id, "kind", ["link", "github", "discord", "youtube"][currentIndex])
                                     }
-                                    background: Rectangle {
-                                        color: Theme.cardLow
-                                        radius: 7
-                                        border.color: Theme.border
+                                    StudioTextField {
+                                        objectName: "settingsPanelLinkTitle-" + modelData.id
+                                        Layout.fillWidth: true
+                                        placeholderText: qsTr("Link label")
+                                        text: modelData.title
+                                        maximumLength: 80
+                                        onTextEdited: page.editPanelLink(modelData.id, "title", text)
+                                    }
+                                    ActionButton {
+                                        objectName: "settingsPanelLinkRemove-" + modelData.id
+                                        text: "−"
+                                        Accessible.name: qsTr("Remove About link ") + (index + 1)
+                                        onClicked: page.removePanelLink(modelData.id)
                                     }
                                 }
                                 StudioTextField {
-                                    id: profileTitleField
-                                    Layout.preferredWidth: 205
+                                    objectName: "settingsPanelLinkUrl-" + modelData.id
                                     Layout.fillWidth: true
-                                    text: profileLinkRow.modelData.title || ""
-                                    placeholderText: qsTr("Button name")
-                                    color: Theme.text
-                                    font.pixelSize: 10
-                                    background: Rectangle { color: Theme.cardLow; radius: 7; border.color: Theme.border }
+                                    placeholderText: "https://example.com"
+                                    text: modelData.url
+                                    maximumLength: 512
+                                    onTextEdited: page.editPanelLink(modelData.id, "url", text)
                                 }
-                                StudioTextField {
-                                    id: profileUrlField
+                                RowLayout {
                                     Layout.fillWidth: true
-                                    text: profileLinkRow.modelData.url || ""
-                                    placeholderText: "https://…"
-                                    color: Theme.text
-                                    font.pixelSize: 10
-                                    background: Rectangle { color: Theme.cardLow; radius: 7; border.color: Theme.border }
+                                    Image {
+                                        source: page.panelLinkIconSource(modelData.id)
+                                        visible: source.toString().length > 0
+                                        Layout.preferredWidth: 26; Layout.preferredHeight: 26
+                                        fillMode: Image.PreserveAspectFit
+                                    }
+                                    ActionButton {
+                                        objectName: "settingsPanelLinkIcon-" + modelData.id
+                                        implicitHeight: 28
+                                        text: page.panelLinkIconSource(modelData.id) ? qsTr("Replace icon…") : qsTr("Choose icon…")
+                                        onClicked: {
+                                            panelAssetDialog.targetKind = "link-icon";
+                                            panelAssetDialog.targetId = modelData.id;
+                                            panelAssetDialog.nameFilters = [qsTr("Link icon (*.svg *.png *.jpg *.jpeg *.webp)")];
+                                            panelAssetDialog.open();
+                                        }
+                                    }
+                                    ActionButton {
+                                        implicitHeight: 28
+                                        visible: page.panelLinkIconSource(modelData.id).length > 0
+                                        text: qsTr("Clear icon")
+                                        onClicked: page.clearPanelAsset("link-icon", modelData.id)
+                                    }
+                                    Item { Layout.fillWidth: true }
                                 }
-                                ActionButton {
-                                    text: "\u2715"
-                                    implicitHeight: 28
-                                    onClicked: page.removeProfileLink(profileLinkRow.index)
-                                }
-                                property alias titleInput: profileTitleField
-                                property alias urlInput: profileUrlField
-                                property alias kindBox: profileKindBox
                             }
                         }
-                        RowLayout {
-                            Layout.fillWidth: true
-                            spacing: 8
-                            ActionButton {
-                                implicitHeight: 28
-                                text: page.profileLinks.length >= 8 ? qsTr("8 buttons max") : qsTr("+ Add button")
-                                enabled: page.profileLinks.length < 8
-                                onClicked: page.addProfileLink()
-                            }
-                            Item { Layout.fillWidth: true }
+                        ActionButton {
+                            objectName: "settingsPanelLinkAdd"
+                            text: qsTr("+ Add link")
+                            enabled: page.panelLinks.length < 24 && !backend.busy
+                            onClicked: page.addPanelLink()
                         }
 
                         // ---- actions -------------------------------------
@@ -2357,7 +2335,10 @@ Item {
         property string targetKind: ""
         property string targetId: ""
         title: targetKind === "logo" ? qsTr("Choose the About logo")
-                                     : qsTr("Choose the tab SVG icon")
+             : targetKind === "link-icon" ? qsTr("Choose an About link icon")
+                                         : qsTr("Choose the tab SVG icon")
+        nameFilters: targetKind === "tab-icon" ? [qsTr("SVG image (*.svg)")]
+                     : [qsTr("Image (*.svg *.png *.jpg *.jpeg *.webp)")]
         onAccepted: page.setPanelAsset(targetKind, targetId, backend.localFilePath(selectedFile))
     }
     Dialog {

@@ -35,6 +35,17 @@ will need its own supported initialization design; this tool does not invoke
 that function. DLL initialization runs under loader-lock constraints. A generic
 loader cannot certify that arbitrary DLL initialization is safe.
 
+## Known original Potato reference: separate opt-in instructions
+
+For the user's previously supplied tutorial DLL, see
+[exact original Potato use](POTATO-ORIGINAL-DLL-USE.md). It records the exact
+Strong/Light bytes and correct existing `proxy_VerQueryValueW` anchor, not the
+generic `zlag_init` default. This is a local, explicitly reviewed startup use,
+not a bundled payload or safety/driver/game certification. Its original hooks
+are persistent and **not** controlled by BSI's live Potato slider or Off state.
+Removal requires full process exit and verified EXE-dependency restoration.
+The generic importer implementation below is unchanged.
+
 ## Use and distribution
 
 1. Work on an authorized disposable installation first. Keep an independent

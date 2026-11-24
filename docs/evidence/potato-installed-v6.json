@@ -1,0 +1,141 @@
+{
+  "schema": "bsi.potato-installed-report.v1",
+  "source": "Transcribed from the user's complete v6 clipboard report in this conversation; not an independently read process, installed-DLL checksum, exact raw-byte clipboard archive or image capture.",
+  "moduleBuildRevision": "2e5e6a0b726cf84dbc36c8ee5d5dcf8dce2c4d19",
+  "captureSchema": "gl-pending-copy-ledger-v6",
+  "requestedApi": "Automatic",
+  "observedApi": "OpenGL",
+  "processedGamePresentationFrames": 5950,
+  "gameSurfaceObserved": true,
+  "presentationProcessingActive": true,
+  "moduleQt": "5.15.2",
+  "hostQt": "5.15.4",
+  "strength": 100,
+  "policy": "OwnedMipCompatibility",
+  "inspectionArmed": true,
+  "preparedPotatoBindings": 0,
+  "preparedPotatoDraws": 0,
+  "inspections": {
+    "calls": 11663,
+    "samplerInspections": 11663,
+    "depthBypass": 0,
+    "blendedBypass": 0,
+    "noEligibleMipSampler": 11663,
+    "otherBypass": 0,
+    "nestedInspected": 0,
+    "nestedPrepared": 0
+  },
+  "lastPresentationInput": {
+    "sampler2DSlots": 1,
+    "boundTextures": 1,
+    "firstBlocker": "non-mip-filter",
+    "minificationFilter": "0x2601",
+    "width": 256,
+    "height": 256,
+    "internalFormat": "0x1907",
+    "baseLevel": 0,
+    "maxLevel": 1000,
+    "immutable": false
+  },
+  "presentationObservations": {
+    "draws": 11661,
+    "colorInputs": 11661
+  },
+  "linkedProducers": {
+    "inspected": 2,
+    "prepared": 0,
+    "privateBindings": 0,
+    "lastInput": {
+      "sampler2DSlots": 1,
+      "boundTextures": 1,
+      "firstBlocker": "non-mip-filter",
+      "minificationFilter": "0x2600",
+      "width": 960,
+      "height": 540,
+      "internalFormat": "0x8058",
+      "baseLevel": 0,
+      "maxLevel": 0,
+      "immutable": false
+    }
+  },
+  "immediateTransfers": {
+    "qualifiedCalls": 0,
+    "linkedInputs": 0
+  },
+  "rawProcessWideCallbacksNotOwnedOrSuccessfulCalls": {
+    "draws": 303884,
+    "transfers": 11677,
+    "namedImageCopies": 0,
+    "nativeImageBindings": 0
+  },
+  "copyRoutingLedger": {
+    "copySubimage": 11677,
+    "outcomes": {
+      "awaitingExactCopyConsumer": 11630,
+      "noQualifiedCandidate": 9,
+      "renderLockBusy": 38
+    },
+    "candidateChecks": {
+      "noRecentResourceDependency": 6,
+      "noSelectedSourceForProvider": 3,
+      "qualified": 11630
+    },
+    "descriptorRefusals": 0,
+    "wglOnlyCodeTargetAttributionNotResourceOwnership": 11677
+  },
+  "deferredReconciliation": {
+    "edges": 2,
+    "linkedInputs": 2
+  },
+  "pendingCopyLedger": {
+    "queued": 11630,
+    "pending": 0,
+    "peak": 2,
+    "reportedBalanced": true,
+    "retirements": {
+      "capturedDestinationWrite": 256,
+      "missedGuardedOrBusyCallback": 10,
+      "observedShareChange": 1,
+      "reconciled": 2,
+      "uncapturedCallbackOutput": 11361
+    },
+    "selectedDefaultFboConsumerChecks": {
+      "noPendingCopy": 903,
+      "sameNamespaceNoDestinationMatch": 10758
+    },
+    "uncapturedOutputRetirementSites": {
+      "drawOutputOrPrimitiveUnavailable": 11361
+    },
+    "queuedSourceKinds": {
+      "renderbuffer": 11630
+    },
+    "reconciliationRetryBounds": {
+      "hops": 0,
+      "resourceBudget": 0
+    },
+    "omittedCategories": "Only categories printed in the supplied report are listed; the balance and totals do not require an additional retirement category."
+  },
+  "vulkan": {
+    "loaders": 1,
+    "instances": 1,
+    "devices": 1,
+    "win32Surfaces": 0,
+    "swapchains": 0,
+    "presents": 0,
+    "missingQueues": 0,
+    "excludedWindows": 0,
+    "lastHookedLoader": "vulkan-1.dll"
+  },
+  "interpretation": {
+    "installedPotatoResult": "Confirmed not working: zero prepared bindings/draws, including both resource-linked producer inspections.",
+    "dominantMetadataRetirement": "11361 of 11630 admitted edges were conservatively removed through draw-output-or-primitive-unavailable, not the original-deadline or hop/resource-budget labels. This is a code-path accounting result, not proof of actual destination writes, an unsupported GL primitive, a missing hook, or the causal game-material graph.",
+    "twoReconciliations": "The interval reports two metadata links, unlike the earlier v5 interval, but both producer inspections yielded zero bindings. The latest producer input is base-only GL_NEAREST 960x540 RGBA8. This is neither an applied texture effect nor a performance comparison between intervals.",
+    "nextDirection": "Honor the user's request to assess use of the exact tutorial DLL through a separate explicitly reviewed restart-only route, instead of another diagnostic-only shader package.",
+    "existingDiagnosticPackageShouldBeRepeated": false,
+    "longerPlayPrescribed": false,
+    "samplingOrOwnershipGatesMayBeRelaxedFromTheseCounters": false,
+    "originalTutorialDllHasLiveOffOrStrengthAbi": false,
+    "gameMaterialOffStrongOffAccepted": false,
+    "physicalGpuOrFpsAccepted": false
+  }
+}

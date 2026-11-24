@@ -1,0 +1,2115 @@
+{
+  "schema": "bsi.potato-transfer-routing-diagnostics.v1",
+  "candidateSourceCommit": "ebdf6c219864c5f7352a1b0bb3fc1ea0ad0ca486",
+  "captureSchema": "gl-transfer-route-ledger-v4",
+  "userReport": {
+    "source": "User supplied clipboard diagnostics, not a captured game image or installed-DLL file checksum",
+    "moduleBuildRevision": "00c1b7c1d4caf5ce1ac7e0ddaf08494f0aa6c45d",
+    "capture": "gl-egl-lifecycle-alias-v3",
+    "installedDllFileSha256": "not supplied",
+    "observedApi": "OpenGL",
+    "bridgeQt": "5.15.2",
+    "hostQt": "5.15.4",
+    "processedPresentationFrames": 706,
+    "strength": 100,
+    "inspectionArmed": true,
+    "preparedDraws": 0,
+    "preparedBindings": 0,
+    "samplerInspections": 330,
+    "noEligibleMipSampler": 330,
+    "presentationDraws": 330,
+    "presentationColorInputs": 330,
+    "producerInspections": 0,
+    "producerBindings": 0,
+    "qualifiedTransfers": 0,
+    "linkedTransferInputs": 0,
+    "preRouteDrawCallbacks": 19379,
+    "preRouteTransferCallbacks": 329,
+    "preRouteNamedCopies": 0,
+    "preRouteNativeImageBindings": 0,
+    "firstBlocker": {
+      "kind": "legal non-mip minification",
+      "minFilter": "0x2601",
+      "width": 256,
+      "height": 256,
+      "internalFormat": "0x1907",
+      "baseLevel": 0,
+      "maxLevel": 1000,
+      "immutable": false
+    },
+    "vulkan": {
+      "loaders": 1,
+      "instances": 1,
+      "devices": 1,
+      "win32Surfaces": 0,
+      "swapchains": 0,
+      "presents": 0
+    },
+    "staleInstallationInferred": false,
+    "potatoWorking": false,
+    "materialPixelChangeOrExactGameOffProved": false
+  },
+  "candidateFileSha256": {
+    "src/shaders/PresentationHooks.cpp": "d5d4dc1adcae623bb16020d21d0581c72f38500990c755505824b262e42d8f97",
+    "src/shaders/GlTransferAudit.h": "92365a3bd6f86a4056ccb8984dc3afc9ad2641e0ef042cdba3c1256075730014",
+    "src/shaders/GlTextureOverride.cpp": "9797849d66a478669763c69bdcc4e7749440dc41b829e10a54fd6bd5c621d84b",
+    "src/shaders/GlTextureOverride.h": "d983d2ab62abe1a7db5079906c46719ded8e1c174edd2441afc8571fbf3b0f1b",
+    "src/shaders/Runtime.cpp": "0e8bb8a13898cd7dbc199d05714c6c70c6606e838c40ea780590b31b11af73f3",
+    "src/shaders/Runtime.h": "e49e528b0ce1a7cfa98c73d35f2c425d8e9fdc70cff415c13a60eafb7377da6d",
+    "src/shaders/ShaderBridge.cpp": "d0f3dfdd03ba9e6de15da548cc8893966ec5d38259b263d780d49d42df7df7dc",
+    "src/shaders/GlTextureProvenance.h": "ab18634231366021cbf33d95f2c5fadbaee7eda200e796612c4fc836171eb85f",
+    "src/shaders/GlProducerRoute.h": "98639e22f24a61e61b815552747db72715f6526d2326f1d22e96bc08ad9fd2e7",
+    "src/shaders/CMakeLists.txt": "06faf48cdd8deedc27b9a999b1fc8531d68a069215d0c9c7560ee8e1f13001b6",
+    "tests/shaders/CMakeLists.txt": "aa2f2cd59c1ba06f844e6cab0f95eebb8c45d31b3c1fff3c3a2671cc488be098",
+    "tests/shaders/gl_transfer_audit_test.cpp": "c7fdd50f72c4293ac8108372949e18c7cb75b5d8586efa40adb0cc65d8aaf7c8",
+    "tests/shaders/egl_gl_fixture.h": "0e1c2e23c1a44d29e9b14b5a423d27970b6a03d7b3c7b71251e31234cf6f2823",
+    "tests/shaders/wgl_loader_fixture.cpp": "c1c93795153dc745861d25374c3d88518cd4c4bfd2f3a1895235a2378cf56bfa",
+    "tests/shaders/gl_texture_override_test.cpp": "04325bb0ce8679854f8e0921120e3dbb179ed808cf81469db44070a2b58ad608",
+    "tests/shaders/renderer_capabilities_test.cpp": "eb6cdc8741d3e0a4ad24707397bd02ae77d5c1ed452a137c6633aae6d6454f65",
+    "tests/shaders_plugin_ui_test.py": "bf7b8176e317d06a7e3186a7be860ebf3e9d3c192c5b7b6b0f3e5f2f8b24ee31",
+    ".github/workflows/egl-split-dispatch.yml": "d1e8e3a85a1123ace665547d85dbfcf57b73b476c81165bdea461b1432661e76",
+    ".github/workflows/shaders.yml": "c3d94ec44fa92dbf45489ad6a9d340fa5aa707f34c90eddbc4733e941f693bb5",
+    ".github/workflows/release.yml": "e39e05d8a33c93b59b6ccf7f6faa11ff11b5fa6c5e5617bf06da5c76547cb0f0"
+  },
+  "beforeHooksSha256": "784845177c6cfdf97bee4a6f1a018b3dcf94d641d7e1521fa704431402671c41",
+  "boundaries": {
+    "samplingPolicyFromBeginThroughReleaseUnchanged": true,
+    "textureProvenanceAndProducerRouteHelpersUnchanged": true,
+    "extraDiagnosticGlQueries": false,
+    "foreignRouteAdoptionAdded": false,
+    "providerNamespaceMergeAdded": false,
+    "privateAbiOrOffsetsUsed": false,
+    "proprietaryPfFilesExecutedPatchedOrRedistributedThisFollowup": false,
+    "renderOrRuntimeLockHeldAcrossCopyOriginal": false,
+    "rawHandlesNamesPathsOrPixelDataInLedger": false,
+    "persistentDiagnosticLogOrUploadAdded": false
+  },
+  "local": {
+    "strictCtest": {
+      "passed": 9,
+      "failed": 0,
+      "vulkanPixelsExecuted": false,
+      "log": "Internal ctest changing into directory: /home/user/BSI-Customizer/.cache/potato-transfer-audit/native\nTest project /home/user/BSI-Customizer/.cache/potato-transfer-audit/native\n    Start 1: shader-renderer-routing\n1/9 Test #1: shader-renderer-routing ...........   Passed    0.00 sec\n    Start 2: shader-texture-quality-policy\n2/9 Test #2: shader-texture-quality-policy .....   Passed    0.00 sec\n    Start 3: shader-gl-texture-safety\n3/9 Test #3: shader-gl-texture-safety ..........   Passed    0.01 sec\n    Start 4: shader-egl-dispatch-attribution\n4/9 Test #4: shader-egl-dispatch-attribution ...   Passed    0.00 sec\n    Start 5: shader-gl-draw-scope\n5/9 Test #5: shader-gl-draw-scope ..............   Passed    0.00 sec\n    Start 6: shader-gl-texture-provenance\n6/9 Test #6: shader-gl-texture-provenance ......   Passed    0.00 sec\n    Start 7: shader-gl-producer-route\n7/9 Test #7: shader-gl-producer-route ..........   Passed    0.01 sec\n    Start 8: shader-wgl-pbuffer-registry\n8/9 Test #8: shader-wgl-pbuffer-registry .......   Passed    0.00 sec\n    Start 9: shader-vulkan-present-contract\n9/9 Test #9: shader-vulkan-present-contract ....   Passed    0.00 sec\n\n100% tests passed, 0 tests failed out of 9\n\nTotal Test time (real) =   0.04 sec\n"
+    },
+    "asanUbsanLeakCtest": {
+      "passed": 9,
+      "failed": 0,
+      "ASAN_OPTIONS": "detect_leaks=1",
+      "vulkanPixelsExecuted": false,
+      "log": "Internal ctest changing into directory: /home/user/BSI-Customizer/.cache/potato-transfer-audit/asan\nTest project /home/user/BSI-Customizer/.cache/potato-transfer-audit/asan\n    Start 1: shader-renderer-routing\n1/9 Test #1: shader-renderer-routing ...........   Passed    0.01 sec\n    Start 2: shader-texture-quality-policy\n2/9 Test #2: shader-texture-quality-policy .....   Passed    0.01 sec\n    Start 3: shader-gl-texture-safety\n3/9 Test #3: shader-gl-texture-safety ..........   Passed    0.02 sec\n    Start 4: shader-egl-dispatch-attribution\n4/9 Test #4: shader-egl-dispatch-attribution ...   Passed    0.01 sec\n    Start 5: shader-gl-draw-scope\n5/9 Test #5: shader-gl-draw-scope ..............   Passed    0.01 sec\n    Start 6: shader-gl-texture-provenance\n6/9 Test #6: shader-gl-texture-provenance ......   Passed    0.01 sec\n    Start 7: shader-gl-producer-route\n7/9 Test #7: shader-gl-producer-route ..........   Passed    0.01 sec\n    Start 8: shader-wgl-pbuffer-registry\n8/9 Test #8: shader-wgl-pbuffer-registry .......   Passed    0.01 sec\n    Start 9: shader-vulkan-present-contract\n9/9 Test #9: shader-vulkan-present-contract ....   Passed    0.01 sec\n\n100% tests passed, 0 tests failed out of 9\n\nTotal Test time (real) =   0.09 sec\n"
+    },
+    "strictWin64CrossCompilation": {
+      "compiler": "ziglang 0.13.0",
+      "flags": "-std=c++17 -O2 -Wall -Wextra -Werror",
+      "productionHooksRuntimeInspectorAndWindowsTestFixture": true,
+      "windowsCodeExecutedLocally": false
+    },
+    "publicQtBoundaryAndNotices": "PASS",
+    "independentClangUbsanRouting": {
+      "compiler": "ziglang 0.13.0 bundled Clang",
+      "flags": "-O1 -g -pthread -fsanitize=undefined -fno-sanitize-recover=all -Wall -Wextra -Werror",
+      "UBSAN_OPTIONS": "halt_on_error=1",
+      "log": "PASS: automatic actual-presentation routing across all config hints, concurrent/nested/same-family arbitration and source-teardown re-detection, explicit backend qualification, actual-surface and device-feature gating, no ANGLE double-processing, no unvalidated success counters, strict neutral bypass and value bounds\n"
+    }
+  },
+  "beforeWindows": {
+    "id": 45048102298,
+    "head_sha": "ac9dc3c4acad34fa1ed35b00a9613d0cc9c20abb",
+    "head_branch": "arena/daa0fcb2-bsi-customizer",
+    "status": "completed",
+    "conclusion": "failure",
+    "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45048102298",
+    "run_attempt": 1,
+    "created_at": "2026-11-22T17:12:09Z",
+    "updated_at": "2026-11-22T17:14:04Z",
+    "jobs": [
+      {
+        "id": 137287022492,
+        "name": "focused-egl / Actual Windows MinHook on authored split EGL DLLs",
+        "status": "completed",
+        "conclusion": "failure",
+        "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45048102298/job/137287022492",
+        "started_at": "2026-11-22T17:12:14Z",
+        "completed_at": "2026-11-22T17:14:03Z",
+        "steps": [
+          {
+            "name": "Set up job",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/setup-python@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Build production hooks and authored DLLs without Qt or proprietary files",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run all nine independent split-dispatch contracts and existing Windows contracts",
+            "conclusion": "failure"
+          },
+          {
+            "name": "Record scope",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/setup-python@v5",
+            "conclusion": "skipped"
+          },
+          {
+            "name": "Post Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Complete job",
+            "conclusion": "success"
+          }
+        ],
+        "annotations": [
+          {
+            "title": "",
+            "annotation_level": "warning",
+            "message": "Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/"
+          },
+          {
+            "title": "",
+            "annotation_level": "failure",
+            "message": "Process completed with exit code 1."
+          },
+          {
+            "title": "Existing native contract result",
+            "annotation_level": "notice",
+            "message": "Non-split CTest exit=8 source=ac9dc3c4acad34fa1ed35b00a9613d0cc9c20abb"
+          },
+          {
+            "title": "Native shader test failure",
+            "annotation_level": "failure",
+            "message": "r-routing ..................   Passed    0.02 sec\n      Start  2: shader-texture-quality-policy\n 2/22 Test  #2: shader-texture-quality-policy ............   Passed    0.01 sec\n      Start  3: shader-gl-texture-safety\n 3/22 Test  #3: shader-gl-texture-safety .................   Passed    0.01 sec\n      Start  4: shader-egl-dispatch-attribution\n 4/22 Test  #4: shader-egl-dispatch-attribution ..........   Passed    0.01 sec\n      Start  5: shader-gl-draw-scope\n 5/22 Test  #5: shader-gl-draw-scope .....................   Passed    0.01 sec\n      Start  6: shader-gl-texture-provenance\n 6/22 Test  #6: shader-gl-texture-provenance .............   Passed    0.01 sec\n      Start  7: shader-gl-producer-route\n 7/22 Test  #7: shader-gl-producer-route .................   Passed    0.01 sec\n      Start  8: shader-wgl-pbuffer-registry\n 8/22 Test  #8: shader-wgl-pbuffer-registry ..............   Passed    0.01 sec\n      Start  9: shader-vulkan-present-contract\n 9/22 Test  #9: shader-vulkan-present-contract ...........   Passed    0.01 sec\n      Start 10: shader-d3d11-warp-pixels\n10/22 Test #10: shader-d3d11-warp-pixels .................   Passed    0.17 sec\n      Start 11: shader-d3d12-warp-pixels\n11/22 Test #11: shader-d3d12-warp-pixels .................   Passed    0.70 sec\n      Start 12: shader-dxgi-presentation-hooks\n12/22 Test #12: shader-dxgi-presentation-hooks ...........   Passed    0.53 sec\n      Start 13: shader-wgl-pbuffer-hooks-contract\n13/22 Test #13: shader-wgl-pbuffer-hooks-contract ........   Passed    1.33 sec\n      Start 14: shader-gl-transfer-native-abi-contract\n14/22 Test #14: shader-gl-transfer-native-abi-contract ...***Failed    0.72 sec\nFAIL: transfer inspection must preserve the native original's INCOMING LastError\n\n      Start 15: shader-wgl-image-copy-contract\n15/22 Test #15: shader-wgl-image-copy-contract ...........   Passed    1.34 sec\n      Start 16: shader-wgl-procedure-hooks-contract\n16/22 Test #16: shader-wgl-procedure-hooks-contract ......   Passed    1.37 sec\n      Start 17: shader-wgl-cached-procedures-contract\n17/22 Test #17: shader-wgl-cached-procedures-contract ....   Passed    1.39 sec\n      Start 18: shader-wgl-existing-current-contract\n18/22 Test #18: shader-wgl-existing-current-contract .....   Passed    1.34 sec\n      Start 19: shader-egl-cached-procedures-contract\n19/22 Test #19: shader-egl-cached-procedures-contract ....   Passed    2.35 sec\n      Start 20: shader-egl-late-procedures-contract\n20/22 Test #20: shader-egl-late-procedures-contract ......   Passed    2.34 sec\n      Start 21: shader-egl-loader-hooks-contract\n21/22 Test #21: shader-egl-loader-hooks-contract .........   Passed    3.65 sec\n      Start 22: shader-vulkan-loader-hooks-contract\n22/22 Test #22: shader-vulkan-loader-hooks-contract ......   Passed    0.82 sec\n\n95% tests passed, 1 tests failed out of 22\n\nTotal Test time (real) =  18.15 sec\n\nThe following tests FAILED:\n\t 14 - shader-gl-transfer-native-abi-contract (Failed)\nErrors while running CTest\n"
+          },
+          {
+            "title": "Split EGL contract result",
+            "annotation_level": "notice",
+            "message": "capacity exit=0 source=ac9dc3c4acad34fa1ed35b00a9613d0cc9c20abb"
+          },
+          {
+            "title": "Split EGL contract result",
+            "annotation_level": "notice",
+            "message": "native-image exit=0 source=ac9dc3c4acad34fa1ed35b00a9613d0cc9c20abb"
+          },
+          {
+            "title": "Split EGL contract result",
+            "annotation_level": "notice",
+            "message": "resolver exit=0 source=ac9dc3c4acad34fa1ed35b00a9613d0cc9c20abb"
+          },
+          {
+            "title": "Split EGL contract result",
+            "annotation_level": "notice",
+            "message": "retire-context exit=0 source=ac9dc3c4acad34fa1ed35b00a9613d0cc9c20abb"
+          },
+          {
+            "title": "Split EGL contract result",
+            "annotation_level": "notice",
+            "message": "retire-surface exit=0 source=ac9dc3c4acad34fa1ed35b00a9613d0cc9c20abb"
+          },
+          {
+            "title": "Split EGL contract result",
+            "annotation_level": "notice",
+            "message": "present exit=0 source=ac9dc3c4acad34fa1ed35b00a9613d0cc9c20abb"
+          },
+          {
+            "title": "Split EGL contract result",
+            "annotation_level": "notice",
+            "message": "cached exit=0 source=ac9dc3c4acad34fa1ed35b00a9613d0cc9c20abb"
+          },
+          {
+            "title": "Split EGL contract result",
+            "annotation_level": "notice",
+            "message": "queried exit=0 source=ac9dc3c4acad34fa1ed35b00a9613d0cc9c20abb"
+          },
+          {
+            "title": "Split EGL contract result",
+            "annotation_level": "notice",
+            "message": "exports exit=0 source=ac9dc3c4acad34fa1ed35b00a9613d0cc9c20abb"
+          }
+        ]
+      },
+      {
+        "id": 137287023311,
+        "name": "Actual Qt 5 public bridge on a newer independent Qt 5 runtime (Linux fixture)",
+        "status": "completed",
+        "conclusion": "skipped",
+        "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45048102298/job/137287023311",
+        "started_at": "2026-11-22T17:12:12Z",
+        "completed_at": "2026-11-22T17:12:12Z",
+        "steps": [],
+        "annotations": []
+      },
+      {
+        "id": 137287023949,
+        "name": "Windows x64 bridge ${{ matrix.qt }} -> host ${{ matrix.host-qt }} and WARP",
+        "status": "completed",
+        "conclusion": "skipped",
+        "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45048102298/job/137287023949",
+        "started_at": "2026-11-22T17:12:12Z",
+        "completed_at": "2026-11-22T17:12:12Z",
+        "steps": [],
+        "annotations": []
+      },
+      {
+        "id": 137287024191,
+        "name": "Native Vulkan and GLES pixels (Mesa software; not hardware)",
+        "status": "completed",
+        "conclusion": "skipped",
+        "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45048102298/job/137287024191",
+        "started_at": "2026-11-22T17:12:12Z",
+        "completed_at": "2026-11-22T17:12:12Z",
+        "steps": [],
+        "annotations": []
+      },
+      {
+        "id": 137287058216,
+        "name": "Qt inventory and Phone-source recovery on four pinned player samples",
+        "status": "completed",
+        "conclusion": "skipped",
+        "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45048102298/job/137287058216",
+        "started_at": "2026-11-22T17:12:19Z",
+        "completed_at": "2026-11-22T17:12:12Z",
+        "steps": [],
+        "annotations": []
+      }
+    ]
+  },
+  "focusedAfterWindows": {
+    "id": 45048681508,
+    "head_sha": "46ce6cf96911c7a1991ce38c4b0e6a3eb85c52a5",
+    "head_branch": "arena/daa0fcb2-bsi-customizer",
+    "status": "completed",
+    "conclusion": "success",
+    "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45048681508",
+    "run_attempt": 1,
+    "created_at": "2026-11-22T17:18:21Z",
+    "updated_at": "2026-11-22T17:19:56Z",
+    "jobs": [
+      {
+        "id": 137288792452,
+        "name": "focused-egl / Actual Windows MinHook on authored split EGL DLLs",
+        "status": "completed",
+        "conclusion": "success",
+        "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45048681508/job/137288792452",
+        "started_at": "2026-11-22T17:18:24Z",
+        "completed_at": "2026-11-22T17:19:55Z",
+        "steps": [
+          {
+            "name": "Set up job",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/setup-python@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Build production hooks and authored DLLs without Qt or proprietary files",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run all nine independent split-dispatch contracts and existing Windows contracts",
+            "conclusion": "success"
+          },
+          {
+            "name": "Record scope",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/setup-python@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Complete job",
+            "conclusion": "success"
+          }
+        ],
+        "annotations": [
+          {
+            "title": "",
+            "annotation_level": "warning",
+            "message": "Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/"
+          },
+          {
+            "title": "GL transfer ABI and routing ledger result",
+            "annotation_level": "notice",
+            "message": "Transfer CTest exit=0 source=46ce6cf96911c7a1991ce38c4b0e6a3eb85c52a5"
+          },
+          {
+            "title": "Split EGL contract result",
+            "annotation_level": "notice",
+            "message": "capacity exit=0 source=46ce6cf96911c7a1991ce38c4b0e6a3eb85c52a5"
+          },
+          {
+            "title": "Split EGL contract result",
+            "annotation_level": "notice",
+            "message": "native-image exit=0 source=46ce6cf96911c7a1991ce38c4b0e6a3eb85c52a5"
+          },
+          {
+            "title": "Split EGL contract result",
+            "annotation_level": "notice",
+            "message": "resolver exit=0 source=46ce6cf96911c7a1991ce38c4b0e6a3eb85c52a5"
+          },
+          {
+            "title": "Split EGL contract result",
+            "annotation_level": "notice",
+            "message": "retire-context exit=0 source=46ce6cf96911c7a1991ce38c4b0e6a3eb85c52a5"
+          },
+          {
+            "title": "Split EGL contract result",
+            "annotation_level": "notice",
+            "message": "retire-surface exit=0 source=46ce6cf96911c7a1991ce38c4b0e6a3eb85c52a5"
+          },
+          {
+            "title": "Split EGL contract result",
+            "annotation_level": "notice",
+            "message": "present exit=0 source=46ce6cf96911c7a1991ce38c4b0e6a3eb85c52a5"
+          },
+          {
+            "title": "Split EGL contract result",
+            "annotation_level": "notice",
+            "message": "cached exit=0 source=46ce6cf96911c7a1991ce38c4b0e6a3eb85c52a5"
+          },
+          {
+            "title": "Split EGL contract result",
+            "annotation_level": "notice",
+            "message": "queried exit=0 source=46ce6cf96911c7a1991ce38c4b0e6a3eb85c52a5"
+          },
+          {
+            "title": "Split EGL contract result",
+            "annotation_level": "notice",
+            "message": "exports exit=0 source=46ce6cf96911c7a1991ce38c4b0e6a3eb85c52a5"
+          }
+        ]
+      },
+      {
+        "id": 137288793356,
+        "name": "Windows x64 bridge ${{ matrix.qt }} -> host ${{ matrix.host-qt }} and WARP",
+        "status": "completed",
+        "conclusion": "skipped",
+        "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45048681508/job/137288793356",
+        "started_at": "2026-11-22T17:18:22Z",
+        "completed_at": "2026-11-22T17:18:22Z",
+        "steps": [],
+        "annotations": []
+      },
+      {
+        "id": 137288793798,
+        "name": "Native Vulkan and GLES pixels (Mesa software; not hardware)",
+        "status": "completed",
+        "conclusion": "skipped",
+        "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45048681508/job/137288793798",
+        "started_at": "2026-11-22T17:18:23Z",
+        "completed_at": "2026-11-22T17:18:22Z",
+        "steps": [],
+        "annotations": []
+      },
+      {
+        "id": 137288793852,
+        "name": "Qt inventory and Phone-source recovery on four pinned player samples",
+        "status": "completed",
+        "conclusion": "skipped",
+        "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45048681508/job/137288793852",
+        "started_at": "2026-11-22T17:18:23Z",
+        "completed_at": "2026-11-22T17:18:22Z",
+        "steps": [],
+        "annotations": []
+      },
+      {
+        "id": 137288793914,
+        "name": "Actual Qt 5 public bridge on a newer independent Qt 5 runtime (Linux fixture)",
+        "status": "completed",
+        "conclusion": "skipped",
+        "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45048681508/job/137288793914",
+        "started_at": "2026-11-22T17:18:23Z",
+        "completed_at": "2026-11-22T17:18:22Z",
+        "steps": [],
+        "annotations": []
+      }
+    ]
+  },
+  "firstFullAttempt": {
+    "id": 45048873578,
+    "head_sha": "46ce6cf96911c7a1991ce38c4b0e6a3eb85c52a5",
+    "head_branch": "arena/daa0fcb2-bsi-customizer",
+    "status": "completed",
+    "conclusion": "failure",
+    "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45048873578",
+    "run_attempt": 1,
+    "created_at": "2026-11-22T17:20:22Z",
+    "updated_at": "2026-11-22T17:28:34Z",
+    "jobs": [
+      {
+        "id": 137289375803,
+        "name": "Windows x64 bridge 5.15.2 -> host PyQt5-bundled-5.15 and WARP",
+        "status": "completed",
+        "conclusion": "success",
+        "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45048873578/job/137289375803",
+        "started_at": "2026-11-22T17:20:27Z",
+        "completed_at": "2026-11-22T17:28:34Z",
+        "steps": [
+          {
+            "name": "Set up job",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run jurplel/install-qt-action@v4.3.1",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/setup-python@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Install an independent Qt Python host for actual cross-version plugin tests",
+            "conclusion": "success"
+          },
+          {
+            "name": "Build regular plugin, MinHook and native DirectX tests (no system proxy)",
+            "conclusion": "success"
+          },
+          {
+            "name": "Native API pixels, routing, real GL draw detours and EGL/DXGI/Vulkan lifecycle contracts",
+            "conclusion": "success"
+          },
+          {
+            "name": "Read-only actual module/provider contract against the independent host runtime",
+            "conclusion": "success"
+          },
+          {
+            "name": "Actual C++ plugin import and physical shader-page controls (Qt fixture only)",
+            "conclusion": "success"
+          },
+          {
+            "name": "Unmodified native controls/theme, exact Save pixels, opacity and physical input on both pinned matching-Qt players",
+            "conclusion": "success"
+          },
+          {
+            "name": "Physical native Settings navigation, prompts and missing-module fallback (contract fixture)",
+            "conclusion": "success"
+          },
+          {
+            "name": "Live plugin preview shares one theme, stays opaque on every tab and preserves physical No/Discard",
+            "conclusion": "success"
+          },
+          {
+            "name": "Stock Phone dropdown, native Save/Discard contract and qrc-to-local helper on Windows",
+            "conclusion": "success"
+          },
+          {
+            "name": "Actual selected-tab glass pixels/input at host, 100/125/150/200 percent DPI and strict flat-image negative controls",
+            "conclusion": "success"
+          },
+          {
+            "name": "Retain glass capture diagnostics and negative controls",
+            "conclusion": "success"
+          },
+          {
+            "name": "Record limits rather than claim universal support",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/setup-python@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run jurplel/install-qt-action@v4.3.1",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Complete job",
+            "conclusion": "success"
+          }
+        ],
+        "annotations": [
+          {
+            "title": "",
+            "annotation_level": "warning",
+            "message": "Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/setup-python@v5, actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/"
+          }
+        ]
+      },
+      {
+        "id": 137289375995,
+        "name": "Windows x64 bridge 6.2.4 -> host 6.7.3 and WARP",
+        "status": "completed",
+        "conclusion": "success",
+        "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45048873578/job/137289375995",
+        "started_at": "2026-11-22T17:20:26Z",
+        "completed_at": "2026-11-22T17:27:54Z",
+        "steps": [
+          {
+            "name": "Set up job",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run jurplel/install-qt-action@v4.3.1",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/setup-python@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Install an independent Qt Python host for actual cross-version plugin tests",
+            "conclusion": "success"
+          },
+          {
+            "name": "Build regular plugin, MinHook and native DirectX tests (no system proxy)",
+            "conclusion": "success"
+          },
+          {
+            "name": "Native API pixels, routing, real GL draw detours and EGL/DXGI/Vulkan lifecycle contracts",
+            "conclusion": "success"
+          },
+          {
+            "name": "Read-only actual module/provider contract against the independent host runtime",
+            "conclusion": "success"
+          },
+          {
+            "name": "Actual C++ plugin import and physical shader-page controls (Qt fixture only)",
+            "conclusion": "success"
+          },
+          {
+            "name": "Unmodified native controls/theme, exact Save pixels, opacity and physical input on both pinned matching-Qt players",
+            "conclusion": "success"
+          },
+          {
+            "name": "Physical native Settings navigation, prompts and missing-module fallback (contract fixture)",
+            "conclusion": "success"
+          },
+          {
+            "name": "Live plugin preview shares one theme, stays opaque on every tab and preserves physical No/Discard",
+            "conclusion": "success"
+          },
+          {
+            "name": "Stock Phone dropdown, native Save/Discard contract and qrc-to-local helper on Windows",
+            "conclusion": "success"
+          },
+          {
+            "name": "Actual selected-tab glass pixels/input at host, 100/125/150/200 percent DPI and strict flat-image negative controls",
+            "conclusion": "success"
+          },
+          {
+            "name": "Retain glass capture diagnostics and negative controls",
+            "conclusion": "success"
+          },
+          {
+            "name": "Record limits rather than claim universal support",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/setup-python@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run jurplel/install-qt-action@v4.3.1",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Complete job",
+            "conclusion": "success"
+          }
+        ],
+        "annotations": [
+          {
+            "title": "",
+            "annotation_level": "warning",
+            "message": "Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/setup-python@v5, actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/"
+          }
+        ]
+      },
+      {
+        "id": 137289376061,
+        "name": "Qt inventory and Phone-source recovery on four pinned player samples",
+        "status": "completed",
+        "conclusion": "success",
+        "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45048873578/job/137289376061",
+        "started_at": "2026-11-22T17:20:27Z",
+        "completed_at": "2026-11-22T17:22:49Z",
+        "steps": [
+          {
+            "name": "Set up job",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/setup-python@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run python -m pip install pefile==2024.8.26",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Verify fixed-version, import-tag and compiler-header evidence without executing players",
+            "conclusion": "success"
+          },
+          {
+            "name": "Build the production Phone source and disk installer (Qt Core only)",
+            "conclusion": "success"
+          },
+          {
+            "name": "Realistic helper URLs, no-growth planning and disk recovery on disposable pinned-player copies",
+            "conclusion": "success"
+          },
+          {
+            "name": "Source-only public Qt bridge boundary guard",
+            "conclusion": "success"
+          },
+          {
+            "name": "Failure and timeout diagnostics never turn a failed test into a pass",
+            "conclusion": "success"
+          },
+          {
+            "name": "Independent Windows host path layouts never fall back to a build SDK",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/setup-python@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Complete job",
+            "conclusion": "success"
+          }
+        ],
+        "annotations": [
+          {
+            "title": "",
+            "annotation_level": "warning",
+            "message": "Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/"
+          }
+        ]
+      },
+      {
+        "id": 137289376107,
+        "name": "Native Vulkan and GLES pixels (Mesa software; not hardware)",
+        "status": "completed",
+        "conclusion": "failure",
+        "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45048873578/job/137289376107",
+        "started_at": "2026-11-22T17:20:27Z",
+        "completed_at": "2026-11-22T17:22:44Z",
+        "steps": [
+          {
+            "name": "Set up job",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/setup-node@v4",
+            "conclusion": "success"
+          },
+          {
+            "name": "Install real software graphics APIs",
+            "conclusion": "success"
+          },
+          {
+            "name": "Check committed SPIR-V matches the shared original source",
+            "conclusion": "success"
+          },
+          {
+            "name": "Native Mesa Vulkan pixels with mandatory Khronos lifetime/API validation",
+            "conclusion": "success"
+          },
+          {
+            "name": "ASan/UBSan routing and native Vulkan on a second software ICD",
+            "conclusion": "failure"
+          },
+          {
+            "name": "ASan/UBSan native source, package, file recovery and every encoder allocation failure",
+            "conclusion": "skipped"
+          },
+          {
+            "name": "Production GLES and desktop OpenGL core pixels/state restoration",
+            "conclusion": "skipped"
+          },
+          {
+            "name": "Actual nonsharing native EGL pbuffer image pixels (mandatory ANGLE software)",
+            "conclusion": "skipped"
+          },
+          {
+            "name": "Retain authored native/Strong/Off texture images and measured mip evidence",
+            "conclusion": "failure"
+          },
+          {
+            "name": "Record scope of results",
+            "conclusion": "skipped"
+          },
+          {
+            "name": "Post Run actions/setup-node@v4",
+            "conclusion": "skipped"
+          },
+          {
+            "name": "Post Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Complete job",
+            "conclusion": "success"
+          }
+        ],
+        "annotations": [
+          {
+            "title": "",
+            "annotation_level": "warning",
+            "message": "Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/setup-node@v4, actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/"
+          },
+          {
+            "title": "",
+            "annotation_level": "failure",
+            "message": "No files were found with the provided path: /home/runner/work/_temp/authored-texture-pixels. No artifacts will be uploaded."
+          },
+          {
+            "title": "",
+            "annotation_level": "failure",
+            "message": "Process completed with exit code 1."
+          },
+          {
+            "title": "Native shader test failure",
+            "annotation_level": "failure",
+            "message": "src/shaders/GlTransferAudit.h:47:57: runtime error: load of value 999, which is not a valid value for type 'Kind'\n    #0 0x55a9e42ea415 in BsiShaders::GlTransferAudit::note(BsiShaders::GlTransferAttempt const&) src/shaders/GlTransferAudit.h:47\n    #1 0x55a9e42dc975 in BsiShaders::Runtime::textureTransferAuditReport(BsiShaders::GlTransferAttempt const&) src/shaders/Runtime.cpp:148\n    #2 0x55a9e42c6ce6 in main tests/shaders/renderer_capabilities_test.cpp:173\n    #3 0x7f90dce2a1c9  (/lib/x86_64-linux-gnu/libc.so.6+0x2a1c9) (BuildId: 8cebda42d140fc2b09639f8b13a5d5f2e617ef09)\n    #4 0x7f90dce2a28a in __libc_start_main (/lib/x86_64-linux-gnu/libc.so.6+0x2a28a) (BuildId: 8cebda42d140fc2b09639f8b13a5d5f2e617ef09)\n    #5 0x55a9e42bd7a4 in _start (/home/runner/work/_temp/routing-asan+0x627a4) (BuildId: 379eb141389a2771dce478ee0e74a401a0d71810)\n\n"
+          }
+        ]
+      },
+      {
+        "id": 137289376117,
+        "name": "Actual Qt 5 public bridge on a newer independent Qt 5 runtime (Linux fixture)",
+        "status": "completed",
+        "conclusion": "success",
+        "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45048873578/job/137289376117",
+        "started_at": "2026-11-22T17:20:27Z",
+        "completed_at": "2026-11-22T17:24:45Z",
+        "steps": [
+          {
+            "name": "Set up job",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/setup-python@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Install distro Qt 5 build SDK and a separate Python Qt 5 runtime",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Build the actual Qt 5 plugin, not a mocked bridge",
+            "conclusion": "success"
+          },
+          {
+            "name": "Stock Phone dropdown, native Save/Discard contract and qrc-to-local helper on Qt 5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Physical controls, persistence, navigation and missing-module fallback on the independent host",
+            "conclusion": "success"
+          },
+          {
+            "name": "Live plugin preview shares one theme, stays opaque on every tab and preserves physical No/Discard",
+            "conclusion": "success"
+          },
+          {
+            "name": "Missing-font metrics cannot widen the Shaders form beyond its clip",
+            "conclusion": "success"
+          },
+          {
+            "name": "Unmodified native Qt 5 controls/theme, exact Save pixels, opacity and physical input on both pinned player families",
+            "conclusion": "success"
+          },
+          {
+            "name": "Selected-tab glass at host, 100/125/150/200 percent DPI and strict flat-image negative controls",
+            "conclusion": "success"
+          },
+          {
+            "name": "Retain glass capture diagnostics and negative controls",
+            "conclusion": "success"
+          },
+          {
+            "name": "Record scope",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/setup-python@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Complete job",
+            "conclusion": "success"
+          }
+        ],
+        "annotations": [
+          {
+            "title": "",
+            "annotation_level": "warning",
+            "message": "Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/setup-python@v5, actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/"
+          }
+        ]
+      },
+      {
+        "id": 137289376126,
+        "name": "Windows x64 bridge 6.2.4 -> host 6.8.3 and WARP",
+        "status": "completed",
+        "conclusion": "success",
+        "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45048873578/job/137289376126",
+        "started_at": "2026-11-22T17:20:26Z",
+        "completed_at": "2026-11-22T17:27:58Z",
+        "steps": [
+          {
+            "name": "Set up job",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run jurplel/install-qt-action@v4.3.1",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/setup-python@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Install an independent Qt Python host for actual cross-version plugin tests",
+            "conclusion": "success"
+          },
+          {
+            "name": "Build regular plugin, MinHook and native DirectX tests (no system proxy)",
+            "conclusion": "success"
+          },
+          {
+            "name": "Native API pixels, routing, real GL draw detours and EGL/DXGI/Vulkan lifecycle contracts",
+            "conclusion": "success"
+          },
+          {
+            "name": "Read-only actual module/provider contract against the independent host runtime",
+            "conclusion": "success"
+          },
+          {
+            "name": "Actual C++ plugin import and physical shader-page controls (Qt fixture only)",
+            "conclusion": "success"
+          },
+          {
+            "name": "Unmodified native controls/theme, exact Save pixels, opacity and physical input on both pinned matching-Qt players",
+            "conclusion": "success"
+          },
+          {
+            "name": "Physical native Settings navigation, prompts and missing-module fallback (contract fixture)",
+            "conclusion": "success"
+          },
+          {
+            "name": "Live plugin preview shares one theme, stays opaque on every tab and preserves physical No/Discard",
+            "conclusion": "success"
+          },
+          {
+            "name": "Stock Phone dropdown, native Save/Discard contract and qrc-to-local helper on Windows",
+            "conclusion": "success"
+          },
+          {
+            "name": "Actual selected-tab glass pixels/input at host, 100/125/150/200 percent DPI and strict flat-image negative controls",
+            "conclusion": "success"
+          },
+          {
+            "name": "Retain glass capture diagnostics and negative controls",
+            "conclusion": "success"
+          },
+          {
+            "name": "Record limits rather than claim universal support",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/setup-python@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run jurplel/install-qt-action@v4.3.1",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Complete job",
+            "conclusion": "success"
+          }
+        ],
+        "annotations": [
+          {
+            "title": "",
+            "annotation_level": "warning",
+            "message": "Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/setup-python@v5, actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/"
+          }
+        ]
+      },
+      {
+        "id": 137289377823,
+        "name": "focused-egl",
+        "status": "completed",
+        "conclusion": "skipped",
+        "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45048873578/job/137289377823",
+        "started_at": "2026-11-22T17:20:24Z",
+        "completed_at": "2026-11-22T17:20:24Z",
+        "steps": [],
+        "annotations": []
+      }
+    ]
+  },
+  "supersededPackageAttempt": {
+    "id": 45048876964,
+    "head_sha": "46ce6cf96911c7a1991ce38c4b0e6a3eb85c52a5",
+    "head_branch": "arena/daa0fcb2-bsi-customizer",
+    "status": "completed",
+    "conclusion": "cancelled",
+    "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45048876964",
+    "run_attempt": 1,
+    "created_at": "2026-11-22T17:20:24Z",
+    "updated_at": "2026-11-22T17:26:54Z",
+    "jobs": [
+      {
+        "id": 137289398177,
+        "name": "Build & self-test (Windows x64)",
+        "status": "completed",
+        "conclusion": "cancelled",
+        "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45048876964/job/137289398177",
+        "started_at": "2026-11-22T17:20:32Z",
+        "completed_at": "2026-11-22T17:26:53Z",
+        "steps": [
+          {
+            "name": "Set up job",
+            "conclusion": "success"
+          },
+          {
+            "name": "Checkout",
+            "conclusion": "success"
+          },
+          {
+            "name": "Test archive integrity verifier offline (no EXEs executed)",
+            "conclusion": "success"
+          },
+          {
+            "name": "Resolve and validate release version",
+            "conclusion": "success"
+          },
+          {
+            "name": "Checkout pinned player UI source contracts (data only)",
+            "conclusion": "success"
+          },
+          {
+            "name": "Install Qt 5 tools for the separate regular shader module",
+            "conclusion": "success"
+          },
+          {
+            "name": "Remember the Qt 5 SDK without linking it into the Customizer",
+            "conclusion": "success"
+          },
+          {
+            "name": "Install the older public-API Qt 6 shader bridge SDK",
+            "conclusion": "success"
+          },
+          {
+            "name": "Remember the Qt 6 shader SDK separately from the Customizer SDK",
+            "conclusion": "success"
+          },
+          {
+            "name": "Install Qt 6 build tools",
+            "conclusion": "success"
+          },
+          {
+            "name": "Build and verify the public-API regular shader payload baselines",
+            "conclusion": "cancelled"
+          },
+          {
+            "name": "Configure application and one-file package",
+            "conclusion": "skipped"
+          },
+          {
+            "name": "Build and verify single portable EXE",
+            "conclusion": "skipped"
+          },
+          {
+            "name": "Verify application administrator manifest",
+            "conclusion": "skipped"
+          },
+          {
+            "name": "Run all engine tests including real Qt 5 and Qt 6 DLLs",
+            "conclusion": "skipped"
+          },
+          {
+            "name": "Report complete native test failures",
+            "conclusion": "skipped"
+          },
+          {
+            "name": "Record the one-file artifact",
+            "conclusion": "skipped"
+          },
+          {
+            "name": "Build the installer",
+            "conclusion": "skipped"
+          },
+          {
+            "name": "The updater accepts the installer it just built",
+            "conclusion": "skipped"
+          },
+          {
+            "name": "Install, upgrade and uninstall the actual setup",
+            "conclusion": "skipped"
+          },
+          {
+            "name": "Upload tested portable EXE",
+            "conclusion": "skipped"
+          },
+          {
+            "name": "Upload tested installer",
+            "conclusion": "skipped"
+          },
+          {
+            "name": "Download both published ZIPs and verify CRC, hashes and Windows extraction",
+            "conclusion": "skipped"
+          },
+          {
+            "name": "Validate and publish the tested portable EXE",
+            "conclusion": "skipped"
+          },
+          {
+            "name": "Publish the self-update to the Discord releases channel",
+            "conclusion": "skipped"
+          },
+          {
+            "name": "Post Install Qt 6 build tools",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Install the older public-API Qt 6 shader bridge SDK",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Install Qt 5 tools for the separate regular shader module",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Checkout pinned player UI source contracts (data only)",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Checkout",
+            "conclusion": "success"
+          },
+          {
+            "name": "Complete job",
+            "conclusion": "success"
+          }
+        ],
+        "annotations": [
+          {
+            "title": "",
+            "annotation_level": "failure",
+            "message": "The run was canceled by @MrPcGamerYT."
+          },
+          {
+            "title": "",
+            "annotation_level": "failure",
+            "message": "The operation was canceled."
+          }
+        ]
+      }
+    ]
+  },
+  "diagnosticIndexCorrection": {
+    "commit": "ebdf6c219864c5f7352a1b0bb3fc1ea0ad0ca486",
+    "cause": "Clang UBSan caught the bounds test constructing native GlColorTransfer::Kind(999), an invalid non-fixed enum, before validation.",
+    "correction": "Store the diagnostic index as unsigned, still reject 999 before array indexing. Negative test and mandatory sanitizer retained. No native capture/ownership boundary widened.",
+    "firstAttemptPixelGenerationCompleted": false,
+    "oldPackageOfferedAsFinal": false
+  },
+  "fullMatrix": {
+    "id": 45049696867,
+    "head_sha": "ebdf6c219864c5f7352a1b0bb3fc1ea0ad0ca486",
+    "head_branch": "arena/daa0fcb2-bsi-customizer",
+    "status": "completed",
+    "conclusion": "success",
+    "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45049696867",
+    "run_attempt": 1,
+    "created_at": "2026-11-22T17:29:11Z",
+    "updated_at": "2026-11-22T17:38:17Z",
+    "jobs": [
+      {
+        "id": 137291887030,
+        "name": "Qt inventory and Phone-source recovery on four pinned player samples",
+        "status": "completed",
+        "conclusion": "success",
+        "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45049696867/job/137291887030",
+        "started_at": "2026-11-22T17:29:14Z",
+        "completed_at": "2026-11-22T17:32:55Z",
+        "steps": [
+          {
+            "name": "Set up job",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/setup-python@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run python -m pip install pefile==2024.8.26",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Verify fixed-version, import-tag and compiler-header evidence without executing players",
+            "conclusion": "success"
+          },
+          {
+            "name": "Build the production Phone source and disk installer (Qt Core only)",
+            "conclusion": "success"
+          },
+          {
+            "name": "Realistic helper URLs, no-growth planning and disk recovery on disposable pinned-player copies",
+            "conclusion": "success"
+          },
+          {
+            "name": "Source-only public Qt bridge boundary guard",
+            "conclusion": "success"
+          },
+          {
+            "name": "Failure and timeout diagnostics never turn a failed test into a pass",
+            "conclusion": "success"
+          },
+          {
+            "name": "Independent Windows host path layouts never fall back to a build SDK",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/setup-python@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Complete job",
+            "conclusion": "success"
+          }
+        ],
+        "annotations": [
+          {
+            "title": "",
+            "annotation_level": "warning",
+            "message": "Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/"
+          }
+        ]
+      },
+      {
+        "id": 137291887228,
+        "name": "Windows x64 bridge 6.2.4 -> host 6.7.3 and WARP",
+        "status": "completed",
+        "conclusion": "success",
+        "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45049696867/job/137291887228",
+        "started_at": "2026-11-22T17:29:14Z",
+        "completed_at": "2026-11-22T17:38:05Z",
+        "steps": [
+          {
+            "name": "Set up job",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run jurplel/install-qt-action@v4.3.1",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/setup-python@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Install an independent Qt Python host for actual cross-version plugin tests",
+            "conclusion": "success"
+          },
+          {
+            "name": "Build regular plugin, MinHook and native DirectX tests (no system proxy)",
+            "conclusion": "success"
+          },
+          {
+            "name": "Native API pixels, routing, real GL draw detours and EGL/DXGI/Vulkan lifecycle contracts",
+            "conclusion": "success"
+          },
+          {
+            "name": "Read-only actual module/provider contract against the independent host runtime",
+            "conclusion": "success"
+          },
+          {
+            "name": "Actual C++ plugin import and physical shader-page controls (Qt fixture only)",
+            "conclusion": "success"
+          },
+          {
+            "name": "Unmodified native controls/theme, exact Save pixels, opacity and physical input on both pinned matching-Qt players",
+            "conclusion": "success"
+          },
+          {
+            "name": "Physical native Settings navigation, prompts and missing-module fallback (contract fixture)",
+            "conclusion": "success"
+          },
+          {
+            "name": "Live plugin preview shares one theme, stays opaque on every tab and preserves physical No/Discard",
+            "conclusion": "success"
+          },
+          {
+            "name": "Stock Phone dropdown, native Save/Discard contract and qrc-to-local helper on Windows",
+            "conclusion": "success"
+          },
+          {
+            "name": "Actual selected-tab glass pixels/input at host, 100/125/150/200 percent DPI and strict flat-image negative controls",
+            "conclusion": "success"
+          },
+          {
+            "name": "Retain glass capture diagnostics and negative controls",
+            "conclusion": "success"
+          },
+          {
+            "name": "Record limits rather than claim universal support",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/setup-python@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run jurplel/install-qt-action@v4.3.1",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Complete job",
+            "conclusion": "success"
+          }
+        ],
+        "annotations": [
+          {
+            "title": "",
+            "annotation_level": "warning",
+            "message": "Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/setup-python@v5, actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/"
+          }
+        ]
+      },
+      {
+        "id": 137291887273,
+        "name": "Native Vulkan and GLES pixels (Mesa software; not hardware)",
+        "status": "completed",
+        "conclusion": "success",
+        "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45049696867/job/137291887273",
+        "started_at": "2026-11-22T17:29:16Z",
+        "completed_at": "2026-11-22T17:36:19Z",
+        "steps": [
+          {
+            "name": "Set up job",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/setup-node@v4",
+            "conclusion": "success"
+          },
+          {
+            "name": "Install real software graphics APIs",
+            "conclusion": "success"
+          },
+          {
+            "name": "Check committed SPIR-V matches the shared original source",
+            "conclusion": "success"
+          },
+          {
+            "name": "Native Mesa Vulkan pixels with mandatory Khronos lifetime/API validation",
+            "conclusion": "success"
+          },
+          {
+            "name": "ASan/UBSan routing and native Vulkan on a second software ICD",
+            "conclusion": "success"
+          },
+          {
+            "name": "ASan/UBSan native source, package, file recovery and every encoder allocation failure",
+            "conclusion": "success"
+          },
+          {
+            "name": "Production GLES and desktop OpenGL core pixels/state restoration",
+            "conclusion": "success"
+          },
+          {
+            "name": "Actual nonsharing native EGL pbuffer image pixels (mandatory ANGLE software)",
+            "conclusion": "success"
+          },
+          {
+            "name": "Retain authored native/Strong/Off texture images and measured mip evidence",
+            "conclusion": "success"
+          },
+          {
+            "name": "Record scope of results",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/setup-node@v4",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Complete job",
+            "conclusion": "success"
+          }
+        ],
+        "annotations": [
+          {
+            "title": "",
+            "annotation_level": "warning",
+            "message": "Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/setup-node@v4, actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/"
+          },
+          {
+            "title": "Native pbuffer image binding pixels (software)",
+            "annotation_level": "notice",
+            "message": "{\"api\":\"gles\",\"path\":\"actual-eglBindTexImage\",\"nonsharingContexts\":true,\"version\":\"OpenGL ES 3.1.0 (ANGLE 2.1.24600 git hash: 8304737811a7)\",\"renderer\":\"ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver-5.0.0)\",\"rawNativeBindingExactBeforeProduction\":true,\"strength\":[0,50,100],\"rgba\":[[255,0,0,173],[0,128,128,173],[255,255,0,173]],\"sourceModes\":2,\"producerBindings\":1,\"compositorBindings\":0,\"offFullFrameExact\":true,\"sourceAndPendingErrorsExact\":true,\"revisionAndExpiry\":true,\"nativeSha256\":\"cdc6776c7860f67df2707bd0585c1c7eb02d91e4d09a70e890b39c59e3ea2fd0\",\"strongSha256\":\"032050fa57217bb47afbfc2e20c9b8c7fc718e7cf690f359fd90f536d6c0eeeb\",\"limit\":\"authored software EGL, not WGL/player/hardware/FPS\"}"
+          },
+          {
+            "title": "Production depth-independent texture pixels (software)",
+            "annotation_level": "notice",
+            "message": "{\"api\":\"gles\",\"version\":\"OpenGL ES 3.1.0 (ANGLE 2.1.24600 git hash: 8304737811a7)\",\"renderer\":\"ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver-5.0.0)\",\"maxBias\":0.0,\"offCycles\":128,\"depthIndependentCycles\":64,\"depthTestAndWritesDisabled\":true,\"noDepthAttachmentRGBA\":[255,255,0,173],\"mipPixels\":[{\"source\":\"sampler\",\"lambda\":0,\"mode\":1,\"rgba\":[0,128,128,173],\"off\":[255,0,0,173]},{\"source\":\"sampler\",\"lambda\":0,\"mode\":2,\"rgba\":[255,255,0,173],\"off\":[255,0,0,173]},{\"source\":\"sampler\",\"lambda\":4,\"mode\":1,\"rgba\":[255,0,255,173],\"off\":[255,0,255,173]},{\"source\":\"sampler\",\"lambda\":4,\"mode\":2,\"rgba\":[255,0,255,173],\"off\":[255,0,255,173]},{\"source\":\"texture\",\"lambda\":0,\"mode\":1,\"rgba\":[0,128,128,173],\"off\":[255,0,0,173]},{\"source\":\"texture\",\"lambda\":0,\"mode\":2,\"rgba\":[255,255,0,173],\"off\":[255,0,0,173]},{\"source\":\"texture\",\"lambda\":4,\"mode\":1,\"rgba\":[255,0,255,173],\"off\":[255,0,255,173]},{\"source\":\"texture\",\"lambda\":4,\"mode\":2,\"rgba\":[255,0,255,173],\"off\":[255,0,255,173]}],\"material\":[{\"source\":\"sampler\",\"nativeEdgeEnergy\":2483712,\"strongEdgeEnergy\":62784,\"nativeSha256\":\"322819cac683c81d48f83c1a5d00aa8b7453c8fd98a965b543eebc0eb3d952ab\",\"strongSha256\":\"ac43e9856339e89d48eb752fbe9fd6100c62d5e3a3e30d00aa6fa348737c871d\",\"offExact\":true},{\"source\":\"texture\",\"nativeEdgeEnergy\":2483712,\"strongEdgeEnergy\":62784,\"nativeSha256\":\"322819cac683c81d48f83c1a5d00aa8b7453c8fd98a965b543eebc0eb3d952ab\",\"strongSha256\":\"ac43e9856339e89d48eb752fbe9fd6100c62d5e3a3e30d00aa6fa348737c871d\",\"offExact\":true}],\"resourceLinkedProducer\":{\"singleLevelCompositorBindings\":0,\"linkedProducerBindings\":1,\"nativeRGBA\":[255,0,0,173],\"strongRGBA\":[255,255,0,173],\"presentedOffExact\":true,\"revisionExpiryMaskBypass\":true,\"nativeSha256\":\"cdc6776c7860f67df2707bd0585c1c7eb02d91e4d09a70e890b39c59e3ea2fd0\",\"strongSha256\":\"032050fa57217bb47afbfc2e20c9b8c7fc718e7cf690f359fd90f536d6c0eeeb\"},\"colorTransfers\":[{\"path\":\"renderbuffer-blit\",\"producerBindings\":1,\"compositorBindings\":0,\"nativeRGBA\":[255,0,0,173],\"strongRGBA\":[255,255,0,173],\"offExact\":true,\"expiryAndPendingError\":true},{\"path\":\"default-pbuffer-copy\",\"producerBindings\":1,\"compositorBindings\":0,\"nativeRGBA\":[255,0,0,173],\"strongRGBA\":[255,255,0,173],\"offExact\":true,\"expiryAndPendingError\":true}],\"immutableMips\":{\"sourceModes\":2,\"cases\":[{\"case\":\"storage4\",\"floor\":3,\"native\":[255,0,0,173],\"strong\":[255,255,0,173],\"offExact\":true},{\"case\":\"storage2\",\"floor\":1,\"native\":[255,0,0,173],\"strong\":[0,255,0,173],\"offExact\":true},{\"case\":\"base1\",\"floor\":2,\"native\":[0,255,0,173],\"strong\":[255,255,0,173],\"offExact\":true},{\"case\":\"max1\",\"floor\":1,\"native\":[255,0,0,173],\"strong\":[0,255,0,173],\"offExact\":true},{\"case\":\"single\",\"floor\":0,\"native\":[255,0,0,173],\"strong\":[255,0,0,173],\"offExact\":true}],\"pendingErrorAndSourceState\":true},\"strength\":{\"percent\":[0,25,50,75,100],\"rgba\":[[255,0,0,173],[64,191,0,173],[0,128,128,173],[64,64,191,173],[255,255,0,173]],\"sourceModes\":2,\"gradients\":2,\"fullOffAndSourceExact\":true},\"limit\":\"authored software resources; NOT player, physical GPU, allocated-memory or FPS evidence\"}"
+          },
+          {
+            "title": "Actual surfaceless material producer pixels (software)",
+            "annotation_level": "notice",
+            "message": "{\"api\":\"gles\",\"version\":\"OpenGL ES 3.1.0 (ANGLE 2.1.24600 git hash: 8304737811a7)\",\"actualNullDrawAndReadSurface\":true,\"sourceModes\":[{\"source\":\"sampler\",\"strengthRGBA\":[[255,0,0,173],[0,128,128,173],[255,255,0,173]],\"producerBindings\":1,\"compositorBindings\":0,\"offExact\":true},{\"source\":\"texture\",\"strengthRGBA\":[[255,0,0,173],[0,128,128,173],[255,255,0,173]],\"producerBindings\":1,\"compositorBindings\":0,\"offExact\":true}],\"sourceStatePendingErrorRevisionTTL\":true,\"limit\":\"actual software EGL/GL resources, not Win32 route or game certification\"}"
+          },
+          {
+            "title": "Production depth-independent texture pixels (software)",
+            "annotation_level": "notice",
+            "message": "{\"api\":\"desktop\",\"version\":\"4.5 (Core Profile) Mesa 25.2.8-0ubuntu0.24.04.5\",\"renderer\":\"llvmpipe (LLVM 20.1.2, 256 bits)\",\"maxBias\":16.0,\"offCycles\":128,\"depthIndependentCycles\":64,\"depthTestAndWritesDisabled\":true,\"noDepthAttachmentRGBA\":[255,255,0,173],\"mipPixels\":[{\"source\":\"sampler\",\"lambda\":0,\"mode\":1,\"rgba\":[0,128,128,173],\"off\":[255,0,0,173]},{\"source\":\"sampler\",\"lambda\":0,\"mode\":2,\"rgba\":[255,255,0,173],\"off\":[255,0,0,173]},{\"source\":\"sampler\",\"lambda\":4,\"mode\":1,\"rgba\":[128,255,255,173],\"off\":[255,0,255,173]},{\"source\":\"sampler\",\"lambda\":4,\"mode\":2,\"rgba\":[255,255,255,173],\"off\":[255,0,255,173]},{\"source\":\"texture\",\"lambda\":0,\"mode\":1,\"rgba\":[0,128,128,173],\"off\":[255,0,0,173]},{\"source\":\"texture\",\"lambda\":0,\"mode\":2,\"rgba\":[255,255,0,173],\"off\":[255,0,0,173]},{\"source\":\"texture\",\"lambda\":4,\"mode\":1,\"rgba\":[128,255,255,173],\"off\":[255,0,255,173]},{\"source\":\"texture\",\"lambda\":4,\"mode\":2,\"rgba\":[255,255,255,173],\"off\":[255,0,255,173]}],\"material\":[{\"source\":\"sampler\",\"nativeEdgeEnergy\":2483712,\"strongEdgeEnergy\":62784,\"nativeSha256\":\"322819cac683c81d48f83c1a5d00aa8b7453c8fd98a965b543eebc0eb3d952ab\",\"strongSha256\":\"93085ad55237a8a4e149740f9e99cbf4bf6da31ce022764b3a13d4be6be7a205\",\"offExact\":true},{\"source\":\"texture\",\"nativeEdgeEnergy\":2483712,\"strongEdgeEnergy\":62784,\"nativeSha256\":\"322819cac683c81d48f83c1a5d00aa8b7453c8fd98a965b543eebc0eb3d952ab\",\"strongSha256\":\"93085ad55237a8a4e149740f9e99cbf4bf6da31ce022764b3a13d4be6be7a205\",\"offExact\":true}],\"resourceLinkedProducer\":{\"singleLevelCompositorBindings\":0,\"linkedProducerBindings\":1,\"nativeRGBA\":[255,0,0,173],\"strongRGBA\":[255,255,0,173],\"presentedOffExact\":true,\"revisionExpiryMaskBypass\":true,\"nativeSha256\":\"cdc6776c7860f67df2707bd0585c1c7eb02d91e4d09a70e890b39c59e3ea2fd0\",\"strongSha256\":\"032050fa57217bb47afbfc2e20c9b8c7fc718e7cf690f359fd90f536d6c0eeeb\"},\"colorTransfers\":[{\"path\":\"renderbuffer-blit\",\"producerBindings\":1,\"compositorBindings\":0,\"nativeRGBA\":[255,0,0,173],\"strongRGBA\":[255,255,0,173],\"offExact\":true,\"expiryAndPendingError\":true},{\"path\":\"default-pbuffer-copy\",\"producerBindings\":1,\"compositorBindings\":0,\"nativeRGBA\":[255,0,0,173],\"strongRGBA\":[255,255,0,173],\"offExact\":true,\"expiryAndPendingError\":true}],\"immutableMips\":{\"sourceModes\":2,\"cases\":[{\"case\":\"storage4\",\"floor\":3,\"native\":[255,0,0,173],\"strong\":[255,255,0,173],\"offExact\":true},{\"case\":\"storage2\",\"floor\":1,\"native\":[255,0,0,173],\"strong\":[0,255,0,173],\"offExact\":true},{\"case\":\"base1\",\"floor\":2,\"native\":[0,255,0,173],\"strong\":[255,255,0,173],\"offExact\":true},{\"case\":\"max1\",\"floor\":1,\"native\":[255,0,0,173],\"strong\":[0,255,0,173],\"offExact\":true},{\"case\":\"single\",\"floor\":0,\"native\":[255,0,0,173],\"strong\":[255,0,0,173],\"offExact\":true},{\"case\":\"view3of7\",\"floor\":2,\"native\":[255,0,0,173],\"strong\":[0,0,255,173],\"offExact\":true}],\"pendingErrorAndSourceState\":true},\"strength\":{\"percent\":[0,25,50,75,100],\"rgba\":[[255,0,0,173],[64,191,0,173],[0,128,128,173],[64,64,191,173],[255,255,0,173]],\"sourceModes\":2,\"gradients\":2,\"fullOffAndSourceExact\":true},\"limit\":\"authored software resources; NOT player, physical GPU, allocated-memory or FPS evidence\"}"
+          },
+          {
+            "title": "Actual named image-copy material pixels (software)",
+            "annotation_level": "notice",
+            "message": "{\"version\":\"4.5 (Core Profile) Mesa 25.2.8-0ubuntu0.24.04.5\",\"bindingFreeQueries\":true,\"cases\":[{\"entry\":\"glCopyImageSubData\",\"nativeRGBA\":[255,0,0,173],\"strongRGBA\":[255,255,0,173],\"offExact\":true,\"sourceStateAndPendingError\":true,\"compositorBindings\":0,\"producerBindings\":1},{\"entry\":\"glCopyImageSubDataNV\",\"nativeRGBA\":[255,0,0,173],\"strongRGBA\":[255,255,0,173],\"offExact\":true,\"sourceStateAndPendingError\":true,\"compositorBindings\":0,\"producerBindings\":1}],\"immutableQueries\":[{\"case\":\"immutable4\",\"storageLevels\":4,\"viewLevels\":4,\"pendingErrorAndSourceState\":true},{\"case\":\"view3of7\",\"storageLevels\":7,\"viewLevels\":3,\"pendingErrorAndSourceState\":true}],\"limit\":\"actual software GL image copies, NOT Windows hook or installed-game/GPU/FPS evidence\"}"
+          },
+          {
+            "title": "Actual surfaceless material producer pixels (software)",
+            "annotation_level": "notice",
+            "message": "{\"api\":\"desktop\",\"version\":\"4.5 (Core Profile) Mesa 25.2.8-0ubuntu0.24.04.5\",\"actualNullDrawAndReadSurface\":true,\"sourceModes\":[{\"source\":\"sampler\",\"strengthRGBA\":[[255,0,0,173],[0,128,128,173],[255,255,0,173]],\"producerBindings\":1,\"compositorBindings\":0,\"offExact\":true},{\"source\":\"texture\",\"strengthRGBA\":[[255,0,0,173],[0,128,128,173],[255,255,0,173]],\"producerBindings\":1,\"compositorBindings\":0,\"offExact\":true}],\"sourceStatePendingErrorRevisionTTL\":true,\"limit\":\"actual software EGL/GL resources, not Win32 route or game certification\"}"
+          },
+          {
+            "title": "Production depth-independent texture pixels (software)",
+            "annotation_level": "notice",
+            "message": "{\"api\":\"gles\",\"version\":\"OpenGL ES 3.2 Mesa 25.2.8-0ubuntu0.24.04.5\",\"renderer\":\"llvmpipe (LLVM 20.1.2, 256 bits)\",\"maxBias\":0.0,\"offCycles\":128,\"depthIndependentCycles\":64,\"depthTestAndWritesDisabled\":true,\"noDepthAttachmentRGBA\":[255,255,0,173],\"mipPixels\":[{\"source\":\"sampler\",\"lambda\":0,\"mode\":1,\"rgba\":[0,128,128,173],\"off\":[255,0,0,173]},{\"source\":\"sampler\",\"lambda\":0,\"mode\":2,\"rgba\":[255,255,0,173],\"off\":[255,0,0,173]},{\"source\":\"sampler\",\"lambda\":4,\"mode\":1,\"rgba\":[255,0,255,173],\"off\":[255,0,255,173]},{\"source\":\"sampler\",\"lambda\":4,\"mode\":2,\"rgba\":[255,0,255,173],\"off\":[255,0,255,173]},{\"source\":\"texture\",\"lambda\":0,\"mode\":1,\"rgba\":[0,128,128,173],\"off\":[255,0,0,173]},{\"source\":\"texture\",\"lambda\":0,\"mode\":2,\"rgba\":[255,255,0,173],\"off\":[255,0,0,173]},{\"source\":\"texture\",\"lambda\":4,\"mode\":1,\"rgba\":[255,0,255,173],\"off\":[255,0,255,173]},{\"source\":\"texture\",\"lambda\":4,\"mode\":2,\"rgba\":[255,0,255,173],\"off\":[255,0,255,173]}],\"material\":[{\"source\":\"sampler\",\"nativeEdgeEnergy\":2483712,\"strongEdgeEnergy\":62784,\"nativeSha256\":\"322819cac683c81d48f83c1a5d00aa8b7453c8fd98a965b543eebc0eb3d952ab\",\"strongSha256\":\"93085ad55237a8a4e149740f9e99cbf4bf6da31ce022764b3a13d4be6be7a205\",\"offExact\":true},{\"source\":\"texture\",\"nativeEdgeEnergy\":2483712,\"strongEdgeEnergy\":62784,\"nativeSha256\":\"322819cac683c81d48f83c1a5d00aa8b7453c8fd98a965b543eebc0eb3d952ab\",\"strongSha256\":\"93085ad55237a8a4e149740f9e99cbf4bf6da31ce022764b3a13d4be6be7a205\",\"offExact\":true}],\"resourceLinkedProducer\":{\"singleLevelCompositorBindings\":0,\"linkedProducerBindings\":1,\"nativeRGBA\":[255,0,0,173],\"strongRGBA\":[255,255,0,173],\"presentedOffExact\":true,\"revisionExpiryMaskBypass\":true,\"nativeSha256\":\"cdc6776c7860f67df2707bd0585c1c7eb02d91e4d09a70e890b39c59e3ea2fd0\",\"strongSha256\":\"032050fa57217bb47afbfc2e20c9b8c7fc718e7cf690f359fd90f536d6c0eeeb\"},\"colorTransfers\":[{\"path\":\"renderbuffer-blit\",\"producerBindings\":1,\"compositorBindings\":0,\"nativeRGBA\":[255,0,0,173],\"strongRGBA\":[255,255,0,173],\"offExact\":true,\"expiryAndPendingError\":true},{\"path\":\"default-pbuffer-copy\",\"producerBindings\":1,\"compositorBindings\":0,\"nativeRGBA\":[255,0,0,173],\"strongRGBA\":[255,255,0,173],\"offExact\":true,\"expiryAndPendingError\":true}],\"immutableMips\":{\"sourceModes\":2,\"cases\":[{\"case\":\"storage4\",\"floor\":3,\"native\":[255,0,0,173],\"strong\":[255,255,0,173],\"offExact\":true},{\"case\":\"storage2\",\"floor\":1,\"native\":[255,0,0,173],\"strong\":[0,255,0,173],\"offExact\":true},{\"case\":\"base1\",\"floor\":2,\"native\":[0,255,0,173],\"strong\":[255,255,0,173],\"offExact\":true},{\"case\":\"max1\",\"floor\":1,\"native\":[255,0,0,173],\"strong\":[0,255,0,173],\"offExact\":true},{\"case\":\"single\",\"floor\":0,\"native\":[255,0,0,173],\"strong\":[255,0,0,173],\"offExact\":true},{\"case\":\"view3of7\",\"floor\":2,\"native\":[255,0,0,173],\"strong\":[0,0,255,173],\"offExact\":true}],\"pendingErrorAndSourceState\":true},\"strength\":{\"percent\":[0,25,50,75,100],\"rgba\":[[255,0,0,173],[64,191,0,173],[0,128,128,173],[64,64,191,173],[255,255,0,173]],\"sourceModes\":2,\"gradients\":2,\"fullOffAndSourceExact\":true},\"limit\":\"authored software resources; NOT player, physical GPU, allocated-memory or FPS evidence\"}"
+          },
+          {
+            "title": "Actual surfaceless material producer pixels (software)",
+            "annotation_level": "notice",
+            "message": "{\"api\":\"gles\",\"version\":\"OpenGL ES 3.2 Mesa 25.2.8-0ubuntu0.24.04.5\",\"actualNullDrawAndReadSurface\":true,\"sourceModes\":[{\"source\":\"sampler\",\"strengthRGBA\":[[255,0,0,173],[0,128,128,173],[255,255,0,173]],\"producerBindings\":1,\"compositorBindings\":0,\"offExact\":true},{\"source\":\"texture\",\"strengthRGBA\":[[255,0,0,173],[0,128,128,173],[255,255,0,173]],\"producerBindings\":1,\"compositorBindings\":0,\"offExact\":true}],\"sourceStatePendingErrorRevisionTTL\":true,\"limit\":\"actual software EGL/GL resources, not Win32 route or game certification\"}"
+          }
+        ]
+      },
+      {
+        "id": 137291887302,
+        "name": "Windows x64 bridge 5.15.2 -> host PyQt5-bundled-5.15 and WARP",
+        "status": "completed",
+        "conclusion": "success",
+        "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45049696867/job/137291887302",
+        "started_at": "2026-11-22T17:29:15Z",
+        "completed_at": "2026-11-22T17:37:11Z",
+        "steps": [
+          {
+            "name": "Set up job",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run jurplel/install-qt-action@v4.3.1",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/setup-python@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Install an independent Qt Python host for actual cross-version plugin tests",
+            "conclusion": "success"
+          },
+          {
+            "name": "Build regular plugin, MinHook and native DirectX tests (no system proxy)",
+            "conclusion": "success"
+          },
+          {
+            "name": "Native API pixels, routing, real GL draw detours and EGL/DXGI/Vulkan lifecycle contracts",
+            "conclusion": "success"
+          },
+          {
+            "name": "Read-only actual module/provider contract against the independent host runtime",
+            "conclusion": "success"
+          },
+          {
+            "name": "Actual C++ plugin import and physical shader-page controls (Qt fixture only)",
+            "conclusion": "success"
+          },
+          {
+            "name": "Unmodified native controls/theme, exact Save pixels, opacity and physical input on both pinned matching-Qt players",
+            "conclusion": "success"
+          },
+          {
+            "name": "Physical native Settings navigation, prompts and missing-module fallback (contract fixture)",
+            "conclusion": "success"
+          },
+          {
+            "name": "Live plugin preview shares one theme, stays opaque on every tab and preserves physical No/Discard",
+            "conclusion": "success"
+          },
+          {
+            "name": "Stock Phone dropdown, native Save/Discard contract and qrc-to-local helper on Windows",
+            "conclusion": "success"
+          },
+          {
+            "name": "Actual selected-tab glass pixels/input at host, 100/125/150/200 percent DPI and strict flat-image negative controls",
+            "conclusion": "success"
+          },
+          {
+            "name": "Retain glass capture diagnostics and negative controls",
+            "conclusion": "success"
+          },
+          {
+            "name": "Record limits rather than claim universal support",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/setup-python@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run jurplel/install-qt-action@v4.3.1",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Complete job",
+            "conclusion": "success"
+          }
+        ],
+        "annotations": [
+          {
+            "title": "",
+            "annotation_level": "warning",
+            "message": "Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/setup-python@v5, actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/"
+          }
+        ]
+      },
+      {
+        "id": 137291887377,
+        "name": "Windows x64 bridge 6.2.4 -> host 6.8.3 and WARP",
+        "status": "completed",
+        "conclusion": "success",
+        "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45049696867/job/137291887377",
+        "started_at": "2026-11-22T17:29:15Z",
+        "completed_at": "2026-11-22T17:38:16Z",
+        "steps": [
+          {
+            "name": "Set up job",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run jurplel/install-qt-action@v4.3.1",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/setup-python@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Install an independent Qt Python host for actual cross-version plugin tests",
+            "conclusion": "success"
+          },
+          {
+            "name": "Build regular plugin, MinHook and native DirectX tests (no system proxy)",
+            "conclusion": "success"
+          },
+          {
+            "name": "Native API pixels, routing, real GL draw detours and EGL/DXGI/Vulkan lifecycle contracts",
+            "conclusion": "success"
+          },
+          {
+            "name": "Read-only actual module/provider contract against the independent host runtime",
+            "conclusion": "success"
+          },
+          {
+            "name": "Actual C++ plugin import and physical shader-page controls (Qt fixture only)",
+            "conclusion": "success"
+          },
+          {
+            "name": "Unmodified native controls/theme, exact Save pixels, opacity and physical input on both pinned matching-Qt players",
+            "conclusion": "success"
+          },
+          {
+            "name": "Physical native Settings navigation, prompts and missing-module fallback (contract fixture)",
+            "conclusion": "success"
+          },
+          {
+            "name": "Live plugin preview shares one theme, stays opaque on every tab and preserves physical No/Discard",
+            "conclusion": "success"
+          },
+          {
+            "name": "Stock Phone dropdown, native Save/Discard contract and qrc-to-local helper on Windows",
+            "conclusion": "success"
+          },
+          {
+            "name": "Actual selected-tab glass pixels/input at host, 100/125/150/200 percent DPI and strict flat-image negative controls",
+            "conclusion": "success"
+          },
+          {
+            "name": "Retain glass capture diagnostics and negative controls",
+            "conclusion": "success"
+          },
+          {
+            "name": "Record limits rather than claim universal support",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/setup-python@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run jurplel/install-qt-action@v4.3.1",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Complete job",
+            "conclusion": "success"
+          }
+        ],
+        "annotations": [
+          {
+            "title": "",
+            "annotation_level": "warning",
+            "message": "Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/setup-python@v5, actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/"
+          }
+        ]
+      },
+      {
+        "id": 137291887433,
+        "name": "Actual Qt 5 public bridge on a newer independent Qt 5 runtime (Linux fixture)",
+        "status": "completed",
+        "conclusion": "success",
+        "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45049696867/job/137291887433",
+        "started_at": "2026-11-22T17:29:16Z",
+        "completed_at": "2026-11-22T17:33:47Z",
+        "steps": [
+          {
+            "name": "Set up job",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/setup-python@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Install distro Qt 5 build SDK and a separate Python Qt 5 runtime",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Build the actual Qt 5 plugin, not a mocked bridge",
+            "conclusion": "success"
+          },
+          {
+            "name": "Stock Phone dropdown, native Save/Discard contract and qrc-to-local helper on Qt 5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Physical controls, persistence, navigation and missing-module fallback on the independent host",
+            "conclusion": "success"
+          },
+          {
+            "name": "Live plugin preview shares one theme, stays opaque on every tab and preserves physical No/Discard",
+            "conclusion": "success"
+          },
+          {
+            "name": "Missing-font metrics cannot widen the Shaders form beyond its clip",
+            "conclusion": "success"
+          },
+          {
+            "name": "Unmodified native Qt 5 controls/theme, exact Save pixels, opacity and physical input on both pinned player families",
+            "conclusion": "success"
+          },
+          {
+            "name": "Selected-tab glass at host, 100/125/150/200 percent DPI and strict flat-image negative controls",
+            "conclusion": "success"
+          },
+          {
+            "name": "Retain glass capture diagnostics and negative controls",
+            "conclusion": "success"
+          },
+          {
+            "name": "Record scope",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/setup-python@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/checkout@v5",
+            "conclusion": "success"
+          },
+          {
+            "name": "Complete job",
+            "conclusion": "success"
+          }
+        ],
+        "annotations": [
+          {
+            "title": "",
+            "annotation_level": "warning",
+            "message": "Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/setup-python@v5, actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/"
+          }
+        ]
+      },
+      {
+        "id": 137291888472,
+        "name": "focused-egl",
+        "status": "completed",
+        "conclusion": "skipped",
+        "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45049696867/job/137291888472",
+        "started_at": "2026-11-22T17:29:12Z",
+        "completed_at": "2026-11-22T17:29:12Z",
+        "steps": [],
+        "annotations": []
+      }
+    ]
+  },
+  "nonpublishingPackage": {
+    "id": 45049699287,
+    "head_sha": "ebdf6c219864c5f7352a1b0bb3fc1ea0ad0ca486",
+    "head_branch": "arena/daa0fcb2-bsi-customizer",
+    "status": "completed",
+    "conclusion": "success",
+    "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45049699287",
+    "run_attempt": 1,
+    "created_at": "2026-11-22T17:29:12Z",
+    "updated_at": "2026-11-22T17:48:21Z",
+    "jobs": [
+      {
+        "id": 137291894740,
+        "name": "Build & self-test (Windows x64)",
+        "status": "completed",
+        "conclusion": "success",
+        "html_url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45049699287/job/137291894740",
+        "started_at": "2026-11-22T17:29:16Z",
+        "completed_at": "2026-11-22T17:48:20Z",
+        "steps": [
+          {
+            "name": "Set up job",
+            "conclusion": "success"
+          },
+          {
+            "name": "Checkout",
+            "conclusion": "success"
+          },
+          {
+            "name": "Test archive integrity verifier offline (no EXEs executed)",
+            "conclusion": "success"
+          },
+          {
+            "name": "Resolve and validate release version",
+            "conclusion": "success"
+          },
+          {
+            "name": "Checkout pinned player UI source contracts (data only)",
+            "conclusion": "success"
+          },
+          {
+            "name": "Install Qt 5 tools for the separate regular shader module",
+            "conclusion": "success"
+          },
+          {
+            "name": "Remember the Qt 5 SDK without linking it into the Customizer",
+            "conclusion": "success"
+          },
+          {
+            "name": "Install the older public-API Qt 6 shader bridge SDK",
+            "conclusion": "success"
+          },
+          {
+            "name": "Remember the Qt 6 shader SDK separately from the Customizer SDK",
+            "conclusion": "success"
+          },
+          {
+            "name": "Install Qt 6 build tools",
+            "conclusion": "success"
+          },
+          {
+            "name": "Build and verify the public-API regular shader payload baselines",
+            "conclusion": "success"
+          },
+          {
+            "name": "Configure application and one-file package",
+            "conclusion": "success"
+          },
+          {
+            "name": "Build and verify single portable EXE",
+            "conclusion": "success"
+          },
+          {
+            "name": "Verify application administrator manifest",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run all engine tests including real Qt 5 and Qt 6 DLLs",
+            "conclusion": "success"
+          },
+          {
+            "name": "Report complete native test failures",
+            "conclusion": "skipped"
+          },
+          {
+            "name": "Record the one-file artifact",
+            "conclusion": "success"
+          },
+          {
+            "name": "Build the installer",
+            "conclusion": "success"
+          },
+          {
+            "name": "The updater accepts the installer it just built",
+            "conclusion": "success"
+          },
+          {
+            "name": "Install, upgrade and uninstall the actual setup",
+            "conclusion": "success"
+          },
+          {
+            "name": "Upload tested portable EXE",
+            "conclusion": "success"
+          },
+          {
+            "name": "Upload tested installer",
+            "conclusion": "success"
+          },
+          {
+            "name": "Download both published ZIPs and verify CRC, hashes and Windows extraction",
+            "conclusion": "success"
+          },
+          {
+            "name": "Validate and publish the tested portable EXE",
+            "conclusion": "skipped"
+          },
+          {
+            "name": "Publish the self-update to the Discord releases channel",
+            "conclusion": "skipped"
+          },
+          {
+            "name": "Post Install Qt 6 build tools",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Install the older public-API Qt 6 shader bridge SDK",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Install Qt 5 tools for the separate regular shader module",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Checkout pinned player UI source contracts (data only)",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Checkout",
+            "conclusion": "success"
+          },
+          {
+            "name": "Complete job",
+            "conclusion": "success"
+          }
+        ],
+        "annotations": [
+          {
+            "title": "",
+            "annotation_level": "warning",
+            "message": "Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/"
+          },
+          {
+            "title": "Windows ZIP extraction verified",
+            "annotation_level": "notice",
+            "message": "BSI-Customizer-4.0.1-setup.exe | EXE SHA256=03c60b1bfd27af0fe034b16530bdb962e54a50b970a6c216538bf90ef4ca6746"
+          },
+          {
+            "title": "Verified artifact download",
+            "annotation_level": "notice",
+            "message": "BSI-Customizer-4.0.1-setup.exe | ZIP bytes=46049748 | ZIP SHA256=4abc4f135d0be3c1170ea88f0f419a783c90d8e4fd66076307008a6420492085 | EXE SHA256=03c60b1bfd27af0fe034b16530bdb962e54a50b970a6c216538bf90ef4ca6746"
+          },
+          {
+            "title": "Windows ZIP extraction verified",
+            "annotation_level": "notice",
+            "message": "BSI-Customizer-4.0.1-win64.exe | EXE SHA256=8def7bd5d57c1fcda47e28314412b83e94d4ed858dd7b72af3512c2256a50771"
+          },
+          {
+            "title": "Verified artifact download",
+            "annotation_level": "notice",
+            "message": "BSI-Customizer-4.0.1-win64.exe | ZIP bytes=43754697 | ZIP SHA256=d76f833e185a3353571f78ca6bffab70087c773876063e2496973ed63719809c | EXE SHA256=8def7bd5d57c1fcda47e28314412b83e94d4ed858dd7b72af3512c2256a50771"
+          },
+          {
+            "title": "",
+            "annotation_level": "notice",
+            "message": "gate-diag ok=1 modules=[qt5core.dll]"
+          }
+        ]
+      }
+    ]
+  },
+  "limits": [
+    "The installed game still has zero prepared Potato bindings; this is a diagnostic candidate and separately reproduced ABI repair, not a diagnosed game-material fix.",
+    "Windows MinHook tables/resources are authored doubles, not an EGL/GL driver or player.",
+    "The independent CI software-driver pixel suite is not Win32 detour, PF/game/hardware/FPS evidence.",
+    "Code-provider masks and candidate checks are not resource ownership; several candidates/aliases may occur per native operation.",
+    "Native image-binding counters are separate from this GL copy/blit ledger. General EGLImage/native-buffer/private routes remain unimplemented or unproved."
+  ],
+  "beforeResult": {
+    "splitModesPassed": 9,
+    "nonSplitPassed": 21,
+    "nonSplitFailed": 1,
+    "onlyFailedTest": "shader-gl-transfer-native-abi-contract",
+    "failure": "native original incoming LastError changed by pre-inspection",
+    "gameRootCauseProved": false
+  },
+  "candidateCiAndPackageComplete": true,
+  "coverage": {
+    "fullMatrixSuccessfulJobs": 6,
+    "intentionallySkippedJob": "focused-egl",
+    "windowsNativeSteps": [
+      137291887228,
+      137291887302,
+      137291887377
+    ],
+    "softwarePixelJsonNoticesParsed": 8,
+    "softwarePixelsExerciseWin32Detours": false,
+    "materialStrengthPercent": [
+      0,
+      50,
+      100
+    ],
+    "softwareLinkedMaterialRGBA": [
+      [
+        255,
+        0,
+        0,
+        173
+      ],
+      [
+        0,
+        128,
+        128,
+        173
+      ],
+      [
+        255,
+        255,
+        0,
+        173
+      ]
+    ],
+    "allSoftwareOffAndSourceStateRestorationAssertionsPassed": true,
+    "newHostedPixelPngsDownloadedDecodedInThisLinuxWorkspace": false,
+    "fullWindowsCtestTranscriptRetrievedInWorkspace": false,
+    "releaseAndDiscordPublicationSkipped": true
+  },
+  "testDownloads": [
+    {
+      "artifactId": 14766190567,
+      "artifactName": "BSI-Customizer-4.0.1-setup-45049699287-r1",
+      "url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45049699287/artifacts/14766190567",
+      "candidateSourceCommit": "ebdf6c219864c5f7352a1b0bb3fc1ea0ad0ca486",
+      "zipBytes": 46049748,
+      "zipSha256": "4abc4f135d0be3c1170ea88f0f419a783c90d8e4fd66076307008a6420492085",
+      "singleExeName": "BSI-Customizer-4.0.1-setup.exe",
+      "singleExeSha256": "03c60b1bfd27af0fe034b16530bdb962e54a50b970a6c216538bf90ef4ca6746",
+      "githubReportedCreatedAt": "2026-11-22T17:48:09Z",
+      "githubReportedExpiresAt": "2026-11-25T17:48:07Z",
+      "expiredAtMetadataReadback": false,
+      "actualUploadedZipDownloadedCrcHashAndWindowsExtractionVerified": true,
+      "verificationExecuted": "Same GitHub-hosted Windows build job; metadata and complete notices independently reconciled in Linux workspace.",
+      "zipDownloadedOrExeExecutedInThisLinuxWorkspace": false
+    },
+    {
+      "artifactId": 14766155722,
+      "artifactName": "BSI-Customizer-4.0.1-win64-45049699287-r1",
+      "url": "https://github.com/dsajgddghdsaakovvgheww/BSI-Customizer/actions/runs/45049699287/artifacts/14766155722",
+      "candidateSourceCommit": "ebdf6c219864c5f7352a1b0bb3fc1ea0ad0ca486",
+      "zipBytes": 43754697,
+      "zipSha256": "d76f833e185a3353571f78ca6bffab70087c773876063e2496973ed63719809c",
+      "singleExeName": "BSI-Customizer-4.0.1-win64.exe",
+      "singleExeSha256": "8def7bd5d57c1fcda47e28314412b83e94d4ed858dd7b72af3512c2256a50771",
+      "githubReportedCreatedAt": "2026-11-22T17:48:07Z",
+      "githubReportedExpiresAt": "2026-11-25T17:48:04Z",
+      "expiredAtMetadataReadback": false,
+      "actualUploadedZipDownloadedCrcHashAndWindowsExtractionVerified": true,
+      "verificationExecuted": "Same GitHub-hosted Windows build job; metadata and complete notices independently reconciled in Linux workspace.",
+      "zipDownloadedOrExeExecutedInThisLinuxWorkspace": false
+    }
+  ]
+}

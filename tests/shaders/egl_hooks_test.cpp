@@ -1,0 +1,507 @@
+// Real MinHook/Win32 ownership + two EGL-shaped lifecycle DLL doubles.
+// No GL pixels, protected GPU memory, emulator or physical driver executes.
+#include "Runtime.h"
+#include "PresentationHooks.h"
+#include "GlDrawCalls.h"
+#undef BSI_GL_DRAW_CALLS
+#include <windows.h>
+#include <chrono>
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <set>
+#include <thread>
+#include <utility>
+
+using namespace BsiShaders;
+namespace {
+void require(bool value,const char *message){if(!value){std::fprintf(stderr,"FAIL: %s\n%s\n",message,Runtime::instance().metrics().status.c_str());std::exit(1);}}
+LRESULT CALLBACK windowProc(HWND w,UINT m,WPARAM a,LPARAM b){return DefWindowProcW(w,m,a,b);}
+struct Fixture {
+    HMODULE module=nullptr;void *display=nullptr;
+    template<typename Function>Function function(const char *name){
+        const auto entry=GetProcAddress(module,name);require(entry!=nullptr,"required public EGL fixture entry point");
+        return reinterpret_cast<Function>(reinterpret_cast<void*>(entry));
+    }
+    void open(const char *path){
+        module=LoadLibraryA(path);require(module!=nullptr,"load independently named EGL provider");
+        display=function<void*(*)()>("bsiFixtureDisplay")();
+        const char *names[]{"eglSwapBuffers","eglCreateWindowSurface","eglCreatePlatformWindowSurface","eglCreatePlatformWindowSurfaceEXT","eglDestroySurface","eglDestroyContext"};
+        std::set<FARPROC> entries;
+        for(const auto *name:names)require(entries.insert(GetProcAddress(module,name)).second,"detourable distinct fixture exports, not ICF-folded aliases");
+    }
+    void ready(){
+        for(unsigned i=0;i<100&&!originalPresentationFunction(reinterpret_cast<void*>(GetProcAddress(module,"eglSwapBuffers")));++i)
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        require(originalPresentationFunction(reinterpret_cast<void*>(GetProcAddress(module,"eglSwapBuffers")))!=nullptr,"the actual EGL provider was hooked, not just a loaded GL/DX/Vulkan DLL");
+    }
+    void *context(bool protectedContent=false,void *share=nullptr){
+        const int attributes[]{0x32c0,protectedContent,0x3038};
+        return function<void*(WINAPI*)(void*,void*,void*,const int*)>("eglCreateContext")(display,nullptr,share,attributes);
+    }
+    void *pbuffer(bool protectedContent=false){
+        const int attributes[]{0x32c0,protectedContent,0x3038};
+        return function<void*(WINAPI*)(void*,void*,const int*)>("eglCreatePbufferSurface")(display,nullptr,attributes);
+    }
+    void resource(unsigned mode,unsigned output=50){function<void(*)(unsigned,unsigned)>("bsiFixtureResourceState")(mode,output);}
+    void deleteTexture(unsigned name){
+        const auto entry=function<void*(WINAPI*)(const char*)>("eglGetProcAddress")("glDeleteTextures");
+        require(entry!=nullptr,"driver-shaped texture deletion entry");
+        const auto before=count("bsiFixtureTextureDeletes");
+        reinterpret_cast<void(WINAPI*)(int,const unsigned*)>(entry)(1,&name);
+        require(count("bsiFixtureTextureDeletes")==before+1,"original texture deletion executes exactly once");
+    }
+    void oversizedDeletion(){
+        unsigned names[65]{};for(unsigned i=0;i<65;++i)names[i]=1000+i;
+        const auto entry=function<void*(WINAPI*)(const char*)>("eglGetProcAddress")("glDeleteTextures");
+        const auto before=count("bsiFixtureTextureDeletes");reinterpret_cast<void(WINAPI*)(int,const unsigned*)>(entry)(65,names);
+        require(count("bsiFixtureTextureDeletes")==before+65,"oversized native deletion forwards count/names once without scanning beyond its safe capture bound");
+    }
+    void *surface(HWND window,int variant=0,bool protectedContent=false){
+        const int attrs[]{0x32c0,protectedContent,0x3038};
+        if(variant==1){const std::intptr_t wide[]{0x32c0,protectedContent,0x3038};return function<void*(WINAPI*)(void*,void*,void*,const std::intptr_t*)>("eglCreatePlatformWindowSurface")(display,nullptr,window,wide);}
+        return function<void*(WINAPI*)(void*,void*,void*,const int*)>(variant==2?"eglCreatePlatformWindowSurfaceEXT":"eglCreateWindowSurface")(display,nullptr,window,attrs);
+    }
+    void current(void *surface,void *context,void *read=nullptr){require(function<unsigned(WINAPI*)(void*,void*,void*,void*)>("eglMakeCurrent")(display,surface,read?read:surface,context)!=0,"bind exact fixture context and separate draw/read drawables");}
+    void transferState(unsigned readKind,unsigned source,unsigned destination=50){function<void(*)(unsigned,unsigned,unsigned)>("bsiFixtureTransferState")(readKind,source,destination);}
+    void transfer(bool copy,unsigned alias=0){
+        const auto before=count("bsiFixtureTransferCalls");
+        function<void(*)(unsigned,unsigned)>("bsiFixtureTransfer")(copy,alias);
+        require(count("bsiFixtureTransferCalls")==before+1&&count("bsiFixtureTransferArgumentsIntact")
+                &&count("bsiFixtureBindingsRestored")&&!count("bsiFixtureInvalidGl"),
+                "each native color copy/resolve runs exactly once with all original arguments, no private samplers and unchanged active/binding state");
+    }
+    void onTransfer(void(WINAPI *callback)()){function<void(*)(void(WINAPI*)())>("bsiFixtureOnTransfer")(callback);}
+    void nativeTarget(unsigned name){function<void(*)(unsigned)>("bsiFixtureNativeTextureTarget")(name);}
+    void bindingFailures(unsigned flags){function<void(*)(unsigned)>("bsiFixtureImageBindingFailures")(flags);}
+    void bindImage(void *surface,unsigned expected=1,int buffer=0x3084){
+        const auto before=count("bsiFixtureImageBinds");
+        require(function<unsigned(WINAPI*)(void*,void*,int)>("eglBindTexImage")(display,surface,buffer)==expected
+                &&count("bsiFixtureImageBinds")==before+1,"native eglBindTexImage forwards the exact pbuffer/buffer once and preserves SUCCESS/FAILURE");
+        require(count("bsiFixtureBindingsRestored")&&!count("bsiFixtureInvalidGl"),"native image observation never borrows a sampler or changes active state");
+    }
+    LONG count(const char *name="bsiFixtureSwapCalls"){return function<LONG(*)()>(name)();}
+    void swap(void *surface){
+        const auto before=count();require(function<unsigned(WINAPI*)(void*,void*)>("eglSwapBuffers")(display,surface)!=0,"original EGL presentation succeeds");
+        require(count()==before+1,"every original EGL swap executes exactly once, including every safety bypass");
+    }
+    void scene(unsigned flags){function<void(*)(unsigned)>("bsiFixtureSceneState")(flags);}
+    void draw(GlDrawKind kind=GlDrawKind::ElementsBaseVertex,unsigned alias=0,LONG bindings=2,unsigned mode=4){
+        const auto before=count("bsiFixtureDrawCalls"),privateBefore=count("bsiFixturePrivateDraws");
+        function<void(*)(unsigned,unsigned,unsigned)>("bsiFixtureDraw")(static_cast<unsigned>(kind),alias,mode);
+        require(count("bsiFixtureDrawCalls")==before+1,"each real detour invokes its original exactly once, including bypasses/multi/indirect calls");
+        require(count("bsiFixtureArgumentsIntact")&&count("bsiFixtureBindingsRestored")&&!count("bsiFixtureInvalidGl"),
+                "all counts, offsets, pointer arrays, signed base vertices and 64-bit count-buffer offsets forward intact; restore exact native samplers/active unit");
+        if(count("bsiFixtureLastPrivateBindings")!=bindings||count("bsiFixturePrivateDraws")!=privateBefore+(bindings?1:0))
+            std::fprintf(stderr,"EGL draw #%ld kind %u: expected %ld private bindings, observed %ld; private-draw total %ld -> %ld\n",before+1,unsigned(kind),bindings,count("bsiFixtureLastPrivateBindings"),privateBefore,count("bsiFixturePrivateDraws"));
+        require(count("bsiFixtureLastPrivateBindings")==bindings&&count("bsiFixturePrivateDraws")==privateBefore+(bindings?1:0),
+                "private coarser-LOD samplers are visible INSIDE the original draw, never merely counted afterward");
+    }
+    void nestedDraw(unsigned mode,LONG outerBindings,LONG innerBindings){
+        const auto before=count("bsiFixtureDrawCalls"),privateBefore=count("bsiFixturePrivateDraws");
+        function<void(*)(unsigned)>("bsiFixtureNestedDraw")(mode);
+        require(count("bsiFixtureDrawCalls")==before+2,"outer and inner originals each execute exactly once through real detours");
+        require(count("bsiFixtureArgumentsIntact")&&count("bsiFixtureBindingsRestored")&&!count("bsiFixtureInvalidGl"),
+                "nested originals retain exact independent arguments and restore the original samplers/active unit");
+        require(count("bsiFixtureLastPrivateBindings")==outerBindings&&count("bsiFixtureNestedPrivateBindings")==innerBindings
+                &&count("bsiFixturePrivateDraws")==privateBefore+(outerBindings?1:0)+(innerBindings?1:0),
+                "check private samplers INSIDE both outer and nested originals, not just report counters");
+    }
+    void removeSurface(void *value){require(function<unsigned(WINAPI*)(void*,void*)>("eglDestroySurface")(display,value)!=0,"native surface teardown");}
+    void removeContext(void *value){require(function<unsigned(WINAPI*)(void*,void*)>("eglDestroyContext")(display,value)!=0,"native context teardown");}
+};
+Fixture *transferFixture=nullptr;
+std::uint64_t unpublishedTransferCalls=0;
+unsigned transferProbeMode=0;
+void WINAPI transferProbe(){
+    auto &runtime=Runtime::instance();
+    require(runtime.metrics().textureTransferCalls==unpublishedTransferCalls,"resource transfer evidence is not published before its original returns");
+    if(transferProbeMode==1){runtime.setTexture({false,true,TextureDrawPolicy::OwnedMipCompatibility});runtime.setTexture({true,true,TextureDrawPolicy::OwnedMipCompatibility});}
+    if(transferProbeMode==2)transferFixture->deleteTexture(50);
+    if(transferProbeMode==3)transferFixture->nativeTarget(51);
+}
+}
+int main(int argc,char **argv){
+    require(argc==3,"pass two authored EGL provider DLL paths");
+    HWND root=CreateWindowExW(0,L"STATIC",L"EGL test-owned player",WS_OVERLAPPEDWINDOW,0,0,900,600,nullptr,nullptr,GetModuleHandleW(nullptr),nullptr);
+    HWND game=CreateWindowExW(0,L"STATIC",L"EGL test-owned game",WS_CHILD,0,0,640,360,root,nullptr,GetModuleHandleW(nullptr),nullptr);
+    WNDCLASSW cls{};cls.lpfnWndProc=windowProc;cls.hInstance=GetModuleHandleW(nullptr);cls.lpszClassName=L"QtEglTestExcluded";
+    require(RegisterClassW(&cls)!=0,"register actual Qt-classified excluded HWND");
+    HWND ui=CreateWindowExW(0,cls.lpszClassName,L"EGL UI only",WS_CHILD,0,0,640,360,root,nullptr,cls.hInstance,nullptr);
+    require(root&&game&&ui,"create test-owned native windows");
+    Fixture a,b;a.open(argv[1]);
+    const auto ca=a.context(),lateUnknown=a.surface(game);require(ca&&lateUnknown,"create intentionally pre-existing surface before hooks");
+    auto &runtime=Runtime::instance();runtime.configureRenderer(RendererFamily::Vulkan);runtime.start(reinterpret_cast<std::uintptr_t>(root));a.ready();
+    const auto uiA=a.surface(ui);a.current(uiA,ca);a.swap(uiA);
+    require(!runtime.metrics().observed,"Qt/UI-first EGL provider does not identify the game renderer");
+    a.current(lateUnknown,ca);a.swap(lateUnknown);
+    require(!runtime.metrics().observed,"unknown pre-existing EGL surfaces are never guessed from config, context or device");a.removeSurface(lateUnknown);
+    const auto protectedSurface=a.surface(game,0,true);a.current(protectedSurface,ca);a.swap(protectedSurface);
+    require(!runtime.metrics().observed&&a.count("bsiFixtureGlQueries")==0,"protected surface is excluded before ANY optional GL work");a.removeSurface(protectedSurface);
+    const auto normal=a.surface(game,1),protectedContext=a.context(true);
+    require(normal&&protectedContext,"platform-window surface and protected context fixture");
+    a.current(normal,protectedContext);a.swap(normal);
+    require(!runtime.metrics().observed&&a.count("bsiFixtureProtectionQueries")>0&&a.count("bsiFixtureGlQueries")==0,
+            "regular surface with protected context is rejected by legal EGL context queries");a.removeContext(protectedContext);
+    const auto other=a.surface(game);a.current(normal,ca);a.swap(other);
+    require(!runtime.metrics().observed,"a swapped surface different from the current EGL_DRAW drawable cannot adopt the current context");
+    a.swap(normal);auto m=runtime.metrics();
+    require(m.observed&&m.renderer==Renderer::OpenGLES&&m.configured==RendererFamily::Vulkan&&m.requested==RendererFamily::Automatic&&!m.active&&m.processed==0,
+            "actual owned GLES presentation routes under a Vulkan hint without fake shader-frame counts or API relabeling");
+    require(!runtime.claimPresentation(Renderer::Direct3D11,123,reinterpret_cast<std::uintptr_t>(game)),"nested translation-layer presentation cannot take the selected source");
+    const auto unrelated=a.surface(game);a.removeSurface(unrelated);
+    require(runtime.metrics().observed,"destroying another drawable on the same HWND must not release the selected surface's claim");
+    a.removeSurface(normal);require(!runtime.metrics().observed,"surface teardown releases routing even while its context remains alive");
+    a.current(other,ca);a.swap(other);require(runtime.metrics().observed,"recreated drawable with the same native context is re-adopted");
+    a.removeContext(ca);require(!runtime.metrics().observed,"context teardown releases its presentation token");a.removeSurface(other);a.removeSurface(uiA);
+    b.open(argv[2]);b.ready();
+    const auto cb=b.context(),gameB=b.surface(game,2);require(cb&&gameB,"second late-loaded EXT-platform provider has its own context/drawable");
+    b.current(gameB,cb);b.swap(gameB);
+    require(runtime.metrics().observed&&runtime.metrics().renderer==Renderer::OpenGLES&&runtime.metrics().processed==0,
+            "late second EGL provider is not stolen by the first UI provider or a stale context");
+    b.function<void(*)(int)>("bsiFixtureExtensions")(0);runtime.configureRenderer(RendererFamily::DirectX);b.swap(gameB);
+    require(runtime.metrics().observed&&b.count("bsiFixtureProtectionQueries")==0&&b.count("bsiFixtureIllegalQueries")==0,
+            "extension-only protection enums are never queried when absent; actual GLES still ignores a DirectX config hint");
+    b.removeContext(cb);b.removeSurface(gameB);
+    require(!runtime.metrics().observed&&a.count("bsiFixtureGlQueries")==0&&b.count("bsiFixtureGlQueries")==0,
+            "neutral/lifecycle tests execute no GL inspection or effect passes and leave no routing claim");
+    // Reproduce the missed-scene pattern: plain DrawArrays is only the final
+    // depth-disabled compositor; geometry uses base-vertex/multi/indirect APIs
+    // and a second context which NEVER swaps on its own.
+    runtime.configureRenderer(RendererFamily::Vulkan);runtime.setTexture({true,true});
+    const auto presenter=a.context(),scene=a.context(),protectedScene=a.context(true);
+    const auto target=a.surface(game),sameWindowOtherDrawable=a.surface(game),uiTarget=a.surface(ui),secret=a.surface(game,0,true);
+    require(presenter&&scene&&protectedScene&&target&&sameWindowOtherDrawable&&uiTarget&&secret,"texture dispatch fixtures");
+    a.current(target,scene);a.draw(GlDrawKind::ElementsBaseVertex,0,0);
+    require(!runtime.metrics().observed&&!runtime.metrics().textureInspected,"a draw alone must not claim presentation or invent game evidence");
+    a.current(target,presenter);a.swap(target);
+    require(runtime.metrics().observed&&runtime.metrics().textureSupported&&!runtime.metrics().textureDraws,"only the owned swap arms inspection, not successful texture draws");
+    a.scene(1);a.draw(GlDrawKind::Arrays,0,0);
+    m=runtime.metrics();require(m.textureInspected==1&&m.textureDepthBypasses==1&&!m.textureSceneDraws&&!m.textureDraws,
+            "compositor-only draw is inspected but never relabeled as a successful scene preparation");
+    a.scene(0);unsigned variants=0;
+    for(unsigned kind=0;kind<glDrawKinds;++kind)for(unsigned alias=0;alias<glDrawAliases;++alias)if(glDrawNames[kind][alias]){
+        a.draw(static_cast<GlDrawKind>(kind),alias);++variants;
+    }
+    m=runtime.metrics();require(m.textureDraws==variants&&m.textureBindings==variants*2&&m.textureSceneDraws==variants&&m.textureInspected==variants+1,
+            "all scene draw signatures/core/extension aliases, not only the five compositor-era hooks, prepare and count real temporary bindings");
+    const auto preparedStatus=m.textureStatus;
+    a.scene(1);a.draw(GlDrawKind::Arrays,0,0);
+    require(runtime.metrics().textureStatus==preparedStatus&&!runtime.metrics().textureLastBypass.empty(),"last HUD bypass cannot overwrite earlier scene preparation evidence");
+    a.scene(0);a.current(target,scene);a.draw();
+    require(runtime.metrics().textureDraws==variants+1&&runtime.metrics().renderer==Renderer::OpenGLES&&runtime.metrics().processed==0,
+            "a second scene context on the EXACT selected drawable qualifies without stealing presentation or counting visual-effect frames");
+
+    auto inspected=runtime.metrics().textureInspected;
+    a.current(target,protectedScene);const auto glBefore=a.count("bsiFixtureGlQueries");a.draw(GlDrawKind::ElementsBaseVertex,0,0);
+    require(a.count("bsiFixtureGlQueries")==glBefore&&runtime.metrics().textureInspected==inspected,"protected alternate context is rejected before ANY GL initialization");
+    a.current(sameWindowOtherDrawable,scene);a.draw(GlDrawKind::ElementsBaseVertex,0,0);
+    a.current(uiTarget,scene);a.draw(GlDrawKind::ElementsBaseVertex,0,0);
+    a.current(secret,scene);a.draw(GlDrawKind::ElementsBaseVertex,0,0);
+    a.current(nullptr,scene);a.draw(GlDrawKind::ElementsBaseVertex,0,0);
+    require(runtime.metrics().textureInspected==inspected,"same HWND is insufficient for another drawable; UI, protected and pbuffer/unmapped drawables stay native even with a known scene context");
+    const auto otherGame=CreateWindowExW(0,L"STATIC",L"other owned child",WS_CHILD,0,0,640,360,root,nullptr,GetModuleHandleW(nullptr),nullptr);
+    require(otherGame!=nullptr,"separate owned child fixture");
+    const auto otherTarget=a.surface(otherGame);a.current(otherTarget,scene);a.draw(GlDrawKind::ElementsBaseVertex,0,0);
+    require(runtime.metrics().textureInspected==inspected,"another eligible owned child is NOT the selected game drawable");
+    a.removeSurface(otherTarget);DestroyWindow(otherGame);
+
+    a.current(target,scene);
+    for(unsigned flags:{1u,2u,4u,8u,16u,32u,64u}){a.scene(flags);a.draw(GlDrawKind::ElementsBaseVertex,0,0);}
+    a.scene(0);a.draw(GlDrawKind::ElementsBaseVertex,0,0,1); // lines, not scene triangles
+    m=runtime.metrics();require(m.textureInspected==inspected+8&&m.textureDepthBypasses==6&&m.textureBlendBypasses==1
+            &&m.textureSamplerBypasses==2&&m.textureOtherBypasses==1,"depth/write/always-pass/no-depth, blended, missing/protected mips and primitive bypasses remain distinct and never prepared");
+    require(m.textureDepthReasons[static_cast<std::size_t>(TextureDepthFailure::TestDisabled)]==3
+            &&m.textureDepthReasons[static_cast<std::size_t>(TextureDepthFailure::WritesDisabled)]==1
+            &&m.textureDepthReasons[static_cast<std::size_t>(TextureDepthFailure::Always)]==1
+            &&m.textureDepthReasons[static_cast<std::size_t>(TextureDepthFailure::MissingAttachment)]==1,
+            "the aggregate depth bypass records the actual first blocker, not a guessed missing mip chain");
+
+    // Reproduce the guard-only failure independently of any claim about the
+    // user's driver: an outer no-depth wrapper sets real depth inside its
+    // original, then issues a different hooked draw on this EXACT owned route.
+    runtime.setTexture({false,true});runtime.setTexture({true,true});
+    a.scene(1);a.nestedDraw(1,0,2);
+    m=runtime.metrics();
+    require(m.textureInspected==2&&m.textureDepthBypasses==1&&m.textureSceneDraws==1&&m.textureDraws==1&&m.textureBindings==2
+            &&m.textureNestedInspected==1&&m.textureNestedDraws==1,
+            "a zero-binding wrapper cannot keep its recursion guard/render lock around the later qualifying inner original");
+    a.scene(1);a.nestedDraw(3,0,0); // both calls genuinely lack scene depth
+    m=runtime.metrics();
+    require(m.textureInspected==4&&m.textureDepthBypasses==3&&m.textureDraws==1&&m.textureNestedInspected==2&&m.textureNestedDraws==1,
+            "nested inspection is not permission to force depth-disabled UI/composition through the policy");
+    a.scene(0);a.nestedDraw(2,2,2);
+    m=runtime.metrics();
+    require(m.textureInspected==5&&m.textureDraws==2&&m.textureBindings==4&&m.textureNestedInspected==2&&m.textureNestedDraws==1,
+            "a prepared outer draw retains its lease until its original returns; inner callbacks cannot double-override/count borrowed samplers");
+    inspected=m.textureInspected;
+    const auto beforeProtectedNested=a.count("bsiFixtureGlQueries");
+    a.current(target,protectedScene);a.scene(1);a.nestedDraw(1,0,0);
+    require(a.count("bsiFixtureGlQueries")==beforeProtectedNested,"nested protected-context calls still perform no optional GL initialization");
+    for(auto *unowned:{sameWindowOtherDrawable,uiTarget,secret,static_cast<void*>(nullptr)}){
+        a.current(unowned,scene);a.scene(1);a.nestedDraw(1,0,0);
+    }
+    require(runtime.metrics().textureInspected==inspected,"nested draws cannot infer another drawable, UI, protected or unmapped producer's ownership");
+    a.current(target,scene);a.scene(0);
+    runtime.setTexture({false,true});a.draw(GlDrawKind::ElementsBaseVertex,0,0);
+    require(!runtime.metrics().textureDraws&&!runtime.metrics().textureBindings&&!runtime.metrics().textureInspected,"off clears prior texture evidence and cannot reuse lifetime success as current activity");
+    runtime.setTexture({true,true});a.draw();require(runtime.metrics().textureDraws==1,"on can arm an already tracked scene without a restart");
+    a.current(sameWindowOtherDrawable,presenter);a.swap(sameWindowOtherDrawable);
+    require(runtime.metrics().observed&&!runtime.metrics().textureDraws&&!runtime.metrics().textureInspected,
+            "even the SAME presenter context/HWND must reset evidence when its actually presented drawable changes");
+    a.current(target,scene);a.draw(GlDrawKind::ElementsBaseVertex,0,0);
+    require(!runtime.metrics().textureInspected,"the former drawable loses alternate scene authorization after a new drawable is presented");
+    a.current(target,presenter);a.swap(target);a.current(target,scene);a.draw();
+    require(runtime.metrics().textureDraws==1,"an exact original drawable can be re-adopted only by a fresh owned swap");
+    a.removeContext(presenter);a.draw(GlDrawKind::ElementsBaseVertex,0,0);
+    require(!runtime.metrics().observed&&!runtime.metrics().textureDraws&&!runtime.metrics().textureInspected,"destroying the presenter revokes alternate scene authorization and its evidence");
+    a.swap(target);a.draw();require(runtime.metrics().observed&&runtime.metrics().textureDraws==1,"the former scene can be adopted ONLY after its own qualified swap");
+    a.removeSurface(target);a.draw(GlDrawKind::ElementsBaseVertex,0,0);
+    require(!runtime.metrics().observed&&!runtime.metrics().textureDraws,"surface destruction revokes all associated scene contexts");
+    a.removeContext(scene);a.removeContext(protectedScene);a.removeSurface(sameWindowOtherDrawable);a.removeSurface(secret);
+
+    // Leave provider A current on excluded UI while provider B draws the game.
+    const auto uiContext=a.context();a.current(uiTarget,uiContext);
+    const auto second=b.context(),secondTarget=b.surface(game,2);b.current(secondTarget,second);b.swap(secondTarget);b.draw();
+    require(runtime.metrics().observed&&runtime.metrics().textureDraws==1&&runtime.metrics().textureInspected==1,
+            "independent late EGL provider draws are not stolen by an earlier UI provider or old game-source counters");
+    // The actual user-enabled compatibility policy must reach the ORIGINALS
+    // with private samplers despite depth test/write/attachment all absent.
+    // Keep legacy cases above: this is an explicit strategy, not a weakened
+    // ownership/protection route or a fabricated successful depth predicate.
+    runtime.setTexture({true,true,TextureDrawPolicy::OwnedMipCompatibility});
+    b.scene(1|2|8);unsigned compatibleVariants=0;
+    for(unsigned kind=0;kind<glDrawKinds;++kind)for(unsigned alias=0;alias<glDrawAliases;++alias)if(glDrawNames[kind][alias]){
+        b.draw(static_cast<GlDrawKind>(kind),alias);++compatibleVariants;
+    }
+    m=runtime.metrics();
+    require(compatibleVariants==variants&&m.texturePolicy==TextureDrawPolicy::OwnedMipCompatibility
+            &&m.textureInspected==variants&&m.textureSceneDraws==variants&&m.textureDraws==variants
+            &&m.textureBindings==variants*2&&!m.textureDepthBypasses&&m.textureDepthReasons==decltype(m.textureDepthReasons){},
+            "all 46 real detours apply depth-independent private mip sampling without inventing scene depth or extra frames");
+    for(unsigned flags:{1u|2u|8u|16u,1u|2u|8u|32u,1u|2u|8u|64u}){b.scene(flags);b.draw(GlDrawKind::ElementsBaseVertex,0,0);}
+    require(runtime.metrics().textureDraws==variants,"compatibility still refuses blended, incomplete-mip and protected resources");
+    inspected=runtime.metrics().textureInspected;
+    b.function<void(*)(int)>("bsiFixtureExtensions")(1);
+    const auto incompatibleDrawable=b.surface(game),compatSecret=b.surface(game,0,true),compatProtected=b.context(true);
+    for(auto *unowned:{incompatibleDrawable,compatSecret,static_cast<void*>(nullptr)}){
+        b.current(unowned,second);b.scene(1|2|8);b.draw(GlDrawKind::ElementsBaseVertex,0,0);
+    }
+    b.current(secondTarget,compatProtected);b.draw(GlDrawKind::ElementsBaseVertex,0,0);
+    require(runtime.metrics().textureInspected==inspected,"compatibility does not adopt another drawable, unmapped/pbuffer or protected route");
+    a.scene(1|2|8);a.draw(GlDrawKind::ElementsBaseVertex,0,0);
+    require(runtime.metrics().textureInspected==inspected,"compatibility still excludes the earlier Qt/UI provider");
+    b.current(secondTarget,second);b.scene(1|2|8);b.nestedDraw(3,2,2);
+    require(runtime.metrics().textureInspected==inspected+1&&runtime.metrics().textureDraws==variants+1,
+            "live compatibility bindings keep their recursion lease; a nested alias borrows them without double counting/preparation");
+    runtime.setTexture({false,true,TextureDrawPolicy::OwnedMipCompatibility});b.draw(GlDrawKind::ElementsBaseVertex,0,0);
+    require(!runtime.metrics().textureDraws&&!runtime.metrics().textureInspected,"compatibility Off restores native originals and clears evidence");
+
+    // Independent reproduction of the latest NoSampler symptom: the selected
+    // compositor samples one-level texture 50; material mips 1/2 are used ONLY
+    // in a known pbuffer FBO which writes that exact presentation dependency.
+    const auto offscreen=b.pbuffer(),unknownPbuffer=b.function<void*(*)()>("bsiFixtureUnknownPbuffer")();
+    const auto protectedPbuffer=b.pbuffer(true),uiB=b.surface(ui);
+    require(offscreen&&unknownPbuffer&&protectedPbuffer&&uiB,"observed, unobserved, protected and excluded offscreen-route fixtures");
+    runtime.setTexture({true,true,TextureDrawPolicy::OwnedMipCompatibility});
+    b.current(offscreen,second);b.resource(2);b.draw(GlDrawKind::Arrays,0,0);
+    require(!runtime.metrics().textureInspected,"a known pbuffer/context/FBO cannot seed its own ownership");
+    b.current(secondTarget,second);b.resource(1);b.draw(GlDrawKind::Arrays,0,0);
+    m=runtime.metrics();
+    require(m.textureSamplerBypasses==1&&m.textureConsumerDraws==1&&m.textureConsumerInputs==1&&!m.textureDraws,
+            "a genuinely single-level compositor remains NoSampler while recording its active input binding, NOT a texture success");
+    b.current(offscreen,second);b.resource(2);b.draw();
+    m=runtime.metrics();
+    require(m.textureProducerInspected==1&&m.textureProducerDraws==1&&m.textureProducerBindings==2&&m.processed==0,
+            "the SAME context's actual FBO producer receives private mips INSIDE its original without claiming another presentation or grading frame");
+    auto producerInspected=m.textureProducerInspected;
+    b.resource(2,51);b.draw(GlDrawKind::Arrays,0,0);
+    b.current(unknownPbuffer,second);b.resource(2);b.draw(GlDrawKind::Arrays,0,0);
+    b.current(protectedPbuffer,second);b.draw(GlDrawKind::Arrays,0,0);
+    b.current(uiB,second);b.draw(GlDrawKind::Arrays,0,0);
+    require(runtime.metrics().textureProducerInspected==producerInspected,
+            "unrelated FBO output, unmapped/pbuffer, protected and Qt surfaces never qualify from a context or sharing alone");
+
+    const auto shared=b.context(false,second),isolated=b.context(),sharedProtected=b.context(true,second);
+    require(shared&&isolated&&sharedProtected,"successful explicit native sharing and isolated/protected context fixtures");
+    // Sharing merges invalidate old name evidence; re-observe the real source.
+    b.current(secondTarget,second);b.resource(1);b.draw(GlDrawKind::Arrays,0,0);
+    b.current(offscreen,isolated);b.resource(2);b.draw(GlDrawKind::Arrays,0,0);
+    b.current(offscreen,sharedProtected);b.resource(2);
+    const auto queriesBefore=b.count("bsiFixtureGlQueries");b.draw(GlDrawKind::Arrays,0,0);
+    require(b.count("bsiFixtureGlQueries")==queriesBefore&&runtime.metrics().textureProducerInspected==producerInspected,
+            "equal names in another namespace and protected explicitly shared contexts are rejected BEFORE optional GL initialization");
+    b.current(offscreen,shared);b.resource(2);b.draw();
+    require(runtime.metrics().textureProducerDraws==2&&runtime.metrics().textureProducerBindings==4,
+            "an observed SUCCESSFUL native share plus fresh presentation consumption and matching color output qualifies the exact producer");
+    b.deleteTexture(50);b.draw(GlDrawKind::Arrays,0,0);
+    require(runtime.metrics().textureProducerDraws==2,"texture deletion/name reuse cannot inherit a previous dependency proof");
+    b.current(secondTarget,second);b.resource(1);b.draw(GlDrawKind::Arrays,0,0);
+    for(unsigned i=0;i<3;++i)b.swap(secondTarget); // no new consumer draw, real frame lifetime expires
+    b.current(offscreen,shared);b.resource(2);b.draw(GlDrawKind::Arrays,0,0);
+    require(runtime.metrics().textureProducerDraws==2,"a producer cannot keep itself permanently adopted after consumer evidence expires");
+    b.current(secondTarget,second);b.resource(1);b.draw(GlDrawKind::Arrays,0,0);
+    b.current(offscreen,shared);b.resource(2);b.draw();
+    require(runtime.metrics().textureProducerDraws==3,"a new selected consumer can renew the exact producer after expiry");
+    runtime.setTexture({false,true,TextureDrawPolicy::OwnedMipCompatibility});
+    runtime.setTexture({true,true,TextureDrawPolicy::OwnedMipCompatibility});
+    b.draw(GlDrawKind::Arrays,0,0);
+    require(!runtime.metrics().textureInspected&&!runtime.metrics().textureProducerDraws,"Off->On revokes old dependencies even with the same presentation/context");
+    b.current(secondTarget,second);b.resource(1);b.draw(GlDrawKind::Arrays,0,0);
+    b.current(offscreen,shared);b.resource(2);b.draw();
+
+    // New missing producer paths: a real detoured copy from default pbuffer,
+    // or an RBO resolve. No blanket pbuffer/share-group authorization.
+    b.function<void(*)(int)>("bsiFixtureExtensions")(0);
+    const auto transferContext=b.context(false,second),readPbuffer=b.pbuffer();
+    require(transferContext&&readPbuffer,"independent transfer context plus distinct native READ pbuffer");
+    b.current(offscreen,transferContext);b.function<void(*)(int)>("bsiFixtureGlProtection")(0);
+    const auto consume=[&]{
+        runtime.setTexture({false,true,TextureDrawPolicy::OwnedMipCompatibility});
+        runtime.setTexture({true,true,TextureDrawPolicy::OwnedMipCompatibility});
+        b.current(secondTarget,second);b.resource(1);b.draw(GlDrawKind::Arrays,0,0);
+        b.current(offscreen,transferContext);
+    };
+    consume();b.resource(4);b.draw(GlDrawKind::Arrays,0,0);
+    require(!runtime.metrics().textureProducerInspected,"a default pbuffer does not become a producer merely because it is known/shared");
+    transferFixture=&b;unpublishedTransferCalls=0;transferProbeMode=0;b.onTransfer(transferProbe);
+    b.transferState(0,0);b.transfer(true);b.onTransfer(nullptr);
+    require(runtime.metrics().textureTransferCalls==1&&runtime.metrics().textureTransferInputs==1
+            &&!runtime.metrics().textureProducerInspected,"copy evidence is published after the native original, without counting a sampler preparation");
+    b.resource(4);b.draw();
+    require(runtime.metrics().textureProducerDraws==1&&runtime.metrics().textureProducerBindings==2,
+            "an observed exact pbuffer -> consumed texture copy reaches material samplers INSIDE the original DEFAULT-framebuffer draw");
+    for(unsigned overflow=0;overflow<2;++overflow){
+        if(!overflow)b.oversizedDeletion();else for(unsigned i=0;i<40;++i)b.deleteTexture(1000+i);
+        const auto prepared=runtime.metrics().textureProducerDraws;
+        b.resource(4);b.draw(GlDrawKind::Arrays,0,0);
+        require(runtime.metrics().textureProducerDraws==prepared,"oversized/overflowed deletion invalidates every old resource dependency");
+        b.current(secondTarget,second);b.resource(1);b.draw(GlDrawKind::Arrays,0,0);
+        b.current(offscreen,transferContext);b.transferState(0,0);b.transfer(true);b.resource(4);b.draw();
+        require(runtime.metrics().textureProducerDraws==prepared+1,
+                "an object-deletion overflow must retain observed native context sharing: a fresh consumer/copy can relearn without a new context/share call");
+    }
+    consume();b.resource(3,70);b.draw(GlDrawKind::Arrays,0,0);
+    b.transferState(2,70,51);b.transfer(false);
+    require(!runtime.metrics().textureTransferCalls&&!runtime.metrics().textureProducerInspected,"an unrelated copy destination cannot qualify an RBO producer");
+    for(unsigned alias=0;alias<4;++alias){b.transferState(2,70);b.transfer(false,alias);}
+    b.resource(3,70);b.draw();
+    require(runtime.metrics().textureTransferCalls==4&&runtime.metrics().textureTransferInputs==4&&runtime.metrics().textureProducerDraws==1,
+            "all four core/EXT/ANGLE/NV blit targets propagate typed RBO -> texture evidence without treating their numeric names as aliases");
+    for(unsigned alias=0;alias<2;++alias){b.transferState(1,80);b.transfer(true,alias);}
+    b.resource(2,80);b.draw();
+    require(runtime.metrics().textureTransferCalls==6&&runtime.metrics().textureProducerDraws==2,"both copy entry points preserve arguments and reach their exact texture-backed producer");
+    consume();b.current(offscreen,transferContext,unknownPbuffer);b.transferState(0,0);b.transfer(true);
+    require(!runtime.metrics().textureTransferCalls,"a known DRAW pbuffer does not authorize an UNKNOWN default READ surface");
+    b.current(offscreen,transferContext,protectedPbuffer);b.transferState(0,0);b.transfer(true);
+    require(!runtime.metrics().textureTransferCalls,"a protected/untracked default READ pbuffer never seeds upstream ownership");
+    b.current(offscreen,transferContext,readPbuffer);b.transferState(0,0);b.transfer(true);
+    b.current(offscreen,transferContext);b.resource(4);b.draw(GlDrawKind::Arrays,0,0);
+    require(!runtime.metrics().textureProducerDraws,"a copy from a DIFFERENT known READ pbuffer must not authorize the DRAW pbuffer's material pass");
+    b.current(readPbuffer,transferContext);b.resource(4);b.draw();
+    require(runtime.metrics().textureProducerDraws==1,"the actual separately observed READ pbuffer is the qualified native resource");
+    consume();b.transferState(0,0);unpublishedTransferCalls=0;transferProbeMode=1;b.onTransfer(transferProbe);b.transfer(true);b.onTransfer(nullptr);
+    b.resource(4);b.draw(GlDrawKind::Arrays,0,0);
+    require(!runtime.metrics().textureTransferCalls&&!runtime.metrics().textureProducerDraws,"Off->On INSIDE the original copy rejects its stale captured revision");
+    consume();b.transferState(0,0);unpublishedTransferCalls=0;transferProbeMode=2;b.onTransfer(transferProbe);b.transfer(true);b.onTransfer(nullptr);
+    b.resource(4);b.draw(GlDrawKind::Arrays,0,0);
+    require(!runtime.metrics().textureTransferCalls&&!runtime.metrics().textureProducerDraws,"a native texture deletion INSIDE the original rejects a stale transfer/resource serial without blocking that original");
+    // An actual native image binding is neither a GL copy nor a shared
+    // object-name guess. It reaches the same native pbuffer's material draw
+    // even in an explicitly ISOLATED GL namespace; texture inputs remain local.
+    const auto nativeConsume=[&]{
+        runtime.setTexture({false,true,TextureDrawPolicy::OwnedMipCompatibility});
+        runtime.setTexture({true,true,TextureDrawPolicy::OwnedMipCompatibility});
+        b.current(secondTarget,second);b.resource(1);b.draw(GlDrawKind::Arrays,0,0);b.nativeTarget(50);
+    };
+    nativeConsume();b.current(offscreen,isolated);b.resource(4);b.draw(GlDrawKind::Arrays,0,0);
+    require(!runtime.metrics().textureProducerInspected,"native pbuffer existence with an isolated namespace is not ownership without the consumed image binding");
+    b.current(secondTarget,second);b.resource(1);b.nativeTarget(50);
+    unpublishedTransferCalls=0;transferProbeMode=0;b.onTransfer(transferProbe);b.bindImage(offscreen);b.onTransfer(nullptr);
+    require(runtime.metrics().textureTransferCalls==1&&runtime.metrics().textureTransferInputs==1
+            &&!runtime.metrics().textureProducerDraws,"successful native binding publishes its link AFTER the original, no fabricated material preparation");
+    b.current(offscreen,isolated);b.resource(4);b.draw();
+    require(runtime.metrics().textureProducerDraws==1&&runtime.metrics().textureProducerBindings==2,
+            "exact native-image output reaches a NONSHARING pbuffer renderer with private samplers INSIDE its original; no global object namespace merge");
+    b.resource(2,50);b.draw(GlDrawKind::Arrays,0,0);
+    require(runtime.metrics().textureProducerDraws==1,"a native output link cannot turn equal texture names in the isolated namespace into shared FBO resources");
+    for(unsigned flags:{1u,2u,4u,8u,16u}){
+        nativeConsume();b.bindingFailures(flags);b.bindImage(offscreen,flags==1?0:1);b.bindingFailures(0);
+        b.current(offscreen,isolated);b.resource(4);b.draw(GlDrawKind::Arrays,0,0);
+        require(!runtime.metrics().textureTransferCalls&&!runtime.metrics().textureProducerDraws,
+                "failed native bind/query, non-2D/non-color image and nonzero mip level cannot publish native output ownership");
+    }
+    nativeConsume();b.bindImage(unknownPbuffer);b.bindImage(protectedPbuffer);b.bindImage(offscreen,0,0);
+    require(!runtime.metrics().textureTransferCalls,"unobserved/protected pbuffers and unsupported buffer arguments do not become resource links");
+    for(unsigned probe:{1u,2u,3u}){
+        nativeConsume();unpublishedTransferCalls=0;transferProbeMode=probe;b.onTransfer(transferProbe);b.bindImage(offscreen);b.onTransfer(nullptr);
+        require(!runtime.metrics().textureTransferCalls,"settings revision, texture retirement or a different bound target INSIDE native binding rejects stale capture without holding renderMutex");
+    }
+    nativeConsume();b.bindImage(readPbuffer);
+    b.current(offscreen,isolated);b.resource(4);b.draw(GlDrawKind::Arrays,0,0);
+    b.current(readPbuffer,isolated);b.resource(4);b.draw();
+    require(runtime.metrics().textureProducerDraws==1,"native binding selects the EXACT pbuffer lifetime, not another known drawable in its context");
+    b.current(secondTarget,second);for(unsigned i=0;i<3;++i)b.swap(secondTarget);
+    b.current(readPbuffer,isolated);b.resource(4);b.draw(GlDrawKind::Arrays,0,0);
+    require(runtime.metrics().textureProducerDraws==1,"native image links inherit the consumer TTL and cannot keep a nonsharing producer authorized forever");
+
+    // A named FBO/RBO producer does not need a native default image at all.
+    // Exercise the REAL detours on a surfaceless shared context, rather than
+    // disguising an ordinary pbuffer draw as an EGL_NO_SURFACE reproduction.
+    b.function<void(*)(int)>("bsiFixtureExtensions")(1);
+    nativeConsume();b.current(nullptr,shared);b.resource(2);b.draw();
+    require(runtime.metrics().textureProducerDraws==1&&runtime.metrics().textureProducerBindings==2,
+            "an actually surfaceless context reaches the exact consumed FBO in an observed shared namespace, without claiming presentation");
+    b.resource(2,51);b.draw(GlDrawKind::Arrays,0,0);
+    b.resource(4);b.draw(GlDrawKind::Arrays,0,0);
+    b.current(nullptr,isolated);b.resource(2);b.draw(GlDrawKind::Arrays,0,0);
+    const auto surfacelessInspected=runtime.metrics().textureInspected;
+    const auto queriesBeforeSurfacelessProtection=b.count("bsiFixtureGlQueries");
+    b.current(nullptr,sharedProtected);b.resource(2);b.draw(GlDrawKind::Arrays,0,0);
+    b.current(nullptr,shared,offscreen);b.resource(2);b.draw(GlDrawKind::Arrays,0,0);
+    require(runtime.metrics().textureInspected==surfacelessInspected&&b.count("bsiFixtureGlQueries")==queriesBeforeSurfacelessProtection
+            &&!b.count("bsiFixtureIllegalQueries"),
+            "surfaceless still rejects protected contexts BEFORE GL, mismatched null DRAW/non-null READ, isolated names, unrelated FBOs and all unknown default images; NEVER query EGL_NO_SURFACE");
+    b.current(nullptr,shared);b.transferState(2,70);b.transfer(false);
+    b.resource(3,70);b.draw(GlDrawKind::Arrays,0,0);
+    require(!runtime.metrics().textureTransferCalls&&runtime.metrics().textureProducerDraws==1,
+            "surfaceless does not bypass unqueryable RBO protection on the protected-texture-capable context");
+    // Keep the existing RBO protection boundary: the protected-texture
+    // capability has no binding-free core RBO protection query. The positive
+    // RBO control therefore uses the already qualified no-protection transfer
+    // context, as the earlier pbuffer/RBO fixture does; do not weaken capture.
+    b.function<void(*)(int)>("bsiFixtureExtensions")(0);
+    b.current(nullptr,transferContext);b.resource(3,70);b.draw(GlDrawKind::Arrays,0,0);
+    b.transferState(2,70);b.transfer(false);b.resource(3,70);b.draw();
+    b.transferState(0,0);b.transfer(true);
+    require(runtime.metrics().textureProducerDraws==2&&runtime.metrics().textureTransferCalls==1,
+            "surfaceless named-RBO resolve follows the exact same resource proof; a copy from an unknown default READ image remains excluded");
+
+    // Percentage must traverse Runtime -> route snapshot -> REAL draw detour
+    // -> bound private sampler. The original independently expects these floors.
+    b.current(secondTarget,second);b.resource(0);b.scene(0);
+    for(const auto setting:{std::pair<int,float>{25,.75f},{50,1.5f},{100,3.f},{0,0.f}}){
+        runtime.setTexture({true,true,TextureDrawPolicy::OwnedMipCompatibility,setting.first});
+        b.function<void(*)(float)>("bsiFixtureExpectedFloor")(setting.second);
+        b.draw(GlDrawKind::ElementsBaseVertex,0,setting.first?2:0);
+        require(runtime.texture().strength==setting.first&&runtime.metrics().textureDraws==unsigned(setting.first?1:0)
+                &&runtime.metrics().textureBindings==unsigned(setting.first?2:0),"saved percentage reaches real hook bindings; zero is native, counters reset for each strength");
+    }
+    b.function<void(*)(float)>("bsiFixtureExpectedFloor")(3.f);
+    runtime.setTexture({true,true,TextureDrawPolicy::OwnedMipCompatibility});
+    b.current(offscreen,transferContext);
+    b.removeContext(transferContext);b.removeSurface(readPbuffer);
+    b.current(offscreen,shared);b.resource(2);
+    b.removeSurface(secondTarget);b.draw(GlDrawKind::Arrays,0,0);
+    require(!runtime.metrics().observed&&!runtime.metrics().textureProducerDraws&&!runtime.metrics().textureInspected,
+            "destroying the selected surface immediately revokes all resource-linked producers without adopting their pbuffer as a new presentation");
+    runtime.setTexture({false,true,TextureDrawPolicy::OwnedMipCompatibility});
+    b.removeContext(shared);b.removeContext(isolated);b.removeContext(sharedProtected);
+    b.removeSurface(offscreen);b.removeSurface(unknownPbuffer);b.removeSurface(protectedPbuffer);b.removeSurface(uiB);
+    b.removeContext(compatProtected);b.removeSurface(incompatibleDrawable);b.removeSurface(compatSecret);
+    b.removeContext(second);a.removeContext(uiContext);a.removeSurface(uiTarget);
+    require(!runtime.metrics().observed&&!runtime.metrics().textureDraws&&!a.count("bsiFixtureInvalidGl")&&!b.count("bsiFixtureInvalidGl"),"teardown and dispatch fixtures leave no stale presentation/texture success or invalid GL state");
+    runtime.setTexture({});runtime.stop();DestroyWindow(ui);DestroyWindow(game);DestroyWindow(root);UnregisterClassW(cls.lpszClassName,cls.hInstance);
+    std::printf("PASS: production EGL/MinHook lifecycle plus %u draw signature/alias detours; exact arguments/once-only native draws, private samplers DURING base-vertex/multi/indirect/instanced draws, zero-binding wrapper -> nested scene versus live-override guards, precise first depth blockers, exact owned drawable plus proven same/explicit-share FBO/default-pbuffer producers via native copy/resolve detours, separate READ pbuffer identity, no pre-original publication, revision/resource-serial changes inside originals, deletion overflow recovery without lost native sharing, named-only surfaceless FBO/RBO producers with no null-surface query or unknown default adoption, unrelated/UI/protected/unmapped non-null EGL routes excluded, expiry, Off/source reset and teardown\n",variants);
+    std::puts("LIMIT: authored EGL/GL state doubles only, no GL driver/game pixels, protected GPU memory or physical GPU/player certification");
+}
