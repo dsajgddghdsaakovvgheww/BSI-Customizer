@@ -42,6 +42,7 @@ class Backend : public QObject
     Q_PROPERTY(bool themeStale READ themeStale NOTIFY themeChanged)
     Q_PROPERTY(QVariantList themeEntries READ themeEntries NOTIFY themeChanged)
     Q_PROPERTY(QVariantList hexColors READ hexColors NOTIFY themeChanged)
+    Q_PROPERTY(QVariantList hexTargets READ hexTargets NOTIFY themeChanged)
     Q_PROPERTY(QVariantList themePresets READ themePresets CONSTANT)
     Q_PROPERTY(QVariantList gradientTargets READ gradientTargets NOTIFY gradientTargetsChanged)
 
@@ -95,6 +96,7 @@ public:
     bool themeStale() const;
     QVariantList themeEntries() const;
     QVariantList hexColors() const;
+    QVariantList hexTargets() const;
     // [{id, name, desc, light, toggleOff, toggleOn, colorCount, preview}]
     QVariantList themePresets() const;
     QVariantList gradientTargets() const;
@@ -137,6 +139,8 @@ public:
     Q_INVOKABLE QString presetToggleOn(const QString &id) const;
 
     Q_INVOKABLE void setHexColor(const QString &name, const QString &hex);
+    Q_INVOKABLE void setHexTarget(const QString &name, const QString &hex);
+    Q_INVOKABLE void setHexTargetEnabled(const QString &name, bool on);
     Q_INVOKABLE void setHexEnabled(const QString &name, bool on);
     Q_INVOKABLE void resetHexColors();
     Q_INVOKABLE int previewHex();
@@ -354,6 +358,7 @@ private:
     QList<GradientPatcher::Target> m_gradientTargets;
     QMap<QString, QString> m_edits;
     QList<HexColorItem> m_hexQmlColors;
+    QList<HexColorItem> m_hexTargets;
 
     QList<SvgBlob> m_svgs;
     QList<EmbeddedResources::Entry> m_resources;

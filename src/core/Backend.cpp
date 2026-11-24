@@ -63,6 +63,7 @@ void Backend::invalidatePlayerAnalysis()
     m_themeEntries.clear();
     m_gradientTargets.clear();
     m_hexQmlColors.clear();
+    m_hexTargets.clear();
     m_edits.clear();
     m_themeFilePath.clear();
     m_themeStatus.clear();
@@ -105,6 +106,7 @@ void Backend::copyPatchState(const Backend &source)
     m_gradientTargets = source.m_gradientTargets;
     m_edits = source.m_edits;
     m_hexQmlColors = source.m_hexQmlColors;
+    m_hexTargets = source.m_hexTargets;
     m_svgs = source.m_svgs;
     m_resources = source.m_resources;
     m_resourceInfos = source.m_resourceInfos;
@@ -370,6 +372,19 @@ QVariantList Backend::hexColors() const
     return out;
 }
 
+QVariantList Backend::hexTargets() const
+{
+    QVariantList out;
+    for (const HexColorItem &c : m_hexTargets) {
+        out << QVariantMap { { "name", c.name },
+                             { "current", c.currentHex },
+                             { "color", c.color },
+                             { "enabled", c.enabled },
+                             { "purpose", ThemeEngine::purpose(c.name) } };
+    }
+    return out;
+}
+
 void Backend::loadTheme(const QString &method)
 {
     if (!m_backgroundWorker) {
@@ -382,6 +397,7 @@ void Backend::loadTheme(const QString &method)
     m_themeEntries.clear();
     m_edits.clear();
     m_hexQmlColors.clear();
+    m_hexTargets.clear();
     m_themeStatus.clear();
     m_themeMethod = method;
     m_qmlThemeAvailable = false;
@@ -483,6 +499,15 @@ void Backend::loadTheme(const QString &method)
                 item.currentHex = cur;
                 m_hexQmlColors << item;
             }
+        }
+        // The player's own palette targets (sidebar, toggles, accents, ...):
+        // fixed binary color slots the user can recolor with a checkbox.
+        const auto targetTable = ThemeEngine::hexTargets(m_themeInfo.profile);
+        for (auto it = targetTable.constBegin(); it != targetTable.constEnd(); ++it) {
+            HexColorItem item;
+            item.name = it.key();
+            item.currentHex = it.value().first;
+            m_hexTargets << item;
         }
         // Count the gradient surfaces the gradient editor offers for this
         // player into the status line, so a player with no gradient-capable
@@ -812,10 +837,40 @@ void Backend::setHexEnabled(const QString &name, bool on)
     emit themeChanged();
 }
 
+void Backend::setHexTarget(const QString &name, const QString &hex)
+{
+    if (actionsLocked()) return;
+    for (HexColorItem &c : m_hexTargets) {
+        if (c.name == name) {
+            c.color = hex;
+            if (!hex.isEmpty())
+                c.enabled = true;
+            break;
+        }
+    }
+    emit themeChanged();
+}
+
+void Backend::setHexTargetEnabled(const QString &name, bool on)
+{
+    if (actionsLocked()) return;
+    for (HexColorItem &c : m_hexTargets) {
+        if (c.name == name) {
+            c.enabled = on;
+            break;
+        }
+    }
+    emit themeChanged();
+}
+
 void Backend::resetHexColors()
 {
     if (actionsLocked()) return;
     for (HexColorItem &c : m_hexQmlColors) {
+        c.enabled = false;
+        c.color.clear();
+    }
+    for (HexColorItem &c : m_hexTargets) {
         c.enabled = false;
         c.color.clear();
     }
@@ -835,8 +890,8 @@ int Backend::previewHex()
         doLog(QStringLiteral("Cannot read EXE."), QStringLiteral("red"));
         return 0;
     }
-    const auto repls = ThemeEngine::collectThemeReplacements(data, m_themeInfo.profile, {},
-                                                             m_hexQmlColors);
+    const auto repls = ThemeEngine::collectThemeReplacements(data, m_themeInfo.profile,
+                                                             m_hexTargets, m_hexQmlColors);
     doLog(QStringLiteral("Preview: %1 color change(s) would be made.").arg(repls.size()),
           QStringLiteral("blue"));
     return repls.size();
@@ -858,17 +913,29 @@ QVariantMap Backend::applyHex()
         if (!color.isValid()) return result(false, QStringLiteral("Invalid color: %1.").arg(c.name), QStringLiteral("red"));
         c.color = color.name(color.alpha() == 255 ? QColor::HexRgb : QColor::HexArgb);
     }
+    for (auto &c : m_hexTargets) if (c.enabled && !c.color.isEmpty()) {
+        const QColor color(c.color);
+        if (!color.isValid()) return result(false, QStringLiteral("Invalid color: %1.").arg(c.name), QStringLiteral("red"));
+        c.color = color.name(color.alpha() == 255 ? QColor::HexRgb : QColor::HexArgb);
+    }
     if (BsDetector::isProcessRunning(QStringLiteral("HD-Player.exe")))
         doLog(QStringLiteral("BlueStacks is RUNNING - close it first, otherwise the write can be "
                              "blocked and the running instance keeps its old theme."),
               QStringLiteral("orange"));
 
-    auto r = ThemeEngine::applyHexTheme(m_settings->exePath(), m_themeInfo.profile, {},
+    auto r = ThemeEngine::applyHexTheme(m_settings->exePath(), m_themeInfo.profile, m_hexTargets,
                                         m_hexQmlColors,
                                         [this](const QString &m, const QString &c) { doLog(m, c); });
     if (r.ok) {
         // Update current values + rescan from disk.
         for (HexColorItem &c : m_hexQmlColors) {
+            if (c.enabled && !c.color.isEmpty()) {
+                c.currentHex = c.color;
+                c.color.clear();
+                c.enabled = false;
+            }
+        }
+        for (HexColorItem &c : m_hexTargets) {
             if (c.enabled && !c.color.isEmpty()) {
                 c.currentHex = c.color;
                 c.color.clear();
