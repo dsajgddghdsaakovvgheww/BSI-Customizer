@@ -490,14 +490,21 @@ def main():
                 click(prompt, button)
                 assert not evaluate(page, "!!restartPrompt")
 
-            # The Potato texture customizer is intentionally absent from the
-            # Shaders tab. Resolution remains independently configurable.
-            controls = {item.objectName() for item in tree(page) if item.objectName()}
-            assert not (controls & {"shaderPotatoGraphic", "shaderPotatoReview",
-                                    "shaderPotatoStrength", "shaderPotatoStrengthValue",
-                                    "shaderPotatoTextureStatus", "shaderStretchSection"})
+            # Physical texture-strength draft participates in the EXISTING
+            # native tab prompt; neither No nor Discard saves/applies it.
+            texture_strength = named(page, "shaderPotatoStrength")
+            assert texture_strength.property("bsiFixtureKind") == "UiSlider" and not texture_strength.isEnabled()
+            click(window, named(page, "shaderPotatoGraphic"))
+            click(window, texture_strength)
+            draft_strength = evaluate(page, "draft.potatoStrength")
+            assert 0 < draft_strength < 100 and window.property("bsiShaderDirty2")
+            assert evaluate(page, "JSON.stringify(Engine.saved)") == initial
+            tab(window, 0); prompt_button("No")
+            assert window.property("pCurrentTabIndex") == 12 and evaluate(page, "draft.potatoStrength") == draft_strength
+            tab(window, 0); prompt_button("Discard Changes")
+            assert window.property("pCurrentTabIndex") == 0 and not window.property("bsiShaderDirty2")
+            assert evaluate(page, "draft.potatoStrength") == 100 and evaluate(page, "JSON.stringify(Engine.saved)") == initial
             assert not backend.writes and backend.commits == 0 and not profile.exists()
-            tab(window, 0)
             tab(window, 12)
 
             original_display = dict(backend.committed)

@@ -515,6 +515,80 @@ Rectangle {
                         color: page.bsiTheme.colors.primary30; font: page.bsiTheme.fonts.bodySmall
                     }
                     Rectangle { Layout.fillWidth: true; height: 1; color: page.bsiTheme.colors.seperator }
+                    Native.UiCheckBox {
+                        objectName: "shaderPotatoGraphic"
+                        pSize: page.bsiTheme.checkBoxes.sizes.medium
+                        Layout.fillWidth: true
+                        text: qsTr("Potato graphic")
+                        checked: !!page.draft.potatoGraphic
+                        onToggled: {
+                            page.setValue("potatoGraphic", checked)
+                            if (checked && page.needsTextureReview) page.reveal(potatoReview)
+                        }
+                    }
+                    Native.UiCheckBox {
+                        id: potatoReview
+                        objectName: "shaderPotatoReview"
+                        visible: !!page.draft.potatoGraphic
+                        pSize: page.bsiTheme.checkBoxes.sizes.medium
+                        Layout.fillWidth: true
+                        text: qsTr("I reviewed driver LOD / AA overrides")
+                        checked: !!page.draft.textureOverridesReviewed
+                        onToggled: {
+                            page.setValue("textureOverridesReviewed", checked)
+                            page.feedback = ""; page.saveFailed = false
+                        }
+                        Accessible.description: qsTr("Before saving Potato graphic, review existing NVIDIA, AMD or Intel driver LOD and anti-aliasing overrides. No profile is reset. Conflicting overrides can prevent the effect; this is not hardware certification.")
+                    }
+                    Native.UiColumnLayout {
+                        Layout.fillWidth: true; spacing: 4
+                        Native.UiRowLayout {
+                            Layout.fillWidth: true; spacing: 12
+                            Text {
+                                Layout.fillWidth: true; wrapMode: Text.Wrap
+                                text: qsTr("Potato strength"); color: page.bsiTheme.colors.primary10; font: page.bsiTheme.fonts.bodyLarge
+                            }
+                            Text {
+                                objectName: "shaderPotatoStrengthValue"
+                                text: qsTr("%1%").arg(page.textureStrength(page.draft))
+                                color: page.bsiTheme.colors.primary20; font: page.bsiTheme.fonts.bodySmall
+                            }
+                        }
+                        Native.UiSlider {
+                            objectName: "shaderPotatoStrength"
+                            pSize: page.bsiTheme.sliders.sizes.medium
+                            Layout.fillWidth: true
+                            from: 0; to: 100; stepSize: 1
+                            value: page.textureStrength(page.draft)
+                            enabled: !!page.draft.potatoGraphic
+                            Accessible.name: qsTr("Potato strength")
+                            Accessible.description: qsTr("Texture mip reduction, not resolution or blur. Zero percent keeps native sampling; 100 percent requests up to three coarser mip levels on eligible textures. Save changes to apply; rejected textures are unaffected at every strength.")
+                            onMoved: page.setValue("potatoStrength", Math.round(value))
+                        }
+                        Text {
+                            Layout.fillWidth: true; wrapMode: Text.Wrap
+                            text: qsTr("0%: native · 50%: light · 100%: strongest. Only eligible textures change. Save changes to apply; this does not lower render resolution.")
+                            color: page.bsiTheme.colors.primary30; font: page.bsiTheme.fonts.bodySmall
+                        }
+                    }
+                    Text {
+                        Layout.fillWidth: true; wrapMode: Text.Wrap
+                        text: qsTr("Depth-independent mip sampling on the selected OpenGL / GLES game drawable. Opaque mipmapped HUD or RGB data maps may also change. Separate Qt windows, blended draws, protected textures and existing LOD/anisotropic overrides stay native. Separate from resolution; no profile reset or FPS promise.")
+                        color: page.bsiTheme.colors.primary30; font: page.bsiTheme.fonts.bodySmall
+                    }
+                    Text {
+                        objectName: "shaderPotatoTextureStatus"
+                        visible: !!page.draft.potatoGraphic || !!Engine.metrics.potatoGraphicEnabled || page.textureDraftChanged
+                        Layout.fillWidth: true; wrapMode: Text.Wrap
+                        text: page.potatoStatus()
+                            + (Engine.metrics.potatoGraphicEnabled ? "\n" + qsTr("Inspected calls: ") + (Engine.metrics.textureInspected || 0)
+                                + qsTr(" · Sampler-inspection calls: ") + (Engine.metrics.textureEligibleDraws || 0)
+                                + "\n" + qsTr("Runtime prepared draws: ") + (Engine.metrics.textureDraws || 0)
+                                + qsTr(" · Bindings: ") + (Engine.metrics.textureBindings || 0) + qsTr(" (not measured game pixels or FPS)") : "")
+                        color: page.needsTextureReview ? page.bsiTheme.colors.primary20 : page.bsiTheme.colors.primary30
+                        font: page.bsiTheme.fonts.bodySmall
+                    }
+                    Rectangle { Layout.fillWidth: true; height: 1; color: page.bsiTheme.colors.seperator }
                     Text {
                         objectName: "shaderResolutionHeading"
                         // An unwrapped heading becomes the ColumnLayout's
@@ -525,7 +599,7 @@ Rectangle {
                     }
                     Text {
                         Layout.fillWidth: true; wrapMode: Text.Wrap
-                        text: qsTr("Display resolution only. This optional setting changes the configured render size and is independent of visual-effect presets.")
+                        text: qsTr("Display resolution only. This is optional and separate from the Potato graphic texture-sampling switch above; it is not a substitute for texture detail reduction.")
                         color: page.bsiTheme.colors.primary30; font: page.bsiTheme.fonts.bodySmall
                     }
                     Native.UiRowLayout {
@@ -575,7 +649,7 @@ Rectangle {
                         pSize: page.bsiTheme.buttons.sizes.medium
                         pColor: page.bsiTheme.buttons.colors.secondary
                         text: qsTr("Keep saved resolution")
-                        Accessible.description: qsTr("Drop only the unsaved resolution selection, keeping the visual-effect draft so it can be saved independently.")
+                        Accessible.description: qsTr("Drop only the unsaved resolution selection, keeping all visual-effect and Potato graphic drafts so they can be saved independently.")
                         onClicked: { page.setValue("potatoMode", Number(Engine.saved.potatoMode || 0)); page.feedback = ""; page.saveFailed = false }
                     }
                     Text {
