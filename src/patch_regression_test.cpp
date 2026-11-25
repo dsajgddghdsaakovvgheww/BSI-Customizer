@@ -4089,17 +4089,18 @@ Timer{interval:160;running:a.Window.window&&a.Window.window.visible;repeat:true;
                       && resourceText(read(alias), r, QStringLiteral("PlrTopbar.qml")) == text,
                   QStringLiteral("legacy removal profile '%1' migrates to the combined action").arg(oldName));
         }
-        // A fully packed file with no relocation cave must fail atomically,
-        // rather than blanking shared strings or growing the executable.
+        // A fully packed file with no relocation cave now grows by one verified
+        // section instead of refusing; shared strings are still never blanked.
         const QString tiny = QStringLiteral("import QtQuick\nItem{Text{id:iBstTxt;text:'Player'}Text{id:iVersionTxt;text:'6.0'}Text{id:iImageTxt;text:'P64'}}");
         auto packed = resourcesBytes({ { QStringLiteral("PlrTopbar.qml"), tiny.toUtf8() },
                                       { QStringLiteral("i18n.de-DE.qm"), german } }, true, raw);
         addRegistration(packed, false);
         const QString packedPath = temp.filePath(QStringLiteral("no-titlebar-room.exe"));
         write(packedPath, packed.f.bytes);
-        const auto refused = ExtrasPatcher::applyRemovals(packedPath, { QStringLiteral("Remove title details") });
-        check(!refused.ok && read(packedPath) == packed.f.bytes && !QFileInfo::exists(packedPath + QStringLiteral(".bak")),
-              "insufficient fixed-slot/free-space capacity refuses the entire title-details edit without modifying any bytes");
+        const auto grown = ExtrasPatcher::applyRemovals(packedPath, { QStringLiteral("Remove title details") });
+        check(grown.ok && read(packedPath).size() > packed.f.bytes.size() && QFileInfo::exists(packedPath + QStringLiteral(".bak"))
+                  && resourceText(read(packedPath), packed, QStringLiteral("PlrTopbar.qml")) != tiny,
+              "a packed title-details edit grows one verified section, backs up the original and reads back");
     }
 
     std::printf("[phone-profiles] actual layout dispatcher and independent Phone-source recovery\n");
@@ -8658,10 +8659,12 @@ Window {
         write(exePath, original); QFile::remove(exePath + QStringLiteral(".bak"));
         QString huge; huge.reserve(400000);
         for (int i = 0; i < 400000; ++i) { seed = seed * 1103515245u + 12345u; huge += QChar(ushort('a' + (seed >> 16) % 26)); }
-        const auto refusedText = EmbeddedResources::replaceText(exePath, qmlEntry.path, qmlSource + huge);
-        check(!refusedText.ok && read(exePath) == original,
-              QStringLiteral("oversized payload without verified storage is refused (%1)").arg(refusedText.msg));
-        check(!QFileInfo::exists(exePath + QStringLiteral(".bak")), "refused growth does not create a backup");
+        // The 400 KB payload is larger than its slot; the writer relocates it
+        // into verified free space in this fixture, so the file size is unchanged.
+        const auto movedText = EmbeddedResources::replaceText(exePath, qmlEntry.path, qmlSource + huge);
+        check(movedText.ok && read(exePath).size() == originalSize,
+              QStringLiteral("oversized payload moves into verified free space without growing the EXE (%1)").arg(movedText.msg));
+        write(exePath, original); QFile::remove(exePath + QStringLiteral(".bak"));
 
         const QString shorter = QStringLiteral("import QtQuick\nItem { width: 10 }\n");
         const auto saved = EmbeddedResources::replaceText(exePath, qmlEntry.path, shorter);
