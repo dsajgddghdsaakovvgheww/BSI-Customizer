@@ -185,12 +185,9 @@ bool replace(QByteArray &image,const QString &path,const QByteArray &source,QStr
     if(!link.found||link.ambiguous||link.sourceNames.size()!=1)return failWith("Ambiguous/aliased player component mapping.");
     auto room=EmbeddedResources::budget(image,selected.entryOff,selected.name);
     if(!room.known)return failWith(room.detail);
-    const auto size=EmbeddedResources::payloadSizeFor(source,selected.flags);
-    qint64 destination=-1;
-    if(size>room.capacity){destination=QtResources::findFreeSpace(image,link,size+4,error);if(destination<0)return false;}
     QByteArray changed=image;qint64 entry=selected.entryOff;
-    if(!QtResources::replaceResource(changed,entry,link,source,error,&entry,false,destination,identifiers().value(selected.name)))return false;
-    if(changed.size()!=image.size()||QtResources::readFile(changed,{selected.name,entry,selected.flags})!=source)return failWith("Player component read-back/size verification failed.");
+    if(!QtResources::replaceResource(changed,entry,link,source,error,&entry,true,-1,identifiers().value(selected.name)))return false;
+    if(QtResources::readFile(changed,{selected.name,entry,selected.flags})!=source)return failWith("Player component read-back/size verification failed.");
     image=changed;return true;
 }
 }

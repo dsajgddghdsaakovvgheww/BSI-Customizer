@@ -222,26 +222,9 @@ bool hideTitlebarLabels(QByteArray &data, int *hidden, QString *error)
         const auto link = QtResources::findLink(data, file.entryOff, file.name);
         if (!link.found || link.ambiguous)
             return refuse(QStringLiteral("The title bar QML resource mapping is ambiguous; no file was written."));
-        const qint64 capacity = QtResources::inPlaceCapacity(data, file.entryOff, file.name);
-        // Use the writer's actual bounded lossless encoding, not an ordinary
-        // qCompress estimate. Clean UI can already occupy a full/tightly
-        // encoded record: the old preflight refused before replaceResource()
-        // could try the exact same safe encoding that made the clean-up fit.
-        // This changes neither source bytes nor the no-growth/ownership rule.
-        const qint64 payload = file.flags == 1
-            ? ZlibUtils::compressForCapacity(source, capacity).size() : source.size();
-        qint64 destination = -1;
-        if (capacity >= 0 && payload > capacity) {
-            destination = QtResources::findFreeSpace(data, link, 4 + payload, error);
-            if (destination < 0)
-                return refuse(QStringLiteral("Hiding the title-bar label needs %1 bytes but its record only "
-                                             "holds %2 and the file has no free space left; nothing was written.")
-                                  .arg(payload)
-                                  .arg(capacity));
-        }
         qint64 newEntry = file.entryOff;
         if (!QtResources::replaceResource(data, file.entryOff, link, source, error, &newEntry,
-                                          /*allowGrowth=*/false, destination, ids))
+                                          /*allowGrowth=*/true, -1, ids))
             return false;
         return true;
     }
@@ -283,7 +266,6 @@ Result applyRemovals(const QString &exePath, const QStringList &enabledNames)
     QByteArray data = f.readAll();
     f.close();
     const QByteArray original = data;
-    const qsizetype originalSize = data.size();
 
     QList<ThemeEngine::Replacement> replacements;
 
@@ -360,8 +342,6 @@ Result applyRemovals(const QString &exePath, const QStringList &enabledNames)
         if (!hideTitlebarLabels(data, &hiddenLabels, &error)) return { false, error };
     }
 
-    if (data.size() != originalSize)
-        return { false, QStringLiteral("The edit would have changed the EXE size; nothing was written.") };
     // Same verified write every other patcher uses: a backup first, an
     // in-memory read-back of the record, and only then the disk.
     if (!ThemeEngine::backup(exePath))

@@ -35,7 +35,7 @@
 ## Safety boundaries
 
 - A batch commits **one EXE only**. Boot Assets, About DLLs/RCCs and GIF RPC configuration/proxy operations are separate. No cross-file atomicity or automatic rollback is promised.
-- Ordinary resource replacement cannot grow the EXE. Theme relocation is only attempted through the writer's supported mapped-storage checks; there is no universal force-replace mode.
+- Ordinary resource replacement may grow the EXE by one verified `.bsirc` section when a record does not fit its slot or free space; the original is backed up and the result is read back before writing. Theme relocation is only attempted through the writer's supported mapped-storage checks; there is no universal force-replace mode.
 - Raw compiled cache replacement is refused. Source edits invalidate supported compiled units and player disk caches instead.
 - Workspace limits: EXE/input/output 256 MiB, resource 32 MiB, aggregate decoded replacements 64 MiB, 128 operations. Profiles 256 KiB. Images at most 16 megapixels, with bounded source size and crop-before-scale to avoid oversized intermediates.
 - History contains original EXE bytes and installation paths. Keep it private. Journals/snapshots must not be linked files or reside under linked/junction directories.

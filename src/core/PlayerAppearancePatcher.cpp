@@ -314,24 +314,14 @@ bool apply(QByteArray &image, const QVariantMap &edits, QString *error)
                               .arg(doc.leaf).arg(broad).arg(precise));
         const auto room = EmbeddedResources::budget(changed, doc.entry, doc.leaf);
         if (!room.known) return refuse(room.detail);
-        const qint64 payload = EmbeddedResources::payloadSizeFor(replacement, doc.link.compression);
-        qint64 destination = -1;
-        if (payload > room.capacity) {
-            destination = QtResources::findFreeSpace(changed, doc.link, 4 + payload, error);
-            if (destination < 0)
-                return refuse(QStringLiteral("%1 needs %2 payload bytes but only %3 fit in place and no verified free space remains. Nothing was written.")
-                                  .arg(doc.leaf).arg(payload).arg(room.capacity));
-        }
+        // Oversized payloads move into verified free space or a new verified section.
         // Invalidate the one positively identified unit before the generic
         // writer runs; Qt 5 units omit sourceFileIndex entirely. The precision
         // guard above proves the writer's own broader pass adds no extra units.
         QtResources::invalidateUnits(changed, {}, doc.identifiers);
         qint64 newEntry = doc.entry;
-        if (!QtResources::replaceResource(changed, doc.entry, doc.link, replacement, error, &newEntry,
-                                          /*allowGrowth=*/false, destination))
+        if (!QtResources::replaceResource(changed, doc.entry, doc.link, replacement, error, &newEntry))
             return false;
-        if (changed.size() != image.size())
-            return refuse(QStringLiteral("The appearance rewrite would change the EXE size; nothing was written."));
         const auto check = QtResources::findLink(changed, newEntry, doc.leaf);
         if (!check.found || check.ambiguous
             || QtResources::readFile(changed, {doc.leaf, newEntry, doc.link.compression}, kMaxQml) != replacement)

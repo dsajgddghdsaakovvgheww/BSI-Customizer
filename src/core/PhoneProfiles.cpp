@@ -420,19 +420,13 @@ Plan prepare(const QByteArray &image, bool enabled, const QString &runtimeUrl, c
     }
     const auto link=QtResources::findLink(image,f.entryOff,f.name);
     if(!link.found||link.ambiguous||!link.registered||(f.flags!=0&&f.flags!=1)){plan.error=QStringLiteral("The Phone page has no unique writable mapping.");return plan;}
-    const auto capacity=QtResources::inPlaceCapacity(image,f.entryOff,f.name,&plan.error);
-    if(capacity<0)return plan;
-    const auto payload=f.flags==1?ZlibUtils::compressForCapacity(after,capacity):after;
-    qint64 destination=-1;
-    if(payload.size()>capacity){
-        destination=QtResources::findFreeSpace(image,link,payload.size()+4,&plan.error);
-        if(destination<0){plan.error=QStringLiteral("The extra phones do not fit this player's Phone resource or verified free space. Growing the EXE is forbidden; nothing was written.");return plan;}
-    }
+    // Relocated into verified free space or a new verified PE section when the
+    // record outgrows its slot; the read-back below covers both.
     auto working=image;
-    if(!QtResources::replaceResource(working,f.entryOff,link,after,&plan.error,nullptr,false,destination,unitIds))return plan;
+    if(!QtResources::replaceResource(working,f.entryOff,link,after,&plan.error,nullptr,true,-1,unitIds))return plan;
     QtResources::File verify;QString text;QByteArray actual;
-    if(working.size()!=image.size()||!findSource(working,&verify,&text,&actual,&plan.error)||actual!=after||QtResources::sourceUnits(working,{resourceName()},unitIds,false,true)!=0){
-        plan.error=QStringLiteral("Phone source failed exact read-back/no-growth/cache verification; nothing was written.");return plan;
+    if(!findSource(working,&verify,&text,&actual,&plan.error)||actual!=after||QtResources::sourceUnits(working,{resourceName()},unitIds,false,true)!=0){
+        plan.error=QStringLiteral("Phone source failed exact read-back/cache verification; nothing was written.");return plan;
     }
     plan.output=working;plan.ok=true;plan.changed=true;plan.installed=enabled;return plan;
 }

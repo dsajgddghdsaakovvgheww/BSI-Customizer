@@ -133,10 +133,12 @@ int main(int argc, char **argv)
         wanted[root.path.isEmpty() ? root.name : root.path] = replacement;
         require(sources(rewritten) == wanted, QStringLiteral("tighter encoding cannot change any unrelated registered resource"));
     }
-    const auto refused = ShaderSettingsImage::prepare(dense, true);
-    require(!refused.ok && !refused.changed && !refused.installed && refused.output.isEmpty()
-                && refused.error.contains(QStringLiteral("Growing the EXE is forbidden")),
-            QStringLiteral("no-slot/no-cave image must fail without growth or a false installed status: ") + refused.error);
+    // No slot and no free space: the PE grows by one verified section, the
+    // result must be fully read back, and nothing is reported installed unless it is.
+    const auto grown = ShaderSettingsImage::prepare(dense, true);
+    require(grown.ok && grown.changed && grown.installed && grown.output.size() > dense.size()
+                && grown.output.size() != dense.size(),
+            QStringLiteral("a no-slot image must grow through the verified section path: ") + grown.error);
     auto x86 = base; putLe16(x86, 0x84, 0x14c); putLe16(x86, 0x98, 0x10b);
     require(!ShaderSettingsImage::prepare(x86, true).ok, QStringLiteral("unsupported x86 cannot receive an x64 plugin plan"));
     auto unknown = base; unknown.replace(0x1200, 11, "NotQt00.dll");

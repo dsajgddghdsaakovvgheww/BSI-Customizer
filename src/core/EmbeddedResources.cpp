@@ -603,13 +603,10 @@ Result replaceBytes(const QString &exePath, const QString &path, const QByteArra
         return { false, QStringLiteral("The %1 resource mapping is ambiguous; no file was written.")
                             .arg(entry.leaf) };
 
-    // Decoded size is not storage capacity. A larger decoded resource is
-    // allowed when its payload fits verified storage; the EXE still cannot grow.
-    // HARD RULE 2 - the EXE itself never grows. The record has to fit the space
-    // this entry already owns (its record plus the zero padding behind it), or
-    // be moved into free space the file already contains, which the writer
-    // only does when it is handed a destination that is verified empty and
-    // mapped. Nothing is ever appended and no section changes size.
+    // Decoded size is not storage capacity. A record that outgrows its slot is
+    // relocated into verified free space, or the PE gets one new verified
+    // section (see QtResources::replaceResource). The result must read back
+    // exactly before the EXE is written, and the original is backed up first.
     const Budget room = budget(original, entry.entryOff, entry.leaf);
     if (!room.known)
         return { false, room.detail.isEmpty()
@@ -617,32 +614,15 @@ Result replaceBytes(const QString &exePath, const QString &path, const QByteArra
                                              "was written.")
                             : room.detail };
 
-    const qint64 payload = entry.flags == 1
-        ? ZlibUtils::compressForCapacity(bytes, room.capacity).size() : bytes.size();
-    qint64 destination = -1;
-    if (payload > room.capacity) {
-        // The compressed payload no longer fits its own slot. Rebuilding it in
-        // spare space inside the same file keeps both size rules, provided the
-        // file itself is not bigger (checked above).
-        destination = QtResources::findFreeSpace(original, link, 4 + payload, &error);
-        if (destination < 0)
-            return { false, QStringLiteral("%1 needs %2 bytes but its slot only holds %3 and there is no "
-                                           "free space left in the EXE to move it to. Nothing was "
-                                           "written - make the edit shorter.")
-                                .arg(entry.leaf)
-                                .arg(payload)
-                                .arg(room.capacity) };
-    }
-
+    // A payload larger than its slot is moved: replaceResource() reuses verified
+    // free space first, then grows the PE by one verified section. Both paths
+    // are read back below before anything touches disk.
     QByteArray changed = original;
     qint64 newEntry = entry.entryOff;
-    if (!QtResources::replaceResource(changed, entry.entryOff, link, bytes, &error, &newEntry,
-                                      /*allowGrowth=*/false, destination))
+    if (!QtResources::replaceResource(changed, entry.entryOff, link, bytes, &error, &newEntry))
         return { false, error.isEmpty()
                             ? QStringLiteral("The resource could not be rewritten; no file was written.")
                             : error };
-    if (changed.size() != original.size())
-        return { false, QStringLiteral("The rewrite would have changed the EXE size; nothing was written.") };
     // Read the new record back the way the player will, before the disk is touched.
     const auto check = QtResources::findLink(changed, newEntry, entry.leaf);
     if (!check.found || check.ambiguous

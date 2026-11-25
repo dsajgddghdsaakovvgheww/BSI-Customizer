@@ -75,18 +75,8 @@ bool replaceSource(QByteArray &image, const QString &leaf, const QByteArray &sou
         && QtResources::sourceUnits(image, {leaf}, ids(leaf), false, true) == 0) return true;
     const auto capacity = QtResources::inPlaceCapacity(image, file.entryOff, file.name, error);
     if (capacity < 0) return false;
-    const QByteArray payload = file.flags == 1 ? ZlibUtils::compressForCapacity(source, capacity) : source;
-    qint64 destination = -1;
-    if (payload.size() > capacity) {
-        destination = QtResources::findFreeSpace(image, link, payload.size() + 4, error);
-        if (destination < 0)
-            return refuse(error, QStringLiteral("The shader-integrated %1 needs %2 bytes (slot %3), and no verified mapped free space exists. Growing the EXE is forbidden; no file was changed.")
-                                    .arg(leaf).arg(payload.size()).arg(capacity));
-    }
     QByteArray changed = image;
-    if (!QtResources::replaceResource(changed, file.entryOff, link, source, error, nullptr, false, destination, ids(leaf))) return false;
-    if (changed.size() != image.size())
-        return refuse(error, QStringLiteral("Native shader preparation unexpectedly grew the EXE; the entire plan was refused."));
+    if (!QtResources::replaceResource(changed, file.entryOff, link, source, error, nullptr, true, -1, ids(leaf))) return false;
     image = changed;
     return true;
 }

@@ -501,7 +501,7 @@ have more decoded bytes than the original when its encoded record still fits
 verified storage. The writer uses the existing slot or a validated, mapped
 unused range, protects registered resource pools, PE directories and executable
 sections, updates known aliases and reads the result back through the tree.
-The ordinary Resources path never grows the EXE. Unsupported layouts or lack
+The ordinary Resources path grows the EXE only when a record cannot fit its slot or free space: it then adds one verified `.bsirc` PE section, backs up the original first, and reads the result back before writing. Unsupported layouts or lack
 of verified space are refused before writing; arbitrary zero bytes are not
 assumed to be free space. The resource editor's decoded size/slot meter is
 advisory: Dry Run checks the actual encoded output and complete mapping.
