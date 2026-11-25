@@ -8659,11 +8659,14 @@ Window {
         write(exePath, original); QFile::remove(exePath + QStringLiteral(".bak"));
         QString huge; huge.reserve(400000);
         for (int i = 0; i < 400000; ++i) { seed = seed * 1103515245u + 12345u; huge += QChar(ushort('a' + (seed >> 16) % 26)); }
-        // The 400 KB payload is larger than its slot; the writer relocates it
-        // into verified free space in this fixture, so the file size is unchanged.
+        // The 400 KB payload is larger than its slot and than the fixture's free
+        // space: the writer appends one verified section, so the EXE grows and
+        // the file reads back through the resource tree.
         const auto movedText = EmbeddedResources::replaceText(exePath, qmlEntry.path, qmlSource + huge);
-        check(movedText.ok && read(exePath).size() == originalSize,
-              QStringLiteral("oversized payload moves into verified free space without growing the EXE (%1)").arg(movedText.msg));
+        check(movedText.ok && read(exePath).size() > originalSize,
+              QStringLiteral("oversized payload grows the EXE through one verified section (%1)").arg(movedText.msg));
+        check(EmbeddedResources::readEntry(exePath, qmlEntry.entryOff, qmlEntry.flags) == (qmlSource + huge).toUtf8(),
+              "the grown oversized QML reads back byte for byte through the tree");
         write(exePath, original); QFile::remove(exePath + QStringLiteral(".bak"));
 
         const QString shorter = QStringLiteral("import QtQuick\nItem { width: 10 }\n");

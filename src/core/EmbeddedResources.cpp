@@ -640,11 +640,12 @@ Result replaceBytes(const QString &exePath, const QString &path, const QByteArra
               .arg(entry.leaf)
               .arg(bytes.size())
               .arg(entry.size)
-        : QStringLiteral("%1 replaced (%2 bytes, was %3) and moved into free space inside the EXE, so "
-                         "the file itself is the same size. Restart BlueStacks to see it.")
+        : QStringLiteral("%1 replaced (%2 bytes, was %3) and moved to verified storage in the EXE "
+                         "(EXE size: %4 bytes). Restart BlueStacks to see it.")
               .arg(entry.leaf)
               .arg(bytes.size())
-              .arg(entry.size);
+              .arg(entry.size)
+              .arg(changed.size());
     if (caches > 0)
         msg += QStringLiteral(" Cleared the player QML disk cache so the new source is loaded.");
     return { true, msg };
