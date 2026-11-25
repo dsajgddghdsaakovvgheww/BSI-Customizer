@@ -8665,8 +8665,12 @@ Window {
         const auto movedText = EmbeddedResources::replaceText(exePath, qmlEntry.path, qmlSource + huge);
         check(movedText.ok && read(exePath).size() > originalSize,
               QStringLiteral("oversized payload grows the EXE through one verified section (%1)").arg(movedText.msg));
-        check(EmbeddedResources::readEntry(exePath, qmlEntry.entryOff, qmlEntry.flags) == (qmlSource + huge).toUtf8(),
-              "the grown oversized QML reads back byte for byte through the tree");
+        // The record moved, so look its current offset up through the tree.
+        bool grownReadBack = false;
+        for (const auto &entry : EmbeddedResources::list(read(exePath), true))
+            if (entry.path == qmlEntry.path)
+                grownReadBack = EmbeddedResources::readEntry(exePath, entry.entryOff, entry.flags) == (qmlSource + huge).toUtf8();
+        check(grownReadBack, "the grown oversized QML reads back byte for byte through the tree");
         write(exePath, original); QFile::remove(exePath + QStringLiteral(".bak"));
 
         const QString shorter = QStringLiteral("import QtQuick\nItem { width: 10 }\n");
@@ -8765,7 +8769,7 @@ Window {
         const QString exePath = temp.filePath(QStringLiteral("resources-move.exe"));
         write(exePath, r.f.bytes);
         const auto saved = EmbeddedResources::replaceText(exePath, qmlEntry.path, scrambled);
-        check(saved.ok && saved.msg.contains(QLatin1String("moved into free space")),
+        check(saved.ok && saved.msg.contains(QLatin1String("moved to verified storage")),
               QStringLiteral("the payload is rebuilt in free space instead of being refused (%1)")
                   .arg(saved.msg));
         const QByteArray afterMove = read(exePath);
