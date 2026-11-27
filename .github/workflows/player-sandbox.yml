@@ -27,6 +27,12 @@ name: Player sandbox (patched EXE, no manual download)
 # at run time, inside the disposable/self-hosted machine.
 
 on:
+  # A brand-new workflow file is only dispatchable once it exists on the default
+  # branch, so it also validates itself when this file changes. That run stays a
+  # dry run (see the dry-run condition below): no installer is fetched.
+  push:
+    branches: [main, 'arena/**']
+    paths: ['.github/workflows/player-sandbox.yml']
   workflow_dispatch:
     inputs:
       package_url:
@@ -150,7 +156,7 @@ jobs:
           "installer_sha=$expected" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Dry run - nothing is downloaded
-        if: inputs.dry_run
+        if: ${{ inputs.dry_run || github.event_name == 'push' }}
         run: |
           Write-Host '::notice::DRY RUN - the sandbox chain was validated without fetching an installer.'
           Write-Host 'This run proves: the patcher builds, the pinned reference patches through the'
@@ -159,7 +165,7 @@ jobs:
           "attempted=false" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Download the installer as data
-        if: ${{ !inputs.dry_run }}
+        if: ${{ github.event_name != 'push' && !inputs.dry_run }}
         run: |
           $target = Join-Path $env:RUNNER_TEMP 'bluestacks-installer.exe'
           Invoke-WebRequest -Uri $env:installer_url -OutFile $target -MaximumRedirection 5
