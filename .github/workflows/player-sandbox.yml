@@ -79,6 +79,12 @@ concurrency:
   cancel-in-progress: false
 
 env:
+  # Inputs are empty on a push-triggered validation run; default them here so the
+  # same steps read well-defined values on every event.
+  SANDBOX_RUNNER: ${{ inputs.runner || 'hosted' }}
+  SANDBOX_GAME: ${{ inputs.game_package || '' }}
+  SANDBOX_SECONDS: ${{ inputs.seconds || '600' }}
+  SANDBOX_PUBLISH: ${{ inputs.publish_asset == null && 'true' || inputs.publish_asset }}
   # Pinned so two runs cannot silently test different binaries. The digest is
   # verified before anything is executed; a custom URL without a digest is
   # refused rather than trusted.
@@ -130,14 +136,14 @@ jobs:
           # VT-x/AMD-V does. This is decided from the machine, not assumed, and
           # the hosted image is refused outright rather than probed: its
           # Windows runners expose no hypervisor for a guest instance.
-          $hosted = '${{ inputs.runner }}' -eq 'hosted'
+          $hosted = $env:SANDBOX_RUNNER -eq 'hosted'
           $cpu = Get-CimInstance Win32_Processor
           $firmware = [bool]$cpu.VirtualizationFirmwareEnabled
           $hypervisor = [bool](Get-CimInstance Win32_ComputerSystem).HypervisorPresent
           Write-Host "CPU=$($cpu.Name)"
           Write-Host "VirtualizationFirmwareEnabled=$firmware HypervisorPresent=$hypervisor hosted=$hosted"
-          "sandbox_capable=$(((-not $hosted) -and $firmware) -or ((-not $hosted) -and $hypervisor))" |
-            Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          $capable = (-not $hosted) -and ($firmware -or $hypervisor)
+          "sandbox_capable=$capable" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Refuse an unverified installer
         run: |
@@ -209,7 +215,10 @@ jobs:
         env:
           BSI_SHADERS_STATUS_TOKEN: ${{ runner.temp }}/potato-status.json
         run: |
-          if ($env:sandbox_capable -ne 'true') {
+          if ("$env:sandbox_capable" -ne 'True') {
+            # Empty or False both land here: a missing measurement never authorizes
+            # an install attempt.
+            Write-Host "sandbox_capable=[$env:sandbox_capable]"
             Write-Host '::notice::SANDBOX BLOCKED - this runner has no hypervisor for an Android instance.'
             Write-Host 'A GitHub-hosted runner cannot boot BlueStacks 5: its Windows runners expose no'
             Write-Host 'nested virtualisation and its Linux runners have no /dev/kvm. Run this workflow'
@@ -234,14 +243,14 @@ jobs:
           # this only succeeds where a real hypervisor and a configured
           # instance exist; anything else is reported as-is.
           $run = Start-Process -FilePath $player -ArgumentList '--instance', 'Nougat64' -PassThru
-          Write-Host "player pid=$($run.Id); waiting ${{ inputs.seconds }}s"
-          Start-Sleep -Seconds ([int]'${{ inputs.seconds }}')
-          if ('${{ inputs.game_package }}'.Trim()) {
+          Write-Host "player pid=$($run.Id); waiting $env:SANDBOX_SECONDS s"
+          Start-Sleep -Seconds ([int]$env:SANDBOX_SECONDS)
+          if ($env:SANDBOX_GAME.Trim()) {
             $adb = Get-ChildItem 'C:\Program Files\BlueStacks*' -Filter 'HD-Adb.exe' -File -Recurse |
                    Select-Object -First 1 -ExpandProperty FullName
-            if ($adb) { & $adb connect 127.0.0.1:5555; & $adb -s 127.0.0.1:5555 shell monkey -p '${{ inputs.game_package }}' 1 }
+            if ($adb) { & $adb connect 127.0.0.1:5555; & $adb -s 127.0.0.1:5555 shell monkey -p $env:SANDBOX_GAME 1 }
             else { Write-Warning 'No HD-Adb.exe was found; the game was not started automatically.' }
-            Start-Sleep -Seconds ([int]'${{ inputs.seconds }}')
+            Start-Sleep -Seconds ([int]$env:SANDBOX_SECONDS)
           }
           "attempted=true" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
 
@@ -261,7 +270,7 @@ jobs:
         run: python scripts/Analyze-PotatoStatus.py --token "$env:patched_out/status.json" --json "$env:patched_out/verdict.json"
 
       - name: Publish the patched EXE so the next test is not another download
-        if: inputs.publish_asset
+        if: env.SANDBOX_PUBLISH != 'false'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
