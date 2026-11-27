@@ -48,11 +48,15 @@ player's own `qrc:/` namespace.
 
 ## The fix
 
-`ShaderSettingsImage::prepare` now validates stock controls by their
-**registered leaf name** (or the full path, whichever the tree recorded):
+`ShaderSettingsImage::prepare` now validates stock controls through the shared
+`stockControlProblem()` / `controlPathMatches()` helpers:
 
-1. **Presence** — a control is found when any registration's `path` or leaf
-   `name` matches, case-insensitively.
+1. **Presence** — a control matches a registered record when the record's path
+   is the control itself or ends with `/<control>`, case-insensitively (leading
+   `qrc:/`, `:/` and `/` are normalised away). A directory prefix therefore no
+   longer hides a present control, while a *renamed* control
+   (`Old-plr.qml`, `qml/MyUiButton.qml`) or a derived name (`plr.qmlc`) is
+   still not accepted.
 2. **Real ambiguity only** — multiple registrations are normal; the install is
    blocked only when two registrations carry **different payloads**, and only
    when a record cannot be read at all.
@@ -72,9 +76,10 @@ capacity and free-space checks, and a failure still leaves the file unchanged.
 
 `tests/shaders/settings_image_test.cpp` now also covers:
 
-- a stock control recorded with a different leaf prefix must **install** and
-  remain **removable** (this is the reported failure);
-- a genuinely absent control is **still refused**, with the new diagnosable
+- the matching rule itself: exact path, `qml/…` and `qrc:/…` prefixes match;
+  renamed/derived names do not;
+- every imported leaf registered under `qml/` resolves (the reported refusal),
+  and a genuinely absent control is **still refused** with the diagnosable
   message (`registered file records`).
 
 Run in CI: `shader-native-settings-image` (Windows x64 / Qt 6.2.4 and 5.15.2).

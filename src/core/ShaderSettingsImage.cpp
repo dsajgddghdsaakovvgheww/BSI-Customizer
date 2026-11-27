@@ -91,6 +91,80 @@ bool replaceSource(QByteArray &image, const QString &leaf, const QByteArray &sou
     return true;
 }
 
+QString registeredPath(const QtResources::File &file)
+{
+    return file.path.isEmpty() ? file.name : file.path;
+}
+
+bool controlPathMatches(const QString &control, const QString &registered)
+{
+    QString path = registered;
+    path.replace(QLatin1Char('\\'), QLatin1Char('/'));
+    if (path.startsWith(QLatin1String("qrc:/"))) path = path.mid(5);
+    else if (path.startsWith(QLatin1String(":/"))) path = path.mid(2);
+    while (path.startsWith(QLatin1Char('/'))) path = path.mid(1);
+    if (path.compare(control, Qt::CaseInsensitive) == 0) return true;
+    // A qrc directory is a prefix, not part of the name.
+    return path.size() > control.size() + 1 && path.endsWith(control, Qt::CaseInsensitive)
+        && path.at(path.size() - control.size() - 1) == QLatin1Char('/');
+}
+
+QString stockControlProblem(const QList<QtResources::File> &entries, const QByteArray *image)
+{
+    // The stock controls the Shaders page imports from the player's own qrc:/
+    // namespace. They are validated by their registered path/leaf, never by an
+    // assumed exact root path, because players register the same control at the
+    // root and beneath directory/pool nodes.
+    const QStringList nativeControls{
+        QStringLiteral("UiThemeObject.qml"), QStringLiteral("UiButton.qml"),
+        QStringLiteral("UiColumnLayout.qml"), QStringLiteral("UiRowLayout.qml"),
+        QStringLiteral("UiCheckBox.qml"), QStringLiteral("UiComboBox.qml"),
+        QStringLiteral("UiSlider.qml"), QStringLiteral("UiScrollView.qml"),
+        QStringLiteral("UiScrollBar.qml"), QStringLiteral("UiImage.qml"),
+        QStringLiteral("UiTextField.qml"), QStringLiteral("UiMessageDialog.qml"),
+        QStringLiteral("UiDialog.qml"), QStringLiteral("UiShadowContainer.qml"),
+        QStringLiteral("UiDropShadowEffect.qml"), QStringLiteral("UiImageButton.qml")
+    };
+    for (const auto &name : nativeControls) {
+        QList<const QtResources::File *> matches;
+        for (const auto &entry : entries)
+            if (controlPathMatches(name, registeredPath(entry))) matches << &entry;
+        if (matches.isEmpty()) {
+            // Say exactly what the player's registered tree did and did not
+            // contain, so a refusal can be diagnosed instead of guessed at.
+            QStringList leaves;
+            for (const auto &entry : entries)
+                if (entry.name.compare(name, Qt::CaseInsensitive) == 0) leaves << registeredPath(entry);
+            return QStringLiteral("The stock Settings control qrc:/%1 is missing from the player's registered resources "
+                                  "(%2 registered file records; %3 carry that leaf: %4). Shaders requires the player's real "
+                                  "controls and live theme; no imitation UI or partial installation was substituted. "
+                                  "No file was changed.")
+                .arg(name).arg(entries.size()).arg(leaves.size())
+                .arg(leaves.isEmpty() ? QStringLiteral("none") : leaves.mid(0, 3).join(QStringLiteral(", ")));
+        }
+        if (!image) continue;
+        // Several registrations of one control (a root record plus a nested or
+        // generated twin) are normal. Only genuinely different or unreadable
+        // payloads are a real ambiguity that must block the installation.
+        QByteArray first;
+        bool haveFirst = false;
+        for (const auto *match : matches) {
+            const auto bytes = QtResources::readFile(*image, *match, maxSource);
+            if (bytes.isEmpty()) {
+                return QStringLiteral("The stock Settings control qrc:/%1 has an unreadable resource record at \"%2\" "
+                                      "(flags %3). No file was changed.")
+                    .arg(name, registeredPath(*match), QString::number(match->flags));
+            }
+            if (!haveFirst) { first = bytes; haveFirst = true; }
+            else if (bytes != first) {
+                return QStringLiteral("The stock Settings control qrc:/%1 is registered with conflicting payloads; "
+                                      "ambiguous native controls cannot be patched safely. No file was changed.").arg(name);
+            }
+        }
+    }
+    return {};
+}
+
 Plan prepare(const QByteArray &image, bool enabled)
 {
     Plan plan;
@@ -143,65 +217,12 @@ Plan prepare(const QByteArray &image, bool enabled)
             return plan;
         }
         // The module deliberately does not carry OEM control implementations.
-        // Validate the exact registered qrc:/ namespace it imports, not a
-        // similarly named file elsewhere in the EXE or an unregistered string.
-        const QStringList nativeControls{
-            QStringLiteral("UiThemeObject.qml"), QStringLiteral("UiButton.qml"),
-            QStringLiteral("UiColumnLayout.qml"), QStringLiteral("UiRowLayout.qml"),
-            QStringLiteral("UiCheckBox.qml"), QStringLiteral("UiComboBox.qml"),
-            QStringLiteral("UiSlider.qml"), QStringLiteral("UiScrollView.qml"),
-            QStringLiteral("UiScrollBar.qml"), QStringLiteral("UiImage.qml"),
-            QStringLiteral("UiTextField.qml"), QStringLiteral("UiMessageDialog.qml"),
-            QStringLiteral("UiDialog.qml"), QStringLiteral("UiShadowContainer.qml"),
-            QStringLiteral("UiDropShadowEffect.qml"), QStringLiteral("UiImageButton.qml")
-        };
-        // Only the two files this module actually edits must be readable UTF-8
-        // QML (decoded above). The stock controls are validated by their
-        // registered LEAF name, not by an assumed qrc root path: real players
-        // register the same control both at the root and beneath a directory
-        // (for example "qml/UiThemeObject.qml"), and the module imports the
-        // player's own `qrc:/` namespace instead of shipping or rewriting any
-        // control. An exact-root test therefore reported present controls as
-        // missing and refused a safe installation.
-        for (const auto &name : nativeControls) {
-            QList<QtResources::File> matches;
-            for (const auto &entry : entries)
-                if (entry.path.compare(name, Qt::CaseInsensitive) == 0
-                    || entry.name.compare(name, Qt::CaseInsensitive) == 0)
-                    matches << entry;
-            if (matches.isEmpty()) {
-                // Say exactly what the player's registered tree did and did not
-                // contain, so a refusal can be diagnosed instead of guessed at.
-                QStringList leaves;
-                for (const auto &entry : entries)
-                    if (entry.name.compare(name, Qt::CaseInsensitive) == 0) leaves << entry.path;
-                plan.error = QStringLiteral("The stock Settings control qrc:/%1 is missing from the player's registered resources "
-                                            "(%2 registered file records; %3 carry that leaf: %4). Shaders requires the player's real "
-                                            "controls and live theme; no imitation UI or partial installation was substituted. "
-                                            "No file was changed.")
-                                 .arg(name).arg(entries.size()).arg(leaves.size())
-                                 .arg(leaves.isEmpty() ? QStringLiteral("none") : leaves.mid(0, 3).join(QStringLiteral(", ")));
-                return plan;
-            }
-            // Several registrations of one control (root plus a nested/generated
-            // twin) are normal. Only genuinely different payloads are a real
-            // ambiguity that must block the installation.
-            QByteArray first;
-            bool haveFirst = false;
-            for (const auto &match : matches) {
-                const auto bytes = QtResources::readFile(image, match, maxSource);
-                if (bytes.isEmpty()) {
-                    plan.error = QStringLiteral("The stock Settings control qrc:/%1 has an unreadable resource record at "
-                                                "\"%2\" (flags %3). No file was changed.")
-                                     .arg(name, match.path, QString::number(match.flags));
-                    return plan;
-                }
-                if (!haveFirst) { first = bytes; haveFirst = true; }
-                else if (bytes != first) {
-                    plan.error = QStringLiteral("The stock Settings control qrc:/%1 is registered with conflicting payloads; ambiguous native controls cannot be patched safely. No file was changed.").arg(name);
-                    return plan;
-                }
-            }
+        // Validate the player's own registered stock controls (by registered
+        // path/leaf) and their readable, mutually consistent payloads.
+        const auto controlProblem = stockControlProblem(entries, &image);
+        if (!controlProblem.isEmpty()) {
+            plan.error = controlProblem;
+            return plan;
         }
         QHash<QString, int> counts;
         for (const auto &file : entries)

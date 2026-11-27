@@ -109,26 +109,41 @@ int main(int argc, char **argv)
         require(removal.ok && removal.output == missingDialog && !removal.changed,
                 QStringLiteral("a missing stock dialog must not block safe no-op removal"));
     }
-    // Real players can register a stock control under a name other than the
-    // plain leaf (a prefixed/nested record) while the page still imports only
-    // `qrc:/`. Resolution is by REGISTERED LEAF, so a control recorded with a
-    // prefix must be found, not reported missing.
+    // The reported failure: a player registers a stock control beneath a qrc
+    // directory instead of only at the root, and the preflight called it
+    // missing. The matching rule is unit-tested directly, including the case
+    // that must still fail (a renamed control is not the stock control).
     {
-        const auto prefixed = ShaderSettingsImageFixture::fixture(false, true, {}, QStringLiteral("UiPrefix-"));
-        const auto allowed = ShaderSettingsImage::prepare(prefixed, true);
-        require(allowed.ok && allowed.changed && allowed.installed,
-                QStringLiteral("a stock control recorded with a prefix is present, not missing: ") + allowed.error);
-        const auto removed = ShaderSettingsImage::prepare(allowed.output, false);
-        require(removed.ok && removed.changed && !removed.installed,
-                QStringLiteral("a prefixed-control install must still be removable: ") + removed.error);
-        // A control that is really absent must still block the installation,
-        // and the refusal must name the record set so it can be diagnosed.
-        const auto absentTheme = ShaderSettingsImageFixture::fixture(false, true, QStringLiteral("UiThemeObject.qml"));
-        const auto blocked = ShaderSettingsImage::prepare(absentTheme, true);
-        require(!blocked.ok && blocked.output.isEmpty()
-                    && blocked.error.contains(QStringLiteral("qrc:/UiThemeObject.qml"))
-                    && blocked.error.contains(QStringLiteral("registered file records")),
-                QStringLiteral("a genuinely absent stock control is still refused with a diagnosable reason: ") + blocked.error);
+        using ShaderSettingsImage::controlPathMatches;
+        require(controlPathMatches(QStringLiteral("UiThemeObject.qml"), QStringLiteral("UiThemeObject.qml")),
+                QStringLiteral("an exact registered path matches"));
+        require(controlPathMatches(QStringLiteral("UiThemeObject.qml"), QStringLiteral("qml/UiThemeObject.qml"))
+                    && controlPathMatches(QStringLiteral("UiThemeObject.qml"), QStringLiteral("ui/UiThemeObject.qml"))
+                    && controlPathMatches(QStringLiteral("UiThemeObject.qml"), QStringLiteral("qrc:/UiThemeObject.qml"))
+                    && controlPathMatches(QStringLiteral("plr.qml"), QStringLiteral("qml/plr.qml")),
+                QStringLiteral("a qrc directory prefix is not a different control"));
+        require(!controlPathMatches(QStringLiteral("UiThemeObject.qml"), QStringLiteral("Old-UiThemeObject.qml"))
+                    && !controlPathMatches(QStringLiteral("UiThemeObject.qml"), QStringLiteral("qml/MyUiThemeObject.qml"))
+                    && !controlPathMatches(QStringLiteral("plr.qml"), QStringLiteral("plr.qmlc")),
+                QStringLiteral("a renamed or derived resource is never mistaken for the stock control"));
+        // The resolver returns a diagnosable message for a genuinely absent
+        // control, and accepts a nested registration of every imported leaf.
+        QList<QtResources::File> listed;
+        for (const auto &leaf : ShaderSettingsImageFixture::nativeControlNames()) {
+            QtResources::File file;
+            file.name = leaf;
+            file.path = QStringLiteral("qml/") + leaf;
+            listed << file;
+        }
+        require(ShaderSettingsImage::stockControlProblem(listed).isEmpty(),
+                QStringLiteral("directory-registered stock controls resolve (this was the reported refusal)"));
+        QList<QtResources::File> without = listed;
+        for (int i = without.size() - 1; i >= 0; --i)
+            if (without.at(i).name == QStringLiteral("UiThemeObject.qml")) without.removeAt(i);
+        const auto problem = ShaderSettingsImage::stockControlProblem(without);
+        require(problem.contains(QStringLiteral("qrc:/UiThemeObject.qml"))
+                    && problem.contains(QStringLiteral("registered file records")),
+                QStringLiteral("an absent stock control is still refused with a diagnosable reason: ") + problem);
     }
     const auto absent = ShaderSettingsImage::prepare(base, false);
     require(absent.ok && !absent.changed && !absent.installed && absent.output == base && absent.sources.isEmpty(),
