@@ -145,6 +145,47 @@ int main(int argc, char **argv)
                     && problem.contains(QStringLiteral("registered file records")),
                 QStringLiteral("an absent stock control is still refused with a diagnosable reason: ") + problem);
     }
+    // The reported "147 registered file records; 0 carry that leaf" refusal.
+    // A player registers its window in one resource pool and the Ui* control
+    // library in another; the control pool's name table is partly damaged, so
+    // the strict single-pool walk refuses it and the whole pool used to vanish
+    // from enumeration. Every stock control is still present and readable, so
+    // installation must proceed - and an actually missing control must still be
+    // refused with the same diagnosable message.
+    {
+        const auto split = ShaderSettingsImageFixture::splitFixture();
+        const auto listed = sources(split);
+        require(listed.contains(QStringLiteral("UiSettingsWindow.qml")) && listed.contains(QStringLiteral("UiButton.qml"))
+                    && listed.contains(QStringLiteral("UiThemeObject.qml")) && listed.contains(QStringLiteral("plr.qml")),
+                QStringLiteral("a damaged name record must not hide the player's other registered pools"));
+        const auto installed = ShaderSettingsImage::prepare(split, true);
+        require(installed.ok && installed.changed,
+                QStringLiteral("stock controls registered in a pool with one destroyed name record still resolve: ")
+                    + installed.error);
+        const auto repaired = ShaderSettingsImage::prepare(split, false);
+        require(repaired.ok && !repaired.changed && repaired.output == split,
+                QStringLiteral("an uninstalled split-pool player stays a pure no-op on removal: ") + repaired.error);
+        const auto missing = ShaderSettingsImage::splitFixture(true, true);
+        const auto refused = ShaderSettingsImage::prepare(missing, true);
+        require(!refused.ok && refused.output.isEmpty()
+                    && refused.error.contains(QStringLiteral("qrc:/UiThemeObject.qml"))
+                    && refused.error.contains(QStringLiteral("registered file records")),
+                QStringLiteral("a control that is really absent is still refused, never imitated: ") + refused.error);
+        // Damaged names are skipped, not guessed: the unreadable record never
+        // appears under an invented name, while every readable record does.
+        require(!listed.contains(QStringLiteral("ZzUnreadable.svg")) && listed.contains(QStringLiteral("UiSliderHandle.qml")),
+                QStringLiteral("an unreadable name record is skipped instead of being guessed at"));
+        // The refusal carries the per-pool reading, so damage is diagnosable.
+        QList<QtResources::File> listedFiles = QtResources::registeredFiles(missing);
+        const auto poolReport = QtResources::enumerationReport(missing);
+        const auto withPools = ShaderSettingsImage::stockControlProblem(listedFiles, &missing, &poolReport);
+        require(poolReport.size() == 2 && withPools.contains(QStringLiteral("Resource pools:")),
+                QStringLiteral("a damaged pool is described in the refusal instead of being silently dropped"));
+        int themeRecords = 0;
+        for (const auto &file : QtResources::registeredFiles(split))
+            if (file.name == QLatin1String("UiThemeObject.qml")) ++themeRecords;
+        require(themeRecords == 1, QStringLiteral("the stock theme control has exactly one registered record"));
+    }
     const auto absent = ShaderSettingsImage::prepare(base, false);
     require(absent.ok && !absent.changed && !absent.installed && absent.output == base && absent.sources.isEmpty(),
             QStringLiteral("removing absent shaders is a pure no-op, not a native source/cache rewrite: ") + absent.error);

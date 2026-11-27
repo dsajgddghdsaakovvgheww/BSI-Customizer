@@ -109,7 +109,8 @@ bool controlPathMatches(const QString &control, const QString &registered)
         && path.at(path.size() - control.size() - 1) == QLatin1Char('/');
 }
 
-QString stockControlProblem(const QList<QtResources::File> &entries, const QByteArray *image)
+QString stockControlProblem(const QList<QtResources::File> &entries, const QByteArray *image,
+                           const QStringList *pools)
 {
     // The stock controls the Shaders page imports from the player's own qrc:/
     // namespace. They are validated by their registered path/leaf, never by an
@@ -135,12 +136,17 @@ QString stockControlProblem(const QList<QtResources::File> &entries, const QByte
             QStringList leaves;
             for (const auto &entry : entries)
                 if (entry.name.compare(name, Qt::CaseInsensitive) == 0) leaves << registeredPath(entry);
-            return QStringLiteral("The stock Settings control qrc:/%1 is missing from the player's registered resources "
-                                  "(%2 registered file records; %3 carry that leaf: %4). Shaders requires the player's real "
-                                  "controls and live theme; no imitation UI or partial installation was substituted. "
-                                  "No file was changed.")
-                .arg(name).arg(entries.size()).arg(leaves.size())
-                .arg(leaves.isEmpty() ? QStringLiteral("none") : leaves.mid(0, 3).join(QStringLiteral(", ")));
+            QString message = QStringLiteral("The stock Settings control qrc:/%1 is missing from the player's registered resources "
+                                             "(%2 registered file records; %3 carry that leaf: %4). Shaders requires the player's real "
+                                             "controls and live theme; no imitation UI or partial installation was substituted. "
+                                             "No file was changed.")
+                                  .arg(name).arg(entries.size()).arg(leaves.size())
+                                  .arg(leaves.isEmpty() ? QStringLiteral("none") : leaves.mid(0, 3).join(QStringLiteral(", ")));
+            // A refusal must be diagnosable: say how each registered pool was
+            // read, because a pool whose name table is partly unreadable is a
+            // player defect, not a reason to imitate or partially install.
+            if (pools && !pools->isEmpty()) message += QStringLiteral(" Resource pools: ") + pools->join(QStringLiteral("; ")) + QLatin1Char('.');
+            return message;
         }
         if (!image) continue;
         // Several registrations of one control (a root record plus a nested or
@@ -219,7 +225,8 @@ Plan prepare(const QByteArray &image, bool enabled)
         // The module deliberately does not carry OEM control implementations.
         // Validate the player's own registered stock controls (by registered
         // path/leaf) and their readable, mutually consistent payloads.
-        const auto controlProblem = stockControlProblem(entries, &image);
+        const auto pools = QtResources::enumerationReport(image);
+        const auto controlProblem = stockControlProblem(entries, &image, &pools);
         if (!controlProblem.isEmpty()) {
             plan.error = controlProblem;
             return plan;

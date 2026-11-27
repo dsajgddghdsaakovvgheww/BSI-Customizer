@@ -36,7 +36,10 @@ bool controlPathMatches(const QString &control, const QString &registeredPath);
 // list. Returns an empty error on success; otherwise the exact refusal text.
 // `image` enables the payload checks (readable, and identical when a control is
 // registered more than once); pass null to test the matching rule alone.
-QString stockControlProblem(const QList<QtResources::File> &entries, const QByteArray *image = nullptr);
+// `pools` optionally carries QtResources::enumerationReport() lines, appended
+// to a refusal so a player whose resource pool is damaged can be diagnosed.
+QString stockControlProblem(const QList<QtResources::File> &entries, const QByteArray *image = nullptr,
+                            const QStringList *pools = nullptr);
 Plan prepare(const QByteArray &image, bool enabled);
 // Also used by tests/other planners to stage a known resource. The input is
 // untouched on failure; registered aliases and source-specific caches are
