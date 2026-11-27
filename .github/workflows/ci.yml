@@ -122,6 +122,8 @@ jobs:
         run: |
           python tests/shaders_potato_page_test.py
           node tests/shaders_potato_logic_test.mjs
+      - name: Check the Potato status-token classifier and writer contract
+        run: python tests/potato_status_token_test.py
       - name: Verify bundled Settings-tab pack and complete resource budgets
         run: |
           python tests/settings_panel_icon_pack_test.py

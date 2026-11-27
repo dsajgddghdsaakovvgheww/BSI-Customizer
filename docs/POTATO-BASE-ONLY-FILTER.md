@@ -95,3 +95,7 @@ in-game status says which one it is without a new diagnostic build.
 
 Off/source-change/Save still restore native sampling, and `No file was changed.`
 is unchanged.
+
+The next in-game check does not need a hand-copied report: the app now writes its
+own status token and [the sandbox workflow](POTATO-SANDBOX-AUTOMATION.md) can
+produce a patched EXE once and classify the result automatically.

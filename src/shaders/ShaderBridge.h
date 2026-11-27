@@ -35,6 +35,9 @@ signals:
     void settingsChanged();
     void metricsChanged();
 private:
+    // Re-serialize the already-published status into the per-instance token
+    // file when it changed. No GL call, upload or game-content capture.
+    void writeStatusToken();
     QVariantMap applyConfiguration(const QVariantMap &values,bool keepCurrentDisplay,const QString &displayReviewKey);
 };
 // qmlRegisterType wraps creatable types in a QQmlElement subclass.
