@@ -230,6 +230,21 @@ void vulkan(){
     source.anisotropyEnable=VK_TRUE;reject();source=before;
     source.minFilter=static_cast<VkFilter>(0x7fffffff);reject();source=before;
     source.mipmapMode=static_cast<VkSamplerMipmapMode>(0x7fffffff);reject();
+    // Regression: the saved strength must reach Vulkan too. Before this test the
+    // Vulkan adapter ignored `strength` and always planned the 100% maximum.
+    // `source` was mutated by the refusal cases above; plan from the pristine copy.
+    const auto pristine=before;
+    for(int percent=0;percent<=100;++percent){
+        const auto planned=planVulkanTextureQuality(TextureQuality::Strong,proof,before,percent);
+        const auto wanted=3.f*float(percent)/100.f;
+        require(planned.changed()==bool(percent),
+                percent?"every Vulkan strength step plans a private sampler":"Vulkan zero strength is exact native sampling, never the 100% plan");
+        require(percent?planned.descriptor.minLod==wanted:sameVulkan(planned.descriptor,before),
+                "Vulkan 0-100 strength controls real continuous min LOD, not only the maximum");
+        require(sameVulkan(before,pristine),"Vulkan planning never edits the caller-owned sampler descriptor");
+    }
+    const auto invalid=planVulkanTextureQuality(TextureQuality::Strong,proof,before,101);
+    require(!invalid.changed()&&sameVulkan(invalid.descriptor,before),"Vulkan rejects an out-of-range strength without editing the source");
 }
 #ifdef _WIN32
 void directx(){
@@ -257,6 +272,27 @@ void directx(){
         require(!p.changed()&&sameDirectx(p.descriptor,d12),"D3D comparison/reduction/aniso descriptor preserved");
     }
     proof=qualified(Renderer::Vulkan);require(!planD3dTextureQuality(TextureQuality::Strong,proof,stat).changed(),"D3D adapter cannot accept Vulkan proof");
+    // Regression: DirectX once ignored the saved strength and always used 100.
+    proof=qualified(Renderer::Direct3D11);
+    for(int percent=0;percent<=100;++percent){
+        auto wanted11=before11;wanted11.MinLOD=3.f*float(percent)/100.f;
+        const auto planned11=planD3dTextureQuality(TextureQuality::Strong,proof,before11,percent);
+        require(planned11.changed()==bool(percent),percent?"every DirectX strength step plans a private descriptor":"DirectX zero strength is exact native sampling");
+        if(percent)require(sameDirectx(planned11.descriptor,wanted11),"D3D11 strength controls the real MinLOD value");
+        else require(sameDirectx(planned11.descriptor,before11),"D3D11 zero strength returns every source field");
+        require(sameDirectx(before11,d11),"D3D11 planning never edits the caller's descriptor");
+    }
+    const auto invalid11=planD3dTextureQuality(TextureQuality::Strong,proof,before11,101);
+    require(!invalid11.changed()&&sameDirectx(invalid11.descriptor,before11),"D3D11 rejects an out-of-range strength without editing the source");
+    proof=qualified(Renderer::Direct3D12);
+    auto wanted12=before12;wanted12.MinLOD=1.5f;
+    auto source12=before12;
+    const auto half12=planD3dTextureQuality(TextureQuality::Strong,proof,source12,50);
+    require(half12.changed()&&sameDirectx(half12.descriptor,wanted12)&&sameDirectx(source12,before12),
+            "D3D12 dynamic sampler honours the same 50 percent step and stays read-only");
+    auto staticHalf=stat;staticHalf.MinLOD=1.5f;
+    const auto halfStatic=planD3dTextureQuality(TextureQuality::Strong,proof,stat,50);
+    require(halfStatic.changed()&&sameDirectx(halfStatic.descriptor,staticHalf),"D3D12 static sampler honours strength and keeps its register fields");
 }
 #endif
 }

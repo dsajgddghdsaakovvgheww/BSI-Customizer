@@ -114,6 +114,14 @@ jobs:
           python-version: '3.11'
       - name: Test Potato reference identities with synthetic data only (no supplied DLL execution)
         run: python -m unittest discover -s tests/potato-dll -p '*_test.py'
+      - name: Test the Potato graphic page contract and automatic driver review
+        # Qt-free checks: a removed/renamed native control (the save()
+        # ReferenceError that shipped), an undeclared reveal() target, an
+        # unwritable Potato key, any key the v4 schema would refuse, and the
+        # real JS of the automatic driver review executed in a Node VM.
+        run: |
+          python tests/shaders_potato_page_test.py
+          node tests/shaders_potato_logic_test.mjs
       - name: Verify bundled Settings-tab pack and complete resource budgets
         run: |
           python tests/settings_panel_icon_pack_test.py

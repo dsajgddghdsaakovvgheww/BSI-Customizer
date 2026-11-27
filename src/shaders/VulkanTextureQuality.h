@@ -5,8 +5,9 @@
 namespace BsiShaders {
 // Prepare data for a NEW sampler. This never modifies an existing VkSampler,
 // updates a descriptor, changes enabled device features or touches a pNext chain.
+// Strength is the same saved 0-100 percentage as every other backend.
 inline TextureSamplerPlan<VkSamplerCreateInfo> planVulkanTextureQuality(
-    TextureQuality mode,const TextureQualityProof &proof,const VkSamplerCreateInfo &source){
+    TextureQuality mode,const TextureQualityProof &proof,const VkSamplerCreateInfo &source,int strength=100){
     TextureSamplerPlan<VkSamplerCreateInfo> result{source,TextureQualityDecision::UnsupportedDescriptor};
     if(mode==TextureQuality::Native){result.decision=TextureQualityDecision::Disabled;return result;}
     if(proof.renderer!=Renderer::Vulkan){result.decision=TextureQualityDecision::UnidentifiedRenderer;return result;}
@@ -19,7 +20,7 @@ inline TextureSamplerPlan<VkSamplerCreateInfo> planVulkanTextureQuality(
     sampling.mipmapped=true;sampling.comparison=source.compareEnable!=VK_FALSE;
     sampling.anisotropic=source.anisotropyEnable!=VK_FALSE;
     sampling.unnormalizedCoordinates=source.unnormalizedCoordinates!=VK_FALSE;
-    const auto plan=planTextureQuality(mode,proof,sampling);
+    const auto plan=planTextureQuality(mode,proof,sampling,strength);
     result.decision=plan.decision;if(plan.changed())result.descriptor.minLod=plan.sampling.minimumLod;
     return result;
 }

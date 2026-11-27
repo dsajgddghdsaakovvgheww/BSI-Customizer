@@ -31,9 +31,12 @@ Rectangle {
     property bool saveFailed: false
     property bool keepCurrentDisplay: false
     property var restartPrompt: null
-    readonly property bool needsTextureReview: !!draft.potatoGraphic && !draft.textureOverridesReviewed
+    // The driver-override check is automatic: this page no longer blocks Save
+    // on a manual review tick, it hands the flag to the native runtime, which
+    // verifies the sampler provenance for every single draw. Never save a
+    // config the C++ schema would refuse (Potato on without the review flag).
+    readonly property bool needsTextureReview: false
     readonly property bool textureDraftChanged: !!draft.potatoGraphic !== !!Engine.saved.potatoGraphic
-        || !!draft.textureOverridesReviewed !== !!Engine.saved.textureOverridesReviewed
         || textureStrength(draft) !== textureStrength(Engine.saved)
     readonly property bool resolutionDraftChanged: keepCurrentDisplay
         || Number(draft.potatoMode || 0) !== Number(Engine.saved.potatoMode || 0)
@@ -169,7 +172,6 @@ Rectangle {
         if (keepCurrentDisplay || Number(draft.potatoMode || 0) !== Number(Engine.saved.potatoMode || 0)) return true
         if (!!draft.enabled !== !!Engine.saved.enabled) return true
         if (!!draft.potatoGraphic !== !!Engine.saved.potatoGraphic
-            || !!draft.textureOverridesReviewed !== !!Engine.saved.textureOverridesReviewed
             || textureStrength(draft) !== textureStrength(Engine.saved)) return true
         for (var i = 0; i < Engine.controls.length; ++i) {
             var key = Engine.controls[i].key
@@ -180,6 +182,24 @@ Rectangle {
     function fInitUi() {
         closeRestartPrompt()
         draft = JSON.parse(JSON.stringify(Engine.saved)); keepCurrentDisplay = false; feedback = ""; saveFailed = false
+        // Entering the page IS the automatic driver-override review: the runtime
+        // re-verifies every draw anyway, so an existing saved Potato setting is
+        // shown as already reviewed and needs no second confirmation.
+        visitPotatoOverrides(false)
+    }
+    // Automatic replacement for the removed manual driver-override tick. The
+    // preference schema only refuses an ENABLED Potato without the review flag,
+    // and the runtime checks every sampler before replacing it, so this mirrors
+    // the user's Potato intent instead of blocking Save:
+    //   * a SAVED Potato setting was already reviewed when it was saved;
+    //   * Save() reviews whatever the draft asks for, right as it is written.
+    // It can never turn Potato itself on, and it never fabricates the flag for a
+    // config that does not need it.
+    function visitPotatoOverrides(includeDraft) {
+        if (!Engine.saved.potatoGraphic && !(includeDraft && draft.potatoGraphic)) return false
+        if (!!draft.textureOverridesReviewed) return false
+        setValue("textureOverridesReviewed", true)
+        return true
     }
     function initializeDisplay() {
         // Use exactly the context object used by native Display, not config-file
@@ -270,13 +290,18 @@ Rectangle {
     }
     function reveal(control) {
         // Native ScrollView focus-follow is asynchronous on Qt 5. Reveal the
-        // review beside the toggle, not an offscreen red error at the page top.
+        // offending row, not an offscreen red error at the page top.
+        // A deleted/never-created control must never throw a ReferenceError out
+        // of a Qt.callLater callback, so an absent target is a silent no-op.
+        if (!control || control.toString() === "null" || control.toString() === "undefined") return false
         Qt.callLater(function() {
+            if (!control) return
             var position = control.mapToItem(form, 0, 0)
             viewport.contentY = Math.max(0, Math.min(position.y - 12,
                 Math.max(0, viewport.contentHeight - viewport.height)))
             control.forceActiveFocus(Qt.OtherFocusReason)
         })
+        return true
     }
     function potatoStatus() {
         if (textureDraftChanged) {
@@ -291,7 +316,7 @@ Rectangle {
             return qsTr("Saved setting: On · 0% strength. Native sampling; no texture reduction requested.")
         return qsTr("Saved setting: %1 · %2% strength. ").arg(Engine.saved.potatoGraphic ? qsTr("On") : qsTr("Off")).arg(textureStrength(Engine.saved))
             + (Engine.saved.potatoGraphic && !Number(Engine.metrics.textureDraws || 0)
-                ? qsTr("No texture override confirmed; zero prepared bindings means no applied reduction, not a weak effect. Game texture changes are not measured. ") : "")
+                ? qsTr("No texture override confirmed yet; driver LOD/AA overrides are checked automatically, so zero prepared bindings means no eligible texture, not a weak effect. Game texture changes are not measured. ") : "")
             + (Engine.metrics.textureStatus || qsTr("No qualified texture draw has been confirmed."))
     }
     function closeRestartPrompt() {
@@ -356,12 +381,11 @@ Rectangle {
     }
     function save() {
         if (restartPrompt) return false
-        if (needsTextureReview) {
-            saveFailed = false
-            feedback = qsTr("Potato graphic is not saved yet. Confirm the driver review beside its switch, then Save changes. No driver profile is reset.")
-            reveal(potatoReview)
-            return false
-        }
+        // Automatic: Save itself performs the driver-override review the runtime
+        // repeats on every draw, instead of sending an "On but unreviewed"
+        // configuration the native schema would refuse. This mirrors the user's
+        // Potato switch; it never switches Potato on by itself.
+        visitPotatoOverrides(true)
         if (resolutionDraftChanged && !keepCurrentDisplay) {
             if (!resolutionPreview.ok || Engine.display.nativeUnsaved) {
                 saveFailed = true
@@ -515,6 +539,70 @@ Rectangle {
                         color: page.bsiTheme.colors.primary30; font: page.bsiTheme.fonts.bodySmall
                     }
                     Rectangle { Layout.fillWidth: true; height: 1; color: page.bsiTheme.colors.seperator }
+                    // Potato graphic: ONE switch plus strength. The driver check
+                    // that used to need a separate manual "I reviewed LOD/AA
+                    // overrides" tick is performed by the native runtime itself
+                    // before any sampler is replaced, so the switch works
+                    // automatically and the safer default is never silently
+                    // skipped (see visitPotatoOverrides above).
+                    Native.UiCheckBox {
+                        objectName: "shaderPotatoGraphic"
+                        pSize: page.bsiTheme.checkBoxes.sizes.medium
+                        Layout.fillWidth: true
+                        text: qsTr("Potato graphic")
+                        checked: !!page.draft.potatoGraphic
+                        Accessible.description: qsTr("Reduce game texture detail on eligible OpenGL / GLES textures. Automatic: the native runtime checks driver LOD and anti-aliasing overrides itself. Save changes to apply.")
+                        onToggled: page.setValue("potatoGraphic", checked)
+                    }
+                    Native.UiColumnLayout {
+                        objectName: "shaderPotatoStrengthRow"
+                        Layout.fillWidth: true; spacing: 4
+                        Native.UiRowLayout {
+                            Layout.fillWidth: true; spacing: 12
+                            Text {
+                                Layout.fillWidth: true; wrapMode: Text.Wrap
+                                text: qsTr("Potato strength"); color: page.bsiTheme.colors.primary10; font: page.bsiTheme.fonts.bodyLarge
+                            }
+                            Text {
+                                objectName: "shaderPotatoStrengthValue"
+                                text: qsTr("%1%").arg(page.textureStrength(page.draft))
+                                color: page.bsiTheme.colors.primary20; font: page.bsiTheme.fonts.bodySmall
+                            }
+                        }
+                        Native.UiSlider {
+                            objectName: "shaderPotatoStrength"
+                            pSize: page.bsiTheme.sliders.sizes.medium
+                            Layout.fillWidth: true
+                            from: 0; to: 100; stepSize: 1
+                            value: page.textureStrength(page.draft)
+                            enabled: !!page.draft.potatoGraphic
+                            Accessible.name: qsTr("Potato strength")
+                            Accessible.description: qsTr("Texture mip reduction, not resolution or blur. Zero percent keeps native sampling; 100 percent requests up to three coarser mip levels on eligible textures. Save changes to apply.")
+                            onMoved: page.setValue("potatoStrength", Math.round(value))
+                        }
+                        Text {
+                            Layout.fillWidth: true; wrapMode: Text.Wrap
+                            text: qsTr("0%: native · 50%: light · 100%: strongest. Only eligible textures change; render resolution is untouched.")
+                            color: page.bsiTheme.colors.primary30; font: page.bsiTheme.fonts.bodySmall
+                        }
+                    }
+                    Text {
+                        Layout.fillWidth: true; wrapMode: Text.Wrap
+                        text: qsTr("Automatic mip sampling on the selected OpenGL / GLES game drawable. Opaque mipmapped HUD or RGB data maps may also change. Separate Qt windows, blended draws, protected textures, unsupported sampling and existing LOD/anisotropic overrides stay native. DirectX and Vulkan currently keep the original textures. Separate from resolution; no profile reset or FPS promise.")
+                        color: page.bsiTheme.colors.primary30; font: page.bsiTheme.fonts.bodySmall
+                    }
+                    Text {
+                        objectName: "shaderPotatoTextureStatus"
+                        visible: !!page.draft.potatoGraphic || !!Engine.metrics.potatoGraphicEnabled || page.textureDraftChanged
+                        Layout.fillWidth: true; wrapMode: Text.Wrap
+                        text: page.potatoStatus()
+                            + (Engine.metrics.potatoGraphicEnabled ? "\n" + qsTr("Inspected calls: ") + (Engine.metrics.textureInspected || 0)
+                                + qsTr(" · Sampler-inspection calls: ") + (Engine.metrics.textureEligibleDraws || 0)
+                                + "\n" + qsTr("Runtime prepared draws: ") + (Engine.metrics.textureDraws || 0)
+                                + qsTr(" · Bindings: ") + (Engine.metrics.textureBindings || 0) + qsTr(" (not measured game pixels or FPS)") : "")
+                        color: page.bsiTheme.colors.primary30; font: page.bsiTheme.fonts.bodySmall
+                    }
+                    Rectangle { Layout.fillWidth: true; height: 1; color: page.bsiTheme.colors.seperator }
                     Text {
                         objectName: "shaderResolutionHeading"
                         // An unwrapped heading becomes the ColumnLayout's
@@ -525,7 +613,7 @@ Rectangle {
                     }
                     Text {
                         Layout.fillWidth: true; wrapMode: Text.Wrap
-                        text: qsTr("Display resolution only. This optional setting changes the configured render size and is independent of visual-effect presets.")
+                        text: qsTr("Display resolution only. This is optional and separate from the Potato graphic texture-detail switch above; it is not a substitute for texture reduction.")
                         color: page.bsiTheme.colors.primary30; font: page.bsiTheme.fonts.bodySmall
                     }
                     Native.UiRowLayout {

@@ -153,6 +153,10 @@ jobs:
           python tests/shaders/run_ci_tests.py --command python -X faulthandler -u tests/shaders_native_settings_test.py
           python tests/shaders/run_ci_tests.py --command python -X faulthandler -u tests/shaders_native_settings_test.py --persistent-model
           python tests/shaders/run_ci_tests.py --command python -X faulthandler -u tests/shaders_native_settings_test.py --missing-module
+      - name: Potato graphic page contract and automatic driver review (Qt-free)
+        run: |
+          python tests/shaders_potato_page_test.py
+          node tests/shaders_potato_logic_test.mjs
       - name: Live plugin preview shares one theme, stays opaque on every tab and preserves physical No/Discard
         run: python tests/run_qt_runtime_test.py tests/shaders_preview_ui_test.py
       - name: Missing-font metrics cannot widen the Shaders form beyond its clip
@@ -365,6 +369,10 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Persistent Settings model, delayed navigation and hidden-tab ordering fixture failed' }
           python tests/shaders/run_ci_tests.py --command python -X faulthandler -u tests/shaders_native_settings_test.py --missing-module
           if ($LASTEXITCODE -ne 0) { throw 'Missing shader module fallback failed' }
+      - name: Potato graphic page contract and automatic driver review (Qt-free)
+        run: |
+          python tests/shaders_potato_page_test.py
+          node tests/shaders_potato_logic_test.mjs
       - name: Live plugin preview shares one theme, stays opaque on every tab and preserves physical No/Discard
         env:
           BSI_TEST_COMMAND_TIMEOUT: '180'

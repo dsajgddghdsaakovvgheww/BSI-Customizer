@@ -490,12 +490,17 @@ def main():
                 click(prompt, button)
                 assert not evaluate(page, "!!restartPrompt")
 
-            # The Potato texture customizer is intentionally absent from the
-            # Shaders tab. Resolution remains independently configurable.
+            # The Potato texture switch/strength are part of the Shaders tab and
+            # are automatic: the manual driver-review tick is gone, and no
+            # control may exist for it (a stale reference to it used to make
+            # Save throw ReferenceError). Resolution stays independent.
             controls = {item.objectName() for item in tree(page) if item.objectName()}
-            assert not (controls & {"shaderPotatoGraphic", "shaderPotatoReview",
-                                    "shaderPotatoStrength", "shaderPotatoStrengthValue",
-                                    "shaderPotatoTextureStatus", "shaderStretchSection"})
+            assert {"shaderPotatoGraphic", "shaderPotatoStrength",
+                    "shaderPotatoStrengthValue", "shaderPotatoTextureStatus"} <= controls, controls
+            assert not (controls & {"shaderPotatoReview", "shaderStretchSection"})
+            # Automatic review never switches Potato on by itself.
+            assert evaluate(page, "!!draft.potatoGraphic") is False
+            assert evaluate(page, "visitPotatoOverrides()") is False
             assert not backend.writes and backend.commits == 0 and not profile.exists()
             tab(window, 0)
             tab(window, 12)

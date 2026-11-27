@@ -39,7 +39,11 @@ cannot make a rejected resource eligible.
   do not control the texture slider.
 - A texture-only strength Save does not write Display, request a restart,
   generate mipmaps, resize a frame, reset a driver profile or edit a source
-  texture/sampler. The existing explicit driver-review requirement remains.
+  texture/sampler. The driver-override review is automatic: entering the tab
+  and Save both stamp the saved Potato switch's review flag (the page can never
+  turn Potato on by itself), and the runtime still checks every sampler before
+  replacing it. The preference schema keeps requiring the flag, so an old
+  `bsi.shaders.v3` file with Potato on and no review still loads as native.
 - The UI and copied status distinguish saved strength, zero/native, no eligible
   override and prepared bindings. **Prepared bindings are still not a
   measurement of changed game texture pixels, memory savings or FPS.**
@@ -51,7 +55,11 @@ snapshot, the real Windows draw hook and `GlTextureOverride::begin()`. For a
 qualified texture, requested minimum LOD is `3 * strength / 100`, bounded by
 actual exposed storage/view levels and the source sampler's maximum LOD.
 Desktop OpenGL also uses the existing queried/bounded private additive bias;
-GLES retains legal minimum-LOD-only behavior. The source descriptors/bindings
+GLES retains legal minimum-LOD-only behavior. The DirectX and Vulkan descriptor
+planners accept the same percentage (`planD3dTextureQuality`,
+`planVulkanTextureQuality`) instead of silently planning the 100% maximum; their
+in-process texture-binding paths are still absent, so this changes the plan, not
+the current routing. The source descriptors/bindings
 restore exactly after the original draw. A higher percentage can have the same
 result on a short mip chain, a mip-quantizing filter or an already minified GLES
 sample; percent is not percent allocation/FPS reduction.
