@@ -95,20 +95,22 @@ inline QByteArray fixture(bool dense = false, bool withNativeControls = true, co
 // registrations, as in the real binary.
 inline QByteArray splitFixture(bool corruptControlName = true, bool omitThemeControl = false)
 {
-    QByteArray image(0x30000, '\0');
+    QByteArray image(0x20000, '\0');
     image.replace(0, 2, "MZ"); putLe32(image, 0x3c, 0x80);
     image.replace(0x80, 4, QByteArray("PE\0\0", 4));
     putLe16(image, 0x84, 0x8664); putLe16(image, 0x86, 3);
     putLe16(image, 0x94, 0xf0); putLe16(image, 0x98, 0x20b);
     putLe32(image, 0x98 + 32, 0x1000); putLe32(image, 0x98 + 36, 0x200);
-    putLe32(image, 0x98 + 56, 0x30000); putLe32(image, 0x98 + 60, 0x1000); putLe32(image, 0x98 + 108, 16);
+    putLe32(image, 0x98 + 56, 0x20000); putLe32(image, 0x98 + 60, 0x1000); putLe32(image, 0x98 + 108, 16);
     // .rdata holds pools, names and payloads; .text holds the two call sites.
+    // RVA == file offset in both, so a displacement written while building the
+    // code at 0x18000 stays correct whatever the section headers say.
     image.replace(0x188, 8, QByteArray(".rdata\0\0", 8));
-    putLe32(image, 0x190, 0x20000); putLe32(image, 0x194, 0x1000);
-    putLe32(image, 0x198, 0x20000); putLe32(image, 0x19c, 0x1000); putLe32(image, 0x1ac, 0x40000040);
+    putLe32(image, 0x190, 0x17000); putLe32(image, 0x194, 0x1000);
+    putLe32(image, 0x198, 0x17000); putLe32(image, 0x19c, 0x1000); putLe32(image, 0x1ac, 0x40000040);
     image.replace(0x1b0, 8, QByteArray(".text\0\0\0", 8));
-    putLe32(image, 0x1b8, 0x8000); putLe32(image, 0x1bc, 0x21000);
-    putLe32(image, 0x1c0, 0x8000); putLe32(image, 0x1c4, 0x21000); putLe32(image, 0x1d4, 0x60000020);
+    putLe32(image, 0x1b8, 0x8000); putLe32(image, 0x1bc, 0x18000);
+    putLe32(image, 0x1c0, 0x8000); putLe32(image, 0x1c4, 0x18000); putLe32(image, 0x1d4, 0x60000020);
     image.replace(0x18000, 0x8000, QByteArray(0x8000, char(0x90)));
     image.replace(0x1000, 0x300, QByteArray(0x300, '\0'));
     putLe32(image, 0x98 + 120, 0x1000); putLe32(image, 0x98 + 124, 40);
@@ -131,8 +133,11 @@ inline QByteArray splitFixture(bool corruptControlName = true, bool omitThemeCon
             const int begin = code.size(); code += arg.first + QByteArray(4, '\0');
             putLe32(code, begin + 3, quint32(arg.second - (0x18000 + code.size())));
         }
+        // ECX=version, then call qword ptr [rip+disp] and return.
         code += QByteArray::fromHex("b903000000ff1500000000c3");
-        putLe32(code, code.size() - 10, quint32(0x1120 - (0x18000 + code.size() - 5)));
+        const int call = code.size() - 7;            // the FF 15 instruction
+        const int next = call + 6;                   // RIP-relative base
+        putLe32(code, call + 2, quint32(0x1120 - (0x18000 + next)));
     }
     image.replace(0x18000, code.size(), code);
     QMap<QString, QByteArray> panel, controls;
