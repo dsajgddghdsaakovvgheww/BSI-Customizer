@@ -20,6 +20,7 @@ void require(bool condition, const QString &message)
     if (!condition) { std::fprintf(stderr, "FAIL: %s\n", qPrintable(message)); std::exit(1); }
 }
 using ShaderSettingsImageFixture::fixture;
+using ShaderSettingsImageFixture::splitFixture;
 QMap<QString, QByteArray> sources(const QByteArray &image)
 {
     QMap<QString, QByteArray> out;
@@ -153,7 +154,7 @@ int main(int argc, char **argv)
     // installation must proceed - and an actually missing control must still be
     // refused with the same diagnosable message.
     {
-        const auto split = ShaderSettingsImageFixture::splitFixture();
+        const auto split = splitFixture();
         const auto listed = sources(split);
         require(listed.contains(QStringLiteral("UiSettingsWindow.qml")) && listed.contains(QStringLiteral("UiButton.qml"))
                     && listed.contains(QStringLiteral("UiThemeObject.qml")) && listed.contains(QStringLiteral("plr.qml")),
@@ -165,7 +166,7 @@ int main(int argc, char **argv)
         const auto repaired = ShaderSettingsImage::prepare(split, false);
         require(repaired.ok && !repaired.changed && repaired.output == split,
                 QStringLiteral("an uninstalled split-pool player stays a pure no-op on removal: ") + repaired.error);
-        const auto missing = ShaderSettingsImage::splitFixture(true, true);
+        const auto missing = splitFixture(true, true);
         const auto refused = ShaderSettingsImage::prepare(missing, true);
         require(!refused.ok && refused.output.isEmpty()
                     && refused.error.contains(QStringLiteral("qrc:/UiThemeObject.qml"))
