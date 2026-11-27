@@ -109,6 +109,27 @@ int main(int argc, char **argv)
         require(removal.ok && removal.output == missingDialog && !removal.changed,
                 QStringLiteral("a missing stock dialog must not block safe no-op removal"));
     }
+    // Real players can register a stock control under a name other than the
+    // plain leaf (a prefixed/nested record) while the page still imports only
+    // `qrc:/`. Resolution is by REGISTERED LEAF, so a control recorded with a
+    // prefix must be found, not reported missing.
+    {
+        const auto prefixed = ShaderSettingsImageFixture::fixture(false, true, {}, QStringLiteral("UiPrefix-"));
+        const auto allowed = ShaderSettingsImage::prepare(prefixed, true);
+        require(allowed.ok && allowed.changed && allowed.installed,
+                QStringLiteral("a stock control recorded with a prefix is present, not missing: ") + allowed.error);
+        const auto removed = ShaderSettingsImage::prepare(allowed.output, false);
+        require(removed.ok && removed.changed && !removed.installed,
+                QStringLiteral("a prefixed-control install must still be removable: ") + removed.error);
+        // A control that is really absent must still block the installation,
+        // and the refusal must name the record set so it can be diagnosed.
+        const auto absentTheme = ShaderSettingsImageFixture::fixture(false, true, QStringLiteral("UiThemeObject.qml"));
+        const auto blocked = ShaderSettingsImage::prepare(absentTheme, true);
+        require(!blocked.ok && blocked.output.isEmpty()
+                    && blocked.error.contains(QStringLiteral("qrc:/UiThemeObject.qml"))
+                    && blocked.error.contains(QStringLiteral("registered file records")),
+                QStringLiteral("a genuinely absent stock control is still refused with a diagnosable reason: ") + blocked.error);
+    }
     const auto absent = ShaderSettingsImage::prepare(base, false);
     require(absent.ok && !absent.changed && !absent.installed && absent.output == base && absent.sources.isEmpty(),
             QStringLiteral("removing absent shaders is a pure no-op, not a native source/cache rewrite: ") + absent.error);

@@ -155,15 +155,52 @@ Plan prepare(const QByteArray &image, bool enabled)
             QStringLiteral("UiDialog.qml"), QStringLiteral("UiShadowContainer.qml"),
             QStringLiteral("UiDropShadowEffect.qml"), QStringLiteral("UiImageButton.qml")
         };
+        // Only the two files this module actually edits must be readable UTF-8
+        // QML (decoded above). The stock controls are validated by their
+        // registered LEAF name, not by an assumed qrc root path: real players
+        // register the same control both at the root and beneath a directory
+        // (for example "qml/UiThemeObject.qml"), and the module imports the
+        // player's own `qrc:/` namespace instead of shipping or rewriting any
+        // control. An exact-root test therefore reported present controls as
+        // missing and refused a safe installation.
         for (const auto &name : nativeControls) {
             QList<QtResources::File> matches;
             for (const auto &entry : entries)
-                if (entry.path == name) matches << entry;
-            QString nativeSource, error;
-            if (matches.size() != 1
-                || !decode(QtResources::readFile(image, matches.first(), maxSource), &nativeSource, &error)) {
-                plan.error = QStringLiteral("The stock Settings control qrc:/%1 is missing, ambiguous or unreadable. Shaders requires the player's real controls and live theme; no imitation UI or partial installation was substituted. No file was changed.").arg(name);
+                if (entry.path.compare(name, Qt::CaseInsensitive) == 0
+                    || entry.name.compare(name, Qt::CaseInsensitive) == 0)
+                    matches << entry;
+            if (matches.isEmpty()) {
+                // Say exactly what the player's registered tree did and did not
+                // contain, so a refusal can be diagnosed instead of guessed at.
+                QStringList leaves;
+                for (const auto &entry : entries)
+                    if (entry.name.compare(name, Qt::CaseInsensitive) == 0) leaves << entry.path;
+                plan.error = QStringLiteral("The stock Settings control qrc:/%1 is missing from the player's registered resources "
+                                            "(%2 registered file records; %3 carry that leaf: %4). Shaders requires the player's real "
+                                            "controls and live theme; no imitation UI or partial installation was substituted. "
+                                            "No file was changed.")
+                                 .arg(name).arg(entries.size()).arg(leaves.size())
+                                 .arg(leaves.isEmpty() ? QStringLiteral("none") : leaves.mid(0, 3).join(QStringLiteral(", ")));
                 return plan;
+            }
+            // Several registrations of one control (root plus a nested/generated
+            // twin) are normal. Only genuinely different payloads are a real
+            // ambiguity that must block the installation.
+            QByteArray first;
+            bool haveFirst = false;
+            for (const auto &match : matches) {
+                const auto bytes = QtResources::readFile(image, match, maxSource);
+                if (bytes.isEmpty()) {
+                    plan.error = QStringLiteral("The stock Settings control qrc:/%1 has an unreadable resource record at "
+                                                "\"%2\" (flags %3). No file was changed.")
+                                     .arg(name, match.path, QString::number(match.flags));
+                    return plan;
+                }
+                if (!haveFirst) { first = bytes; haveFirst = true; }
+                else if (bytes != first) {
+                    plan.error = QStringLiteral("The stock Settings control qrc:/%1 is registered with conflicting payloads; ambiguous native controls cannot be patched safely. No file was changed.").arg(name);
+                    return plan;
+                }
             }
         }
         QHash<QString, int> counts;

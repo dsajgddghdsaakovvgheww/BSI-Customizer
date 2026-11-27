@@ -16,7 +16,11 @@ inline QStringList nativeControlNames()
 {
     return ShaderSettingsFixture::nativeControls;
 }
-inline QByteArray fixture(bool dense = false, bool withNativeControls = true, const QString &omittedNativeControl = {})
+// `controlLeafSuffix` appends text to each recorded stock-control leaf name
+// (for example a player that registers "UiThemeObject.qml" only under a
+// different name). The default records the plain leaf.
+inline QByteArray fixture(bool dense = false, bool withNativeControls = true, const QString &omittedNativeControl = {},
+                          const QString &controlLeafSuffix = {})
 {
     QByteArray image(0x20000, '\0');
     image.replace(0, 2, "MZ"); putLe32(image, 0x3c, 0x80);
@@ -58,7 +62,7 @@ inline QByteArray fixture(bool dense = false, bool withNativeControls = true, co
     // tested against read-only resources from the four pinned player samples.
     if (withNativeControls)
         for (const auto &name : nativeControlNames())
-            if (name != omittedNativeControl) sources.insert(name, QByteArray("import QtQuick 2.15\nItem{}\n"));
+            if (name != omittedNativeControl) sources.insert(controlLeafSuffix + name, QByteArray("import QtQuick 2.15\nItem{}\n"));
     for (const auto &page : ShaderSettingsFixture::pages) sources.insert(page, QByteArray("import QtQuick 2.15\nItem{}\n"));
     sources.insert(QStringLiteral("Unrelated.qml"), QByteArray("import QtQuick 2.15\nItem{property string untouched:'user edit'}\n"));
     QStringList ordered = sources.keys();
