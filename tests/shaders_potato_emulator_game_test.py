@@ -45,6 +45,9 @@ SCENE_DRAWS = 2     # qualified scene draws per frame
 STRENGTHS = (0, 25, 50, 75, 100)
 POLICY_OWNED_MIP, POLICY_DEPTH_QUALIFIED = 1, 0
 MODE_STRONG = 2
+MODE_LIGHT = 1
+# Strong keeps the original 3-level intent, Light the original lighter one.
+MODE_FLOOR = {MODE_LIGHT: 1.5, MODE_STRONG: 3.0}
 
 GL_TRIANGLES = 0x0004
 GL_TEXTURE_2D = 0x0DE1
@@ -313,14 +316,14 @@ class EmulatedGame:
         gl["GetIntegerv"](GL_SAMPLER_BINDING, C.byref(binding))
         return binding.value
 
-    def _scene_draw(self, adapter, mode, policy, strength, message):
+    def _scene_draw(self, adapter, mode, quality, policy, strength, message):
         """One qualified scene draw with the production draw-scoped replacement."""
         gl = self.gl
         original = self.sampler if mode == "sampler" else 0
         gl["BindSampler"](0, original)
         gl["ActiveTexture"](GL_TEXTURE0)
         gl["BindTexture"](GL_TEXTURE_2D, self.material)
-        count = adapter.begin(MODE_STRONG, 1, GL_TRIANGLES, policy, strength, message, len(message))
+        count = adapter.begin(quality, 1, GL_TRIANGLES, policy, strength, message, len(message))
         if count:
             # Between begin() and the draw, the replacement must be Potato's own
             # private sampler carrying the saved-strength floor, never the game's.
@@ -331,7 +334,7 @@ class EmulatedGame:
                 "Potato must bind a private sampler for the game draw, not the game's own object"
             floor = F()
             gl["GetSamplerParameterfv"](primed.value, 0x813A, C.byref(floor))
-            assert abs(floor.value - 3 * strength / 100) < 1e-4, \
+            assert abs(floor.value - MODE_FLOOR[quality] * strength / 100) < 1e-4, \
                 f"strength {strength}% must prepare the expected mip floor, got {floor.value} (the game's is untouched)"
             own = F()
             gl["GetSamplerParameterfv"](self.sampler, 0x813A, C.byref(own))
@@ -342,7 +345,7 @@ class EmulatedGame:
             "the draw-scoped replacement must restore the game's exact sampler binding"
         return count
 
-    def frame(self, adapter, mode, strength, message):
+    def frame(self, adapter, mode, strength, message, quality=MODE_STRONG):
         """One presented game frame. Returns the per-draw Potato counts."""
         gl = self.gl
         counts = {"ui": 0, "scene": 0}
@@ -355,19 +358,19 @@ class EmulatedGame:
         # A blended HUD/UI pass: must never be touched, whatever the setting.
         gl["Enable"](0x0BE2)
         gl["BlendFunc"](1, 0x0303)
-        counts["ui"] = self._scene_draw(adapter, mode, POLICY_OWNED_MIP, strength, message)
+        counts["ui"] = self._scene_draw(adapter, mode, quality, POLICY_OWNED_MIP, strength, message)
         gl["Disable"](0x0BE2)
         # Qualified scene draws the compositor later samples.
         for _ in range(SCENE_DRAWS):
             adapter.observe(message, len(message))
-            counts["scene"] += self._scene_draw(adapter, mode, POLICY_OWNED_MIP, strength, message)
+            counts["scene"] += self._scene_draw(adapter, mode, quality, POLICY_OWNED_MIP, strength, message)
         assert gl["GetError"]() == 0, "an emulated game frame must not leave a GL error"
         return counts
 
-    def present(self, adapter, mode, strength, message, frames=FRAMES):
+    def present(self, adapter, mode, strength, message, frames=FRAMES, quality=MODE_STRONG):
         total = {"ui": 0, "scene": 0}
         for _ in range(frames):
-            counts = self.frame(adapter, mode, strength, message)
+            counts = self.frame(adapter, mode, strength, message, quality)
             total["ui"] += counts["ui"]
             total["scene"] += counts["scene"]
         return total
@@ -531,6 +534,30 @@ def main():
         adapter.bsi_game_end()
         gl["Enable"](0x0B71)
         assert refused == 0, "a depth-disabled UI draw must keep native sampling under the conservative policy"
+
+        # Light ("Natural") keeps the original lighter intent and must still be
+        # visible, and another way round: it must not be as coarse as Strong.
+        light = game.present(harness, mode, 100, message, quality=MODE_LIGHT)
+        light_pixels, light_energy = game.read(), detail_energy(game.read())
+        assert light["scene"] == FRAMES * SCENE_DRAWS and light["ui"] == 0, \
+            "Light/Natural must prepare private samplers for scene draws only"
+        assert light_pixels != native and light_energy < native_energy, \
+            "Light/Natural at 100% must still be visible on the game frame"
+        assert light_energy > strong, "Light/Natural must stay closer to native than Strong (lighter floor)"
+        print(f"EMULATED-GAME: light(100%) presentedEnergy={light_energy} vs strong={strong}")
+        assert game.present(harness, mode, 0, message)["scene"] == 0 and game.read() == native
+
+        # The player's real interaction: the user drags the slider while the game
+        # keeps running. Every setting change must take effect on the next frame
+        # and Off must land back on the exact native frame.
+        live = [(100, None), (25, None), (100, None), (0, None)]
+        for strength, _ in live:
+            present = game.present(harness, mode, strength, message, frames=2)
+            pixels = game.read()
+            expected = 0 if strength == 0 else 2 * SCENE_DRAWS
+            assert present["scene"] == expected, f"live change to {strength}% was not applied"
+            assert (pixels == native) == (strength == 0), f"live change to {strength}% did not reach the frame"
+        print("EMULATED-GAME: live strength changes 100->25->100->Off applied on the next frame")
 
         for kind, key, value in source_state:
             current = F()

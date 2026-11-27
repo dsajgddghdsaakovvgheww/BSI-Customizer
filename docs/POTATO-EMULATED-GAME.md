@@ -25,7 +25,8 @@ the player-facing behaviour, no for a captured Android game**:
 | HUD pass | blended (`GL_BLEND`, SRC_ALPHA/ONE_MINUS_SRC_ALPHA) draw of the same material |
 | Frames | 6 presented frames per setting, 2 qualified scene draws per frame |
 | Sampler sources | (a) the game's own sampler object, (b) only the texture's parameters — both must work |
-| Settings | Off/0 and 25/50/75/100 %, each rendered and read back |
+| Settings | Off/0 and 25/50/75/100 % in **Strong**, plus **Light (Natural)** at 100 %, each rendered and read back |
+| Live change | the slider moves 100 → 25 → 100 → Off while frames keep rendering; each change must land on the next frame |
 
 Per strength the harness asserts, not merely prints:
 
@@ -40,7 +41,10 @@ Per strength the harness asserts, not merely prints:
    strength produces a distinct frame (a binding count alone is never accepted);
 5. Off after use restores the previous presented frame exactly;
 6. the depth-qualified policy still refuses a depth-disabled draw at 100 %;
-7. the game's texture/sampler LOD state is unchanged at the end and the driver
+7. Light/Natural is visible but stays lighter than Strong (floor 1.5 vs 3);
+8. live setting changes apply on the next presented frame and Off returns the
+   byte-identical native frame;
+9. the game's texture/sampler LOD state is unchanged at the end and the driver
    reports no GL error.
 
 Measured locally with ANGLE/SwiftShader (same binary as CI):
@@ -51,7 +55,12 @@ native 24 735 678 -> 0 %: 24 735 678 | 25 %: 24 137 672 | 50 %: 16 861 090
 ```
 
 (The texture-parameter source mode produces the same numbers here; that is the
-expected equivalence, not a duplicated test.)
+expected equivalence, not a duplicated test.) Light/Natural at 100 % presents
+`16 861 090`, i.e. the lighter floor and not Strong's 9.7 M.
+
+CI evidence for this job: run [45930829803](https://github.com/MrPcGamerYT/BSI-Customizer/actions/runs/45930829803)
+— steps *Emulated game on Mesa*, *Emulated game on ANGLE/SwiftShader* and
+*Negative control* all succeeded.
 
 ## Negative control (why a green run means something)
 
