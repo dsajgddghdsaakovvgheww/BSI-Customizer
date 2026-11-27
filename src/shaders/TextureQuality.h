@@ -51,6 +51,13 @@ struct TextureSampling {
     float minimumLod=0,maximumLod=0,lodBias=0;
     bool mipmapped=false,comparison=false,anisotropic=false,customReduction=false;
     bool unnormalizedCoordinates=false;
+    // The resource HAS stored levels, but its min filter is base-only
+    // (GL_LINEAR/GL_NEAREST). This is legal sampling, not a missing chain: a
+    // min-filter change in a PRIVATE sampler can select those stored levels,
+    // which is what existing driver profiles do. Only the caller may set it,
+    // and only after it has verified the stored levels. It never describes a
+    // single-level resource and must not be used to accept one.
+    bool storedChain=false;
 };
 enum class TextureQualityDecision {
     Applied, Disabled, InvalidMode, UnidentifiedRenderer, UnqualifiedResource,
@@ -76,7 +83,13 @@ inline TextureQualityPlan planTextureQuality(TextureQuality mode,const TextureQu
     if(proof.protectedContent)return refuse(TextureQualityDecision::ProtectedContent);
     if(!proof.privateReplacementSupported)return refuse(TextureQualityDecision::UnsupportedReplacement);
     if(!proof.externalOverridesReviewed)return refuse(TextureQualityDecision::ExternalOverridesUnverified);
-    if(proof.visibleMipLevels<2||proof.visibleMipLevels>32||!source.mipmapped)return refuse(TextureQualityDecision::NoMipChain);
+    // Two independent facts: the resource must really have stored levels, and
+    // the sampler must be able to reach them. A real chain sampled with a
+    // base-only filter (source.storedChain) is exactly the descriptor a
+    // min-filter override exists for. A single-level texture still cannot be
+    // qualified here, and no mip level is invented for it.
+    if(proof.visibleMipLevels<2||proof.visibleMipLevels>32)return refuse(TextureQualityDecision::NoMipChain);
+    if(!source.mipmapped&&!source.storedChain)return refuse(TextureQualityDecision::NoMipChain);
     if(source.comparison||source.anisotropic||source.customReduction||source.unnormalizedCoordinates)
         return refuse(TextureQualityDecision::UnsupportedSampling);
     if(!std::isfinite(source.minimumLod)||!std::isfinite(source.maximumLod)||!std::isfinite(source.lodBias)

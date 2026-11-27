@@ -26,7 +26,8 @@ bool sameFloat(const float &a,const float &b){return std::memcmp(&a,&b,sizeof(fl
 bool sameSampling(const TextureSampling &a,const TextureSampling &b){
     return sameFloat(a.minimumLod,b.minimumLod)&&sameFloat(a.maximumLod,b.maximumLod)&&sameFloat(a.lodBias,b.lodBias)
         &&a.mipmapped==b.mipmapped&&a.comparison==b.comparison&&a.anisotropic==b.anisotropic
-        &&a.customReduction==b.customReduction&&a.unnormalizedCoordinates==b.unnormalizedCoordinates;
+        &&a.customReduction==b.customReduction&&a.unnormalizedCoordinates==b.unnormalizedCoordinates
+        &&a.storedChain==b.storedChain;
 }
 bool sameGl(const GlQualitySampler &a,const GlQualitySampler &b){
     return a.minimumFilter==b.minimumFilter&&a.comparisonMode==b.comparisonMode
@@ -187,6 +188,34 @@ void gl(){
     capabilities.maximumLodBias=0;bounded=planGlTextureQuality(TextureQuality::Strong,proof,source,capabilities);
     require(bounded.changed()&&bounded.descriptor.minimumLod==3&&bounded.descriptor.lodBias==0,
             "GLES stays floor-only with no desktop bias enum/capability");
+    // A REAL stored chain sampled with a base-only filter is the descriptor a
+    // private min-filter override exists for. It must be planned without
+    // editing the source, and it must never be confused with a single level.
+    {
+        GlQualitySampler baseOnly;                   // GL_LINEAR 0x2601, API defaults
+        const auto baseOnlyBefore=baseOnly;
+        GlQualityCapabilities none{};proof=qualified();
+        const auto singleLevel=planGlTextureQuality(TextureQuality::Strong,proof,baseOnly,none,100,false);
+        require(!singleLevel.changed()&&sameGl(singleLevel.descriptor,baseOnlyBefore),
+                "a base-only filter over one stored level is still refused: no mip is invented");
+        const auto chain=planGlTextureQuality(TextureQuality::Strong,proof,baseOnly,none,100,true);
+        require(chain.changed()&&chain.descriptor.minimumFilter==0x2703&&chain.descriptor.minimumLod==3,
+                "a base-only filter over stored levels gains the same-family mip qualifier plus the planned floor");
+        require(sameGl(baseOnly,baseOnlyBefore),"the source descriptor is never edited by the stored-chain plan");
+        GlQualitySampler nearest;nearest.minimumFilter=0x2600;
+        const auto nearestPlan=planGlTextureQuality(TextureQuality::Strong,proof,nearest,none,100,true);
+        require(nearestPlan.changed()&&nearestPlan.descriptor.minimumFilter==0x2702,
+                "NEAREST keeps its family: only the mipmap qualifier is added");
+        proof.visibleMipLevels=1;
+        const auto inconsistent=planGlTextureQuality(TextureQuality::Strong,proof,baseOnly,none,100,true);
+        require(!inconsistent.changed(),
+                "the stored-chain flag cannot override a one-level proof; the level count is authoritative");
+        proof=qualified();
+        GlQualitySampler alreadyMip;alreadyMip.minimumFilter=0x2703;
+        const auto kept=planGlTextureQuality(TextureQuality::Strong,proof,alreadyMip,none,100,true);
+        require(kept.changed()&&kept.descriptor.minimumFilter==0x2703,
+                "an already mipmapped filter is preserved exactly, never rewritten");
+    }
     proof=qualified();capabilities.maximumLodBias=16;
     for(float existing:{-2.f,.5f,3.f}){
         source=before;source.lodBias=existing;

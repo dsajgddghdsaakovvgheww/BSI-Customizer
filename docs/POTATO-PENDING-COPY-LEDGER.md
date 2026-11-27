@@ -6,7 +6,9 @@ The user has now tested **`2e5e6a0…` / `gl-pending-copy-ledger-v6`** in the ga
 **5,950 processed frames / 11,663 NoSampler inspections / zero Potato bindings**.
 Two deferred edges reconciled and two producer draws were inspected, but neither
 prepared a binding. The latest producer input is base-only `960×540` RGBA8 with legal
-`GL_NEAREST` (`0x2600`), BASE/MAX 0/0, still first-rejected as non-mip-filter.
+`GL_NEAREST` (`0x2600`), BASE/MAX 0/0, rejected as a **single level** (the
+base-only filter itself is no longer fatal; see
+[the base-only repair](POTATO-BASE-ONLY-FILTER.md)).
 This fourth installed negative supersedes the untested-v6 delivery status below.
 
 The new interval balances: **11,630 queued = 11,361 uncaptured-output + 256

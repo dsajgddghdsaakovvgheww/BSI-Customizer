@@ -190,7 +190,7 @@ def exercise(gl, policy, resolver, egl, display, consumer, consumer_surface, mak
             assert get_error() == 0x0500, "native binding observation must not consume a pending application error"
         active(0x84C3)
         assert policy.bsi_test_quality_begin_compatibility(2, 1, 4, message, len(message)) == 0
-        assert b"non-mip-filter=1" in message.value and b"incomplete-required-level=0" in message.value, message.value.decode()
+        assert b"base-only-filter=1" in message.value and b"incomplete-required-level=0" and b"single-level=1" in message.value, message.value.decode()
         draw(4, 0, 3)
         policy.bsi_test_quality_end()
         rgba = image()

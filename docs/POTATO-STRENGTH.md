@@ -16,7 +16,10 @@ saved **100%**. That is **no applied Potato texture reduction**, not a small/wea
 effect. Their 1,577 and 2,993 processed frames refer to independent presentation
 grading. Neither those frames nor an armed/saved switch establishes changed
 textures. In those reports, the inspected mutable RGB 256x256 consumer specifically
-reports legal **GL_LINEAR 0x2601 / non-mip-filter=1**, not missing required mip 1.
+reports legal **GL_LINEAR 0x2601**, not missing required mip 1. That legal
+descriptor used to be fatal; [the base-only repair](POTATO-BASE-ONLY-FILTER.md)
+now admits it when the resource really stores a chain, and still refuses a
+single-level resource.
 
 The [immutable mip/view repair](POTATO-MIP-QUALIFICATION.md),
 [native image links](POTATO-NATIVE-IMAGE-BINDINGS.md) and

@@ -190,6 +190,15 @@ def gl_table(get_proc):
 # --------------------------------------------------------------------------
 # the emulated game
 # --------------------------------------------------------------------------
+# Real game assets exist in both shapes: trilinear over a complete chain (the
+# original reproduction) and a chain that is sampled with a base-only LINEAR
+# filter. The second is the descriptor in the player's own rendering status
+# (`source-min-filter=0x2601`), so both must be exercised.
+def material_filter(mode):
+    """MIN_FILTER of the game's own asset sampler for a source mode."""
+    return 0x2601 if mode == "linear" else 0x2703
+
+
 def material_pixels(size):
     pixels = bytearray(size * size * 4)
     for y in range(size):
@@ -239,6 +248,7 @@ class EmulatedGame:
         assert location >= 0, "the compositor program must expose its sampler"
         gl["Uniform1i"](location, 0)
         gl["PixelStorei"](0x0D05, 1)  # PACK_ALIGNMENT
+        self.mode = "linear-mipmap"
         self.material = self._material()
         samplers = (U * 2)()
         gl["GenSamplers"](2, samplers)
@@ -249,7 +259,7 @@ class EmulatedGame:
         # is allowed to narrow for a draw and must restore afterwards).
         for sampler in (self.sampler, self.texture_sampler):
             gl["SamplerParameteri"](sampler, 0x2800, 0x2601)  # MAG linear
-            gl["SamplerParameteri"](sampler, 0x2801, 0x2703)  # MIN trilinear
+            gl["SamplerParameteri"](sampler, 0x2801, material_filter(self.mode))  # MIN
             gl["SamplerParameteri"](sampler, 0x2802, 0x812F)  # CLAMP_TO_EDGE
             gl["SamplerParameteri"](sampler, 0x2803, 0x812F)
             gl["SamplerParameterf"](sampler, 0x813A, -1000.0)  # MIN_LOD default
@@ -301,11 +311,26 @@ class EmulatedGame:
         buffer = (C.c_ubyte * len(data)).from_buffer_copy(data)
         gl["TexImage2D"](GL_TEXTURE_2D, 0, 0x8058, MATERIAL, MATERIAL, 0, 0x1908, 0x1401, buffer)
         gl["GenerateMipmap"](GL_TEXTURE_2D)  # the game asset pipeline, not Potato
-        for key, value in ((0x2800, 0x2601), (0x2801, 0x2703), (0x2802, 0x812F), (0x2803, 0x812F)):
+        for key, value in ((0x2800, 0x2601), (0x2801, material_filter(self.mode)),
+                           (0x2802, 0x812F), (0x2803, 0x812F)):
             gl["TexParameteri"](GL_TEXTURE_2D, key, value)
         gl["TexParameterf"](GL_TEXTURE_2D, 0x813A, -1000.0)
         gl["TexParameterf"](GL_TEXTURE_2D, 0x813B, 1000.0)
         return texture
+
+    def use_material(self, mode):
+        """Re-author the SAME game texture in the other legal asset shape."""
+        self.mode = mode
+        gl = self.gl
+        gl["ActiveTexture"](GL_TEXTURE0)
+        gl["BindTexture"](GL_TEXTURE_2D, self.material)
+        for key, value in ((0x2801, material_filter(mode)), (0x813A, -1000.0), (0x813B, 1000.0)):
+            if isinstance(value, float):
+                gl["TexParameterf"](GL_TEXTURE_2D, key, value)
+            else:
+                gl["TexParameteri"](GL_TEXTURE_2D, key, value)
+        for sampler in (self.sampler, self.texture_sampler):
+            gl["SamplerParameteri"](sampler, 0x2801, material_filter(mode))
 
     # -- frame composition -------------------------------------------------
     def _sampler_binding(self):
@@ -338,6 +363,18 @@ class EmulatedGame:
             own = F()
             gl["GetSamplerParameterfv"](self.sampler, 0x813A, C.byref(own))
             assert own.value == -1000.0, "the game's sampler must still hold its own MIN_LOD during the draw"
+            source_min, private_min = F(), F()
+            gl["GetTexParameterfv"](GL_TEXTURE_2D, 0x2801, C.byref(source_min))
+            gl["GetSamplerParameterfv"](primed.value, 0x2801, C.byref(private_min))
+            assert int(source_min.value) == material_filter(self.mode), \
+                "Potato must never edit the game texture's own min filter"
+            if self.mode == "linear":
+                # Only the mipmap qualifier may be added, in the SAME family.
+                assert int(private_min.value) in (0x2702, 0x2703), \
+                    "a base-only descriptor may only gain mip selection in a private sampler, got " + hex(int(private_min.value))
+            else:
+                assert int(private_min.value) == 0x2703, \
+                    "an already mipmapped descriptor keeps its exact filter, got " + hex(int(private_min.value))
         gl["DrawElements"](GL_TRIANGLES, self.index_count, 0x1403, None)
         adapter.end()
         assert self._sampler_binding() == original, \
@@ -459,14 +496,18 @@ def main():
             adapter.bsi_game_end()
 
     harness = Harness(game)
-    # The game's own sampler/LOD state, which Potato must never edit.
+    # The game's own sampler/LOD state, which Potato must never edit. Captured
+    # per material shape (see capture_source_state below).
     source_state = []
-    for key in (0x813A, 0x813B):
-        value = F()
-        gl["GetTexParameterfv"](GL_TEXTURE_2D, key, C.byref(value))
-        source_state.append(("texture", key, value.value))
-        gl["GetSamplerParameterfv"](game.sampler, key, C.byref(value))
-        source_state.append(("sampler", key, value.value))
+
+    def capture_source_state():
+        source_state.clear()
+        for key in (0x813A, 0x813B, 0x2801):
+            value = F()
+            gl["GetTexParameterfv"](GL_TEXTURE_2D, key, C.byref(value))
+            source_state.append(("texture", key, value.value))
+            gl["GetSamplerParameterfv"](game.sampler, key, C.byref(value))
+            source_state.append(("sampler", key, value.value))
     maximum_bias = F()
     gl["GetFloatv"](0x84FD, C.byref(maximum_bias))
     assert maximum_bias.value > 0, "the real device LOD-bias limit must be queried, not assumed"
@@ -478,8 +519,18 @@ def main():
 
     evidence = {"renderer": renderer, "version": version, "frames": FRAMES, "sceneDraws": SCENE_DRAWS, "modes": {}}
     native_frames = {}
-    for mode in ("sampler", "texture"):
-        print(f"EMULATED-GAME: source sampling mode={mode}")
+    for mode in ("sampler", "texture", "linear"):
+        # "linear" is the player's OWN descriptor: the asset keeps a real stored
+        # chain but its min filter is base-only GL_LINEAR. Before this change
+        # production refused it as MipRefusal::NonMipFilter, so that Save could
+        # not change one pixel.
+        if mode == "linear":
+            game.use_material("linear")
+        else:
+            game.use_material("linear-mipmap")
+        capture_source_state()
+        print(f"EMULATED-GAME: source sampling mode={mode}"
+              + (" (asset MIN_FILTER=GL_LINEAR over a stored chain)" if mode == "linear" else ""))
         # Native baseline: the game presents with its own sampler untouched.
         gl["BindSampler"](0, game.sampler if mode == "sampler" else 0)
         present = game.present(harness, mode, 0, message)
@@ -566,7 +617,8 @@ def main():
                 gl["GetSamplerParameterfv"](game.sampler, key, C.byref(current))
             assert current.value == value, f"Potato must never edit the game's own {kind} LOD state ({hex(key)})"
         assert gl["GetError"]() == 0, "the whole emulated game run must not leave a GL error"
-        evidence["modes"][mode] = {"nativeEnergy": native_energy,
+        evidence["modes"][mode] = {"materialMinFilter": hex(material_filter(game.mode)),
+                                   "nativeEnergy": native_energy,
                                    "strengthEnergy": {str(k): v for k, v in results.items()}}
 
     adapter.bsi_game_release()

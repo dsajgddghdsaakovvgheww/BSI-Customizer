@@ -57,7 +57,9 @@ compatibility. Observed API is OpenGL, Qt bridge/host 5.15.2/5.15.4; Vulkan has
 one loader/instance/device but no WSI surface/swapchain/present.
 
 The inspected mutable RGB 256x256 sampler now definitively reports **MIN_FILTER
-`GL_LINEAR` (`0x2601`), `non-mip-filter=1`**, with all other first blockers zero.
+`GL_LINEAR` (`0x2601`), `non-mip-filter=1`**, previously with all other first
+blockers zero. That fatal classification is superseded: see
+[the base-only filter repair](POTATO-BASE-ONLY-FILTER.md).
 Stored/effective BASE/MAX are 0/1000, storage/view -1/-1, failed level -1. This
 is legal base-image-only sampling, **not missing required mip 1**. It does not
 identify the unseen material renderer or establish that its textures lack mips.

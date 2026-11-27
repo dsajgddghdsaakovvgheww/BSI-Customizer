@@ -578,7 +578,7 @@ def exercise(gl, policy, desktop, size, resolver, resource_current):
         bind_input(color_target)
         bind_sampler(0, 0)
         count = policy.bsi_test_quality_begin_strength(2, 1, 4, 1, 100, message, len(message))
-        assert count == 0 and b"non-mip-filter=1" in message.value, "the legal LINEAR compositor must stay native; do not manufacture material mips"
+        assert count == 0 and b"base-only-filter=1" in message.value and b"single-level=1" in message.value, "the legal LINEAR compositor must stay native; do not manufacture material mips"
         draw(4, 0, 3)
         policy.bsi_test_quality_end()
         return root_pixels()
@@ -774,7 +774,7 @@ def exercise(gl, policy, desktop, size, resolver, resource_current):
         bind_input(target)
         bind_sampler(0, 0)
         count = policy.bsi_test_quality_begin_strength(2, 1, 4, 1, 100, message, len(message))
-        assert count == 0 and b"non-mip-filter=1" in message.value, "copy ordering must not force mips on either legal LINEAR compositor input"
+        assert count == 0 and b"base-only-filter=1" in message.value and b"single-level=1" in message.value, "copy ordering must not force mips on either legal LINEAR compositor input"
         draw(4, 0, 3)
         policy.bsi_test_quality_end()
         return root_pixels()

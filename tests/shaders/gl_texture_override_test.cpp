@@ -5,6 +5,7 @@
 #include "GlPipeline.h"
 #include <algorithm>
 #include <array>
+#include <vector>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -55,6 +56,9 @@ struct Fake {
     I storageLevels=7,viewLevels=7,imageLevels=7,maximumMip=1000,extent=64,mismatchedLevel=-1;
     I immutableQueries=0,storageQueries=0,viewQueries=0,highestLevel=-1;
     F maximumBias=16;I biasLimitQueries=0;
+    // Observations of what the PRIVATE samplers received; the caller's own
+    // sampler/texture objects are asserted unchanged instead.
+    std::vector<I> createdMinFilters;
     bool protectionExtension=false,protectedContext=false,protectedTexture=false,incompleteExtensions=false;
     I extensionCount=0,illegalQueries=0,flagsQueries=0,textureProtectionQueries=0;
     I active=3,program=1,depthWrite=1,depthFunction=0x0203,depthBits=24,framebuffer=0;
@@ -194,6 +198,7 @@ void GL_CALL gen(I count,U *out){
 void GL_CALL remove(I count,const U *names){for(I i=0;i<count;++i){require(g.live.at(names[i]),"delete each private sampler exactly once");g.live[names[i]]=false;++g.deletions;}}
 void GL_CALL parameterInt(U sampler,U name,I value){
     auto &s=g.samplers.at(sampler);
+    if(name==0x2801)g.createdMinFilters.push_back(value);
     switch(name){case 0x2801:s.min=value;break;case 0x2800:s.mag=value;break;case 0x2802:s.s=value;break;
     case 0x2803:s.t=value;break;case 0x8072:s.r=value;break;case 0x884c:s.compare=value;break;case 0x884d:s.function=value;break;
     default:require(false,"unexpected replacement sampler integer parameter");}
@@ -379,11 +384,33 @@ int main(){
     }
     for(I filter:{0x2600,0x2601}){
         g.reset();g.mips=false;g.samplers[1].min=g.samplers[2].min=filter;GlTextureOverride quality;std::string detail;
-        require(quality.initialize(resolve,nullptr,&detail)&&!quality.begin(TextureQuality::Strong,true,4,&detail),"valid base-only sources stay native");
-        require(detail.find("non-mip-filter=2")!=std::string::npos&&detail.find("incomplete-required-level=0")!=std::string::npos
-                &&detail.find("missing higher mips are legal")!=std::string::npos&&g.highestLevel==0,
-                "LINEAR/NEAREST does not require mip 1: report the effective SAMPLER filter, not an invented incomplete texture");
+        // A single-level resource: the base-only filter is recorded as an
+        // observation, and the REAL blocker (one effective level) is refused.
+        // No level is invented, no filter is rewritten and nothing is bound.
+        require(quality.initialize(resolve,nullptr,&detail)&&!quality.begin(TextureQuality::Strong,true,4,&detail),"valid base-only single-level sources stay native");
+        require(detail.find("base-only-filter=2")!=std::string::npos&&detail.find("incomplete-required-level=0")!=std::string::npos
+                &&detail.find("single-level=2")!=std::string::npos&&detail.find("failed-level=-1")!=std::string::npos
+                &&detail.find("only one effective mip level")!=std::string::npos
+                &&g.highestLevel==1&&g.creations==0,
+                "LINEAR/NEAREST does not require mip 1: report the effective SAMPLER filter and the real level count, never an invented incomplete texture");
         unchanged();quality.release();
+    }
+    for(I filter:{0x2600,0x2601}){
+        // The stored-chain case: the resource HAS level 1+, but the sampler
+        // still samples base-only. That is exactly the descriptor a private
+        // min-filter override exists for, so it must be prepared.
+        g.reset();g.mips=true;g.imageLevels=7;g.samplers[1].min=g.samplers[2].min=filter;
+        GlTextureOverride quality;std::string detail;const auto before=g.samplers;
+        const auto count=quality.initialize(resolve,nullptr,&detail)?quality.begin(TextureQuality::Strong,true,4,&detail):0u;
+        require(count,"a legal base-only filter over REAL stored levels is an eligible descriptor, not a refusal");
+        require(detail.find("Base-only-filter samplers qualified with a private mip qualifier: 2")!=std::string::npos,
+                "the accepted base-only filters stay visible in the diagnostics");
+        const I expected=filter==0x2600?0x2702:0x2703;
+        require(g.samplers[1].min==before[1].min&&g.samplers[2].min==before[2].min,
+                "the caller's own sampler/texture filters are never edited");
+        require(g.createdMinFilters.size()==1&&g.createdMinFilters[0]==expected,
+                "the PRIVATE sampler gains only the matching mipmap qualifier of the same NEAREST/LINEAR family");
+        quality.end();unchanged();quality.release();
     }
     {
         g.reset();g.framebuffer=1;g.textures[3]=3;GlTextureOverride quality;std::string error;GlTextureUsage usage;
