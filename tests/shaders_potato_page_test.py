@@ -9,7 +9,7 @@ driver-review checkbox were removed from src/shaders/BsiShadersSetting.qml while
 
 and the page could not be saved. The page also silently dropped
 `potatoGraphic`, `potatoStrength` and `textureOverridesReviewed` (no control wrote
-them any more) even though the C++ runtime, the v4 preference schema and
+them any more) even though the C++ runtime, the v5 preference schema and
 Runtime::setTexture() still consume all three.
 
 This is a source contract check: it needs no Qt, GPU, player or network, so it
@@ -57,7 +57,7 @@ def main():
                 "potatoStrength", "textureOverridesReviewed"}
     written = set(re.findall(r'setValue\(\s*"(\w+)"', source))
     for key in sorted(written - accepted):
-        check(False, f"page writes '{key}', which the v4 preference schema does not accept")
+        check(False, f"page writes '{key}', which the v5 preference schema does not accept")
 
     # 5. The three Potato keys must actually be writable again (they were not).
     for key in ("potatoGraphic", "potatoStrength", "textureOverridesReviewed"):

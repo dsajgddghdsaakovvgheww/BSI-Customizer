@@ -96,7 +96,12 @@ bool D3d11Pipeline::initialize(ID3D11Device *device,std::string *error){
     depth.FrontFace.StencilFailOp=depth.FrontFace.StencilDepthFailOp=depth.FrontFace.StencilPassOp=D3D11_STENCIL_OP_KEEP;
     depth.FrontFace.StencilFunc=D3D11_COMPARISON_ALWAYS;depth.BackFace=depth.FrontFace;
     if(!result(device->CreateDepthStencilState(&depth,&p.depth),"CreateDepthStencilState",error))return false;
-    D3D11_BUFFER_DESC constants{};constants.ByteWidth=48;constants.Usage=D3D11_USAGE_DEFAULT;constants.BindFlags=D3D11_BIND_CONSTANT_BUFFER;
+    // Four float4s: eleven effect weights, three spare, then the packed texel pair
+    // in the last float4. The weight count now exceeds the old 12-float block, and
+    // the pair must live outside the weight range or the shader reads a weight
+    // as a texel size.
+    static_assert(controls.size()<=14,"effect weights must fit the constant block");
+    D3D11_BUFFER_DESC constants{};constants.ByteWidth=64;constants.Usage=D3D11_USAGE_DEFAULT;constants.BindFlags=D3D11_BIND_CONSTANT_BUFFER;
     if(!result(device->CreateBuffer(&constants,nullptr,&p.constants),"CreateBuffer(constants)",error))return false;
     p.ready=true;return true;
 }
@@ -136,8 +141,9 @@ bool D3d11Pipeline::render(ID3D11Texture2D *target,const Parameters &settings,st
     {
         ContextScope scope(p.context.Get(),p.state.Get());auto *ctx=p.context.Get();
         if(desc.SampleDesc.Count>1)ctx->ResolveSubresource(p.copy.Get(),0,target,0,format);else ctx->CopyResource(p.copy.Get(),target);
-        std::array<float,12> constants{};for(std::size_t i=0;i<settings.values.size();++i)constants[i]=settings.values[i]/100.f;
-        constants[10]=1.f/desc.Width;constants[11]=1.f/desc.Height;ctx->UpdateSubresource(p.constants.Get(),0,nullptr,constants.data(),0,0);
+        std::array<float,16> constants{};
+        for(std::size_t i=0;i<settings.values.size();++i)constants[i]=settings.values[i]/100.f;
+        constants[14]=1.f/desc.Width;constants[15]=1.f/desc.Height;ctx->UpdateSubresource(p.constants.Get(),0,nullptr,constants.data(),0,0);
         auto *rt=output.Get();auto *cb=p.constants.Get();auto *source=p.source.Get();auto *sampler=p.sampler.Get();
         ctx->OMSetRenderTargets(1,&rt,nullptr);ctx->OMSetDepthStencilState(p.depth.Get(),0);ctx->OMSetBlendState(nullptr,nullptr,0xffffffffu);
         ctx->RSSetState(p.raster.Get());const D3D11_VIEWPORT viewport{0,0,float(desc.Width),float(desc.Height),0,1};ctx->RSSetViewports(1,&viewport);

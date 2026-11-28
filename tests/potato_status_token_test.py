@@ -118,11 +118,33 @@ def main():
     assert "#include <QtGlobal>" in bridge, "qEnvironmentVariable needs QtGlobal on Qt 5"
     assert "writeStatusToken" in HEADER.read_text(encoding="utf-8"), "declared in the header"
 
+    # 8. The shared constant block must hold every effect weight AND the packed
+    #    texel pair without overlap. Adding a control once moved the pair into a
+    #    weight slot, which would have made DirectX read a weight as a texel size.
+    params = (ROOT / "src" / "shaders" / "Parameters.h").read_text(encoding="utf-8")
+    count = int(re.search(r"std::array<Control, (\d+)>", params).group(1))
+    hlsl = (ROOT / "src" / "shaders" / "HlslSources.h").read_text(encoding="utf-8")
+    d3d = (ROOT / "src" / "shaders" / "D3d11Pipeline.cpp").read_text(encoding="utf-8")
+    slots = int(re.search(r"float4 packed\[(\d+)\]", hlsl).group(1)) * 4
+    texel_slot = re.search(r"#define texel packed\[(\d+)\]\.zw", hlsl)
+    assert texel_slot, "texel must stay a named packed slot, not a literal index"
+    pair_start = int(texel_slot.group(1)) * 4 + 2
+    assert count <= pair_start, (
+        f"{count} effect weights would alias the texel pair at {pair_start}: widen the block")
+    assert slots >= pair_start + 2, f"{slots} constant slots cannot hold the texel pair at {pair_start}"
+    upload = re.search(r"std::array<float,(\d+)> constants", d3d)
+    assert upload and int(upload.group(1)) == slots, (
+        f"the DirectX upload is {upload.group(1) if upload else 'missing'} floats but the shader reads {slots}")
+    buffer_bytes = re.search(r"ByteWidth=(\d+)", d3d)
+    assert buffer_bytes and int(buffer_bytes.group(1)) >= slots * 4, (
+        "the DirectX constant buffer must be at least as large as the shader's block")
+
     print("PASS: Potato status-token classifier reaches one verdict per real early stop "
           "(off, never inspected, no eligible sampler, prepared), quotes the product's own "
           "first blocker instead of guessing, never sells a binding count as visible pixels, "
           "treats a missing token as an absent measurement, and the writer stays on the "
-          "existing 1-second UI tick with no GL query, no upload and no game content")
+          "existing 1-second UI tick with no GL query, no upload and no game content; "
+          "every effect weight fits the constant block without aliasing the texel pair")
     print("LIMIT: classifier contract plus a source-level writer contract; the Qt build in "
           "CI is what proves the bridge still compiles and links")
     return 0

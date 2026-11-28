@@ -13,9 +13,10 @@ inline std::string hlslFragmentSource(){
         for(std::size_t i=0;(i=body.find(from,i))!=std::string::npos;i+=to.size())body.replace(i,from.size(),to);
     };
     // HLSL constant-buffer arrays have different packing from GLSL push
-    // constants. Explicit packed float4s preserve the same wire data; three
-    // float4s cover the 11 effect weights plus the packed texel pair.
-    for(std::size_t i=0;i<controls.size();++i)replace("weights["+std::to_string(i)+"]","packed["+std::to_string(i/4)+"]["+std::to_string(i%4)+"]");
+    // constants. Explicit packed float4s preserve the same wire data: four
+    // float4s hold the eleven effect weights, and the texel pair rides the last
+    // float4's zw so no weight index can ever alias it.
+    for(std::size_t i=0;i<14;++i)replace("weights["+std::to_string(i)+"]","packed["+std::to_string(i/4)+"]["+std::to_string(i%4)+"]");
     replace("void main()","float4 main(float4 position:SV_Position):SV_Target");
     replace("OUTPUT=","return ");
     replace("vec3(luminance(c))","float3(luminance(c),luminance(c),luminance(c))");
@@ -24,8 +25,8 @@ inline std::string hlslFragmentSource(){
         replace("vec2("+scalar+")","float2("+scalar+","+scalar+")");
     }
     return std::string("Texture2D frame:register(t0);SamplerState sourceSampler:register(s0);\n"
-        "cbuffer Parameters:register(b0){float4 packed[3];};\n"
-        "#define texel packed[2].zw\n#define uv (position.xy*texel)\n"
+        "cbuffer Parameters:register(b0){float4 packed[4];};\n"
+        "#define texel packed[3].zw\n#define uv (position.xy*texel)\n"
         "#define vec2 float2\n#define vec3 float3\n#define vec4 float4\n#define mix lerp\n"
         "#define SAMPLE(t,p) t.Sample(sourceSampler,p)\n")+body;
 }

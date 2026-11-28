@@ -77,8 +77,15 @@ blend, format, descriptor and source-override checks are unchanged.
 
 ## Preferences and migration
 
-`bsi.shaders.v4` adds only `potatoStrength` (integer 0..100) to saved values,
-including durable native Display transactions. Schemas v1/v2/v3 remain readable;
+`bsi.shaders.v4` added `potatoStrength` (integer 0..100) to saved values,
+including durable native Display transactions. `bsi.shaders.v5` then added the
+frame `smoothness` weight (0..100), because the player's inspected game frame is
+a single-level 256x256 RGB texture copied from a renderbuffer: it has no mip
+level for any sampler plan to select, so the only honest coarsening lever is a
+screen-space filter on the presented frame. Schemas v1-v4 remain readable and are
+decoded against their own exact key count; a missing `smoothness` becomes 0,
+which is byte-identical native rendering. A v4 file that carries a v5 key is
+refused instead of guessed.
 missing legacy strength becomes 100 **in memory**, preserving previous On/Off
 and native-resolution recovery. Opening does not rewrite preferences. Explicit
 Save writes v4 atomically with the existing external-edit/lock/journal checks.

@@ -712,7 +712,7 @@ Window {
         assert native_display.committed["fb_width"] == 960 and native_display.committed["fb_height"] == 540
         assert native_display.committed["custom_resolution_selected"] is True and native_display.commits == 1
         stored = json.loads(profile.read_text())
-        assert stored["schema"] == "bsi.shaders.v4" and stored["display"]["original"] == {"width": 1920, "height": 1080, "custom": False}
+        assert stored["schema"] == "bsi.shaders.v5" and stored["display"]["original"] == {"width": 1920, "height": 1080, "custom": False}
         assert "pendingDisplay" not in stored and evaluate("Engine.display.restartRequired")
         assert "restart" in item("shaderPotatoStatus").property("text").lower()
         assert save_button.mapToItem(page, QPointF(0, 0)) == footer_position, "Potato feedback must not move Save"
