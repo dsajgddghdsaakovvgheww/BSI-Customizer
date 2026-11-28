@@ -157,6 +157,18 @@ def main():
     assert buffer_bytes and int(buffer_bytes.group(1)) >= slots * 4, (
         "the DirectX constant buffer must be at least as large as the shader's block")
 
+    # 9. Both Windows detail metrics must compare against a real NEIGHBOUR in both
+    #    axes. A hand-typed vertical term once subtracted the row stride itself, so
+    #    the metric could not fall and the smoothness threshold was unreachable.
+    for name in ("d3d_pixels_test.cpp", "vulkan_pixels_test.cpp"):
+        source = (ROOT / "tests" / "shaders" / name).read_text(encoding="utf-8")
+        for term in re.findall(r"total\+=.*?;", source, re.S):
+            if "llabs" not in term:
+                continue
+            assert re.search(r"frame\[at-4\]", term), f"{name}: horizontal neighbour missing"
+            assert re.search(r"frame\[at-(?:std::size_t\(width\)|width)\*4", term), (
+                f"{name}: the vertical term must read the neighbouring row, not just the stride")
+
     print("PASS: Potato status-token classifier reaches one verdict per real early stop "
           "(off, never inspected, no eligible sampler, prepared), quotes the product's own "
           "first blocker instead of guessing, never sells a binding count as visible pixels, "

@@ -161,7 +161,9 @@ int main(){
     }
     const auto detail=[&](const std::vector<unsigned char> &frame){
         long long total=0;for(std::uint32_t y=1;y<height;++y)for(std::uint32_t x=1;x<width;++x)for(int c=0;c<3;++c){
-            const auto at=std::size_t(y*width+x)*4+c;total+=std::llabs(int(frame[at])-int(frame[at-4]))+std::llabs(int(frame[at])-std::size_t(width)*4);
+            const auto at=std::size_t(y*width+x)*4+c;
+            total+=std::llabs(int(frame[at])-int(frame[at-4]))
+                  +std::llabs(int(frame[at])-int(frame[at-std::size_t(width)*4]));
         }return total;
     };
     p=Parameters{};p.enabled=true;require(run(textured,p)==textured,"Vulkan zero Smoothness must be byte-exact native");
