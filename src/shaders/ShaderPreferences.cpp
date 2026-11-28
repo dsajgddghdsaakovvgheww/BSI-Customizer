@@ -45,14 +45,23 @@ QVariantMap configValues(const ShaderSavedConfiguration &c){
     for(std::size_t i=0;i<controls.size();++i)result.insert(QString::fromLatin1(controls[i].key),c.visual.values[i]);
     return result;
 }
+// Older files predate the newest control: they carry one fewer value key, and
+// that control simply stays at its neutral default. Every key a file does carry
+// is still range-checked, and the expected key COUNT is exact for its version.
+std::size_t controlCount(int version){
+    // v1-v4 always had the ten original controls; the eleventh arrived in v5.
+    return version>=5?controls.size():10;
+}
 bool decodeValues(const QVariantMap &map,ShaderSavedConfiguration *c,QString *error,int version=4){
     const bool legacy=version==1;
-    if(map.size()!=int(controls.size())+(legacy?1:version==2?2:version==3?4:5)||map.value(QStringLiteral("enabled")).userType()!=QMetaType::Bool)
+    const std::size_t expected=controlCount(version);
+    if(map.size()!=int(expected)+(legacy?1:version==2?2:version==3?4:5)||map.value(QStringLiteral("enabled")).userType()!=QMetaType::Bool)
         return refuse(error,QStringLiteral("Shader settings have an invalid schema."));
     c->visual.enabled=map.value(QStringLiteral("enabled")).toBool();
-    for(std::size_t i=0;i<controls.size();++i)
+    for(std::size_t i=0;i<expected;++i)
         if(!integer(map.value(QString::fromLatin1(controls[i].key)),controls[i].minimum,controls[i].maximum,&c->visual.values[i]))
             return refuse(error,QStringLiteral("Shader values must be finite integer steps in their supported ranges."));
+    for(std::size_t i=expected;i<controls.size();++i)c->visual.values[i]=0;
     int mode=0;
     if(!legacy&&!integer(map.value(QStringLiteral("potatoMode")),0,2,&mode))
         return refuse(error,QStringLiteral("Resolution mode must be Native, Light or Strong."));
@@ -83,7 +92,7 @@ bool decodeResolution(const QJsonValue &value,DisplayResolution *out){
 QJsonObject configJson(const ShaderSavedConfiguration &c){
     QJsonObject display;
     if(c.potato!=PotatoMode::Native)display={{QStringLiteral("original"),resolutionJson(c.original)},{QStringLiteral("target"),resolutionJson(c.target)}};
-    return {{QStringLiteral("schema"),QStringLiteral("bsi.shaders.v4")},
+    return {{QStringLiteral("schema"),QStringLiteral("bsi.shaders.v5")},
         {QStringLiteral("values"),QJsonObject::fromVariantMap(configValues(c))},{QStringLiteral("display"),display}};
 }
 QString displayReviewKey(PotatoMode mode,const DisplayResolution &before,const DisplayResolution &target,const ShaderSavedConfiguration &saved){
@@ -99,9 +108,10 @@ QString displayReviewKey(PotatoMode mode,const DisplayResolution &before,const D
 bool decodeConfig(const QJsonObject &root,ShaderSavedConfiguration *c,ShaderDisplayPending *pending,QString *error){
     const auto schema=root.value(QStringLiteral("schema")).toString();
     const bool legacy=schema==QLatin1String("bsi.shaders.v1");
-    const int version=legacy?1:schema==QLatin1String("bsi.shaders.v2")?2:schema==QLatin1String("bsi.shaders.v3")?3:4;
+    const int version=legacy?1:schema==QLatin1String("bsi.shaders.v2")?2:schema==QLatin1String("bsi.shaders.v3")?3
+        :schema==QLatin1String("bsi.shaders.v4")?4:5;
     const bool journal=root.contains(QStringLiteral("pendingDisplay"));
-    if((!legacy&&schema!=QLatin1String("bsi.shaders.v2")&&schema!=QLatin1String("bsi.shaders.v3")&&schema!=QLatin1String("bsi.shaders.v4"))||root.size()!=(legacy?2:journal?4:3)
+    if((!legacy&&schema!=QLatin1String("bsi.shaders.v2")&&schema!=QLatin1String("bsi.shaders.v3")&&schema!=QLatin1String("bsi.shaders.v4")&&schema!=QLatin1String("bsi.shaders.v5"))||root.size()!=(legacy?2:journal?4:3)
        ||(legacy&&journal)||(!pending&&journal)||!root.value(QStringLiteral("values")).isObject())
         return refuse(error,QStringLiteral("Saved shader preferences have an unknown or invalid format; no native display setting was changed."));
     if(!decodeValues(root.value(QStringLiteral("values")).toObject().toVariantMap(),c,error,version))return false;

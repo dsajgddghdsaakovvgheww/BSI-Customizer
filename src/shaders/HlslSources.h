@@ -13,7 +13,8 @@ inline std::string hlslFragmentSource(){
         for(std::size_t i=0;(i=body.find(from,i))!=std::string::npos;i+=to.size())body.replace(i,from.size(),to);
     };
     // HLSL constant-buffer arrays have different packing from GLSL push
-    // constants. Explicit packed float4s preserve the same 12-float wire data.
+    // constants. Explicit packed float4s preserve the same wire data; three
+    // float4s cover the 11 effect weights plus the packed texel pair.
     for(std::size_t i=0;i<controls.size();++i)replace("weights["+std::to_string(i)+"]","packed["+std::to_string(i/4)+"]["+std::to_string(i%4)+"]");
     replace("void main()","float4 main(float4 position:SV_Position):SV_Target");
     replace("OUTPUT=","return ");

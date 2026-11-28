@@ -50,6 +50,24 @@ void main(){
         vec2 p=(uv-.5)*1.41421356;
         c*=1.-weights[9]*.65*smoothstep(.2,1.,dot(p,p));
     }
+    // Coarsen the PRESENTED frame. Independent of the game's textures: it reads
+    // a widening kernel of already-final pixels, so a single-level frame that
+    // no sampler plan can touch still visibly loses detail. The radius grows
+    // with the saved percentage, and 0 weight is bit-exact native.
+    if(weights[10]>0.){
+        float radius=1.+weights[10]*2.;
+        vec3 taps=vec3(0.);
+        float total=0.;
+        for(int y=-3;y<=3;++y)for(int x=-3;x<=3;++x){
+            float distance=sqrt(float(x*x+y*y));
+            float k=max(0.,1.-distance/(radius*1.25));
+            float weight=k*k;
+            taps+=pixel(uv+vec2(float(x),float(y))*texel*radius)*weight;
+            total+=weight;
+        }
+        taps/=max(total,1e-5);
+        c=mix(c,taps,weights[10]*.92);
+    }
     OUTPUT=vec4(clamp(c,0.,1.),original.a);
 }
 )GLSL";
@@ -57,7 +75,7 @@ inline std::string fragmentSource(bool es, bool core) {
     std::string prefix = es ? "#version 100\nprecision highp float;\n" : core ? "#version 150\n" : "#version 120\n";
     prefix += core ? "in vec2 uv;out vec4 outputColor;\n#define SAMPLE texture\n#define OUTPUT outputColor\n"
                    : "varying vec2 uv;\n#define SAMPLE texture2D\n#define OUTPUT gl_FragColor\n";
-    return prefix + "uniform sampler2D frame;uniform vec2 texel;uniform float weights[10];\n" + effectBody;
+    return prefix + "uniform sampler2D frame;uniform vec2 texel;uniform float weights[11];\n" + effectBody;
 }
 inline std::string vulkanVertexSource() {
     return "#version 450\nvoid main(){vec2 p=vec2((gl_VertexIndex<<1)&2,gl_VertexIndex&2);gl_Position=vec4(p*2.-1.,0.,1.);}\n";
@@ -65,7 +83,7 @@ inline std::string vulkanVertexSource() {
 inline std::string vulkanFragmentSource() {
     return std::string("#version 450\nlayout(location=0) out vec4 outputColor;\n"
         "layout(set=0,binding=0) uniform sampler2D frame;\n"
-        "layout(push_constant,std430) uniform Parameters {float weights[10];vec2 texel;};\n"
+        "layout(push_constant,std430) uniform Parameters {float weights[11];vec2 texel;};\n"
         "#define SAMPLE texture\n#define OUTPUT outputColor\n#define uv (gl_FragCoord.xy*texel)\n") + effectBody;
 }
 } // namespace BsiShaders

@@ -7,7 +7,7 @@
 // normalized shader weights are computed only when a saved state is applied.
 namespace BsiShaders {
 struct Control { const char *key; const char *label; int minimum, maximum; };
-inline constexpr std::array<Control, 10> controls {{
+inline constexpr std::array<Control, 11> controls {{
     {"saturation", "Saturation", -100, 100},
     {"contrast", "Contrast", -100, 100},
     {"warmth", "Warmth", -100, 100},
@@ -17,7 +17,11 @@ inline constexpr std::array<Control, 10> controls {{
     {"sharpen", "Sharpen", 0, 100},
     {"fxaa", "Edge smoothing", 0, 100},
     {"bloom", "Bloom", 0, 100},
-    {"vignette", "Vignette", 0, 100}
+    {"vignette", "Vignette", 0, 100},
+    // Screen-space coarsening of the presented frame. This is the only lever
+    // that does not depend on a texture having a mip chain: a game that
+    // upscales one single-level frame cannot be coarsened by any sampler plan.
+    {"smoothness", "Smoothness", 0, 100}
 }};
 struct Parameters {
     bool enabled = false;
