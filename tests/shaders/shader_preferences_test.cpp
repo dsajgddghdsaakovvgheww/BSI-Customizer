@@ -305,6 +305,20 @@ int main(int argc,char **argv){
         ShaderPreferences refused;refused.load(f.path);
         require(!refused.error().isEmpty()&&bytes(f.path)==tamperedBytes&&refused.parameters().neutral(),
                 QStringLiteral("A v4 file carrying a v5 key is refused on load, never guessed or clamped"));
+        // The page may hand Save a draft that predates the newest control (a
+        // cached/older UI build). That is normalized to neutral, not rejected —
+        // but every value that IS present is still range-checked, and unrelated
+        // junk keys are still refused.
+        write(f.path,releasedBytes);ShaderPreferences draft;draft.load(f.path);
+        auto noSmoothness=draft.values();noSmoothness.remove(QStringLiteral("smoothness"));
+        noSmoothness[QStringLiteral("contrast")]=33;
+        require(success(draft.apply(noSmoothness))&&draft.values()[QStringLiteral("contrast")]==33
+                &&draft.values()[QStringLiteral("smoothness")]==0,
+                QStringLiteral("A pre-Smoothness draft still saves, with the new control neutral"));
+        auto outOfRange=draft.values();outOfRange[QStringLiteral("smoothness")]=101;
+        require(!success(draft.apply(outOfRange))&&draft.values()[QStringLiteral("smoothness")]==0,
+                QStringLiteral("The new control is range-checked on the live Save path"));
+
         write(f.path,releasedBytes);ShaderPreferences restored;restored.load(f.path);
         require(success(restored.apply(restored.values())),QStringLiteral("the exact released file still saves after the refusal"));
         f.untouched();

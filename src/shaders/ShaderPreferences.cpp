@@ -52,7 +52,7 @@ std::size_t controlCount(int version){
     // v1-v4 always had the ten original controls; the eleventh arrived in v5.
     return version>=5?controls.size():10;
 }
-bool decodeValues(const QVariantMap &map,ShaderSavedConfiguration *c,QString *error,int version=4){
+bool decodeValues(const QVariantMap &map,ShaderSavedConfiguration *c,QString *error,int version=5){
     const bool legacy=version==1;
     const std::size_t expected=controlCount(version);
     if(map.size()!=int(expected)+(legacy?1:version==2?2:version==3?4:5)||map.value(QStringLiteral("enabled")).userType()!=QMetaType::Bool)
@@ -279,7 +279,15 @@ QVariantMap ShaderPreferences::apply(const QVariantMap &input,bool keepCurrentDi
     const auto fail=[&](const QString &message){lastError=message;return QVariantMap{{"ok",false},{"msg",message}};};
     ShaderSavedConfiguration requested;QString error;
     if(file.isEmpty())return fail(QStringLiteral("No native player instance is attached."));
-    if(!decodeValues(input,&requested,&error))return fail(error);
+    // A live Save carries the CURRENT schema's exact key count. A draft missing the
+    // newest control is normalized first instead of being mistaken for a legacy
+    // file: only files on disk have a version, and they are decoded with theirs.
+    QVariantMap normalized=input;
+    for(std::size_t i=0;i<controls.size();++i){
+        const auto key=QString::fromLatin1(controls[i].key);
+        if(!normalized.contains(key))normalized.insert(key,0);
+    }
+    if(!decodeValues(normalized,&requested,&error))return fail(error);
     if(keepCurrentDisplay&&requested.potato!=PotatoMode::Native)return fail(QStringLiteral("Keep current display requires Native mode."));
     if(!safePath(file)||!QDir().mkpath(QFileInfo(file).absolutePath())||!safePath(file)||!safePath(file+QStringLiteral(".lock")))
         return fail(QStringLiteral("Cannot create a safe shader settings/lock directory."));
