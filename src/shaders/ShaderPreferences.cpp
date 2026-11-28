@@ -48,6 +48,13 @@ QVariantMap configValues(const ShaderSavedConfiguration &c){
 // Older files predate the newest control: they carry one fewer value key, and
 // that control simply stays at its neutral default. Every key a file does carry
 // is still range-checked, and the expected key COUNT is exact for its version.
+// One list for every schema this build accepts. The journal embed and the file
+// itself must agree, or an interrupted save becomes unrecoverable.
+bool knownSchema(const QString &schema){
+    for(const char *name:{"bsi.shaders.v1","bsi.shaders.v2","bsi.shaders.v3","bsi.shaders.v4","bsi.shaders.v5"})
+        if(schema==QLatin1String(name))return true;
+    return false;
+}
 std::size_t controlCount(int version){
     // v1-v4 always had the ten original controls; the eleventh arrived in v5.
     return version>=5?controls.size():10;
@@ -111,7 +118,7 @@ bool decodeConfig(const QJsonObject &root,ShaderSavedConfiguration *c,ShaderDisp
     const int version=legacy?1:schema==QLatin1String("bsi.shaders.v2")?2:schema==QLatin1String("bsi.shaders.v3")?3
         :schema==QLatin1String("bsi.shaders.v4")?4:5;
     const bool journal=root.contains(QStringLiteral("pendingDisplay"));
-    if((!legacy&&schema!=QLatin1String("bsi.shaders.v2")&&schema!=QLatin1String("bsi.shaders.v3")&&schema!=QLatin1String("bsi.shaders.v4")&&schema!=QLatin1String("bsi.shaders.v5"))||root.size()!=(legacy?2:journal?4:3)
+    if(!knownSchema(schema)||root.size()!=(legacy?2:journal?4:3)
        ||(legacy&&journal)||(!pending&&journal)||!root.value(QStringLiteral("values")).isObject())
         return refuse(error,QStringLiteral("Saved shader preferences have an unknown or invalid format; no native display setting was changed."));
     if(!decodeValues(root.value(QStringLiteral("values")).toObject().toVariantMap(),c,error,version))return false;
@@ -135,9 +142,7 @@ bool decodeConfig(const QJsonObject &root,ShaderSavedConfiguration *c,ShaderDisp
         if(transaction.size()!=3||!decodeResolution(transaction.value(QStringLiteral("before")),&pending->before)
            ||!decodeResolution(transaction.value(QStringLiteral("target")),&pending->target)
            ||!transaction.value(QStringLiteral("next")).isObject()
-           ||![QLatin1String("bsi.shaders.v2"),QLatin1String("bsi.shaders.v3"),
-                 QLatin1String("bsi.shaders.v4"),QLatin1String("bsi.shaders.v5")]
-                .contains(transaction.value(QStringLiteral("next")).toObject().value(QStringLiteral("schema")).toString())
+           ||!knownSchema(transaction.value(QStringLiteral("next")).toObject().value(QStringLiteral("schema")).toString())
            ||!decodeConfig(transaction.value(QStringLiteral("next")).toObject(),&pending->next,nullptr,error))
             return refuse(error,QStringLiteral("Invalid pending Display recovery evidence; no native value was overwritten."));
         const bool restoring=pending->next.potato==PotatoMode::Native;

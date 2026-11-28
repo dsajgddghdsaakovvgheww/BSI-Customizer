@@ -164,9 +164,13 @@ def main():
     prefs = (ROOT / "src" / "shaders" / "ShaderPreferences.cpp").read_text(encoding="utf-8")
     written = re.search(r'QStringLiteral\("(bsi\.shaders\.v\d+)"\)\},\n\s*\{QStringLiteral\("values"\)', prefs)
     assert written, "the writer's schema string must stay greppable"
-    accepted = re.search(r'\|!\[(.*?)\]\s*\n?\s*\.contains\(transaction', prefs, re.S)
-    assert accepted, "the journal's accepted-schema list must stay explicit"
-    assert f'"{written.group(1)}"' in accepted.group(1), (
+    known = re.search(r"bool knownSchema\(const QString &schema\)\{\s*for\(const char \*name:\{(.*?)\}\)", prefs, re.S)
+    assert known, "every accepted schema must live in one list"
+    names = re.findall(r'"(bsi\.shaders\.v\d+)"', known.group(1))
+    assert len(names) == len(set(names)) and names == sorted(names), names
+    # The version decode must not fall through to the newest schema silently.
+    assert "schema==QLatin1String(\"bsi.shaders.v4\")?4:5" in prefs, "v5 is the explicit fall-through"
+    assert written.group(1) in names, (
         f"a journal written as {written.group(1)} would be refused on reopen")
 
     # 9. Both Windows detail metrics must compare against a real NEIGHBOUR in both
