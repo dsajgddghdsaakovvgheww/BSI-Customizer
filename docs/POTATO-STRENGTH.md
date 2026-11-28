@@ -119,3 +119,27 @@ physical-GPU acceptance. DirectX/Vulkan game texture replacement is still not
 implemented. Opaque mipmapped HUD/RGB data maps may also change. No allocated-
 memory, FPS, universal GPU/API or account-safety promise; no original DLL/code
 redistribution, public release, merge or tag.
+
+## Frame Smoothness: what it is, and what it is not
+
+The status token settles the question the mip plans kept failing: the inspected
+game resource is a **256x256 `GL_RGB` texture with `single-level=1`, immutable=0,
+base/max 0/1000**, and the copy ledger attributes 2198 `copy-subimage` edges to
+`renderbuffer` sources awaited by a single output. That is the game's own final
+frame, copied out of a renderbuffer into a one-level texture. There is no coarser
+level to select, so no sampler/mip plan can ever make it look softer.
+
+`smoothness` therefore acts on the **presented frame** in the existing post-process
+pass: it reads a widening 7x7 kernel of final pixels (`radius = 1 + 2s`,
+`max(0, 1 - d/(1.25r))^2` weights, `mix(c, taps, .92s)`). Measured through the
+production GLES pipeline on ANGLE/SwiftShader, detail energy for 0/25/50/75/100 is
+`1312629 / 1267277 / 1074794 / 886955 / 719836` on a textured frame: monotonic,
+distinct, and byte-identical to the native frame at 0.
+
+Honest limits:
+
+* It removes visible detail from the final image. It does **not** make the game
+  sample coarser mips, because the frame it samples has none.
+* It is not a resolution change, an FPS claim, or evidence about the user's GPU.
+* It always goes through the existing single post-process pass; a Smoothness-only
+  profile does not add a second pass, a readback or a resolution change.

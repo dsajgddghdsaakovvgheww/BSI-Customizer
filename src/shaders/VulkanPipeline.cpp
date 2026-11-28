@@ -191,9 +191,12 @@ bool VulkanPipeline::process(VkQueue queue,std::uint32_t image,const std::vector
     g.CmdBeginRenderPass(f.command,&render,VK_SUBPASS_CONTENTS_INLINE);
     g.CmdBindPipeline(f.command,VK_PIPELINE_BIND_POINT_GRAPHICS,p.pipeline);
     g.CmdBindDescriptorSets(f.command,VK_PIPELINE_BIND_POINT_GRAPHICS,p.layout,0,1,&f.descriptor,0,nullptr);
-    std::array<float,12> constants{};
+    // Same layout as the shader's push constant: every weight, then the texel
+    // pair. Writing the pair at a fixed offset aliased weight 10/11 -> texel.
+    static_assert(controls.size()<=14,"effect weights must fit the push constant");
+    std::array<float,16> constants{};
     for(std::size_t i=0;i<settings.values.size();++i)constants[i]=settings.values[i]/100.f;
-    constants[10]=1.f/p.target.extent.width;constants[11]=1.f/p.target.extent.height;
+    constants[14]=1.f/p.target.extent.width;constants[15]=1.f/p.target.extent.height;
     g.CmdPushConstants(f.command,p.layout,VK_SHADER_STAGE_FRAGMENT_BIT,0,sizeof(constants),constants.data());
     const VkViewport viewport{0,0,float(p.target.extent.width),float(p.target.extent.height),0,1};
     const VkRect2D scissor{{0,0},p.target.extent};

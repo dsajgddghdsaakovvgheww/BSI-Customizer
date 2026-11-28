@@ -125,6 +125,9 @@ def main():
     count = int(re.search(r"std::array<Control, (\d+)>", params).group(1))
     hlsl = (ROOT / "src" / "shaders" / "HlslSources.h").read_text(encoding="utf-8")
     d3d = (ROOT / "src" / "shaders" / "D3d11Pipeline.cpp").read_text(encoding="utf-8")
+    vulkan = (ROOT / "src" / "shaders" / "VulkanPipeline.cpp").read_text(encoding="utf-8")
+    push = re.search(r"float weights\[(\d+)\];vec2 texel", hlsl.replace("\n", " ") + (ROOT / "src" / "shaders" / "ShaderSources.h").read_text(encoding="utf-8"))
+    assert push and int(push.group(1)) == count, "the push constant must declare every weight"
     slots = int(re.search(r"float4 packed\[(\d+)\]", hlsl).group(1)) * 4
     texel_slot = re.search(r"#define texel packed\[(\d+)\]\.zw", hlsl)
     assert texel_slot, "texel must stay a named packed slot, not a literal index"
@@ -135,6 +138,12 @@ def main():
     upload = re.search(r"std::array<float,(\d+)> constants", d3d)
     assert upload and int(upload.group(1)) == slots, (
         f"the DirectX upload is {upload.group(1) if upload else 'missing'} floats but the shader reads {slots}")
+    vk_upload = re.search(r"std::array<float,(\d+)> constants", vulkan)
+    vk_pair = re.search(r"constants\[(\d+)\]=\d\.f/p\.target\.extent\.width", vulkan)
+    assert vk_upload and vk_pair and int(vk_upload.group(1)) == 4 * int(re.search(r"float4 packed\[(\d+)\]", hlsl).group(1)), (
+        "the Vulkan push constant must use the same slot count as DirectX")
+    assert count <= int(vk_pair.group(1)), (
+        f"{count} weights would alias the Vulkan texel pair at {vk_pair.group(1)}")
     buffer_bytes = re.search(r"ByteWidth=(\d+)", d3d)
     assert buffer_bytes and int(buffer_bytes.group(1)) >= slots * 4, (
         "the DirectX constant buffer must be at least as large as the shader's block")

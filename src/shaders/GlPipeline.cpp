@@ -204,6 +204,8 @@ bool GlPipeline::render(int width,int height,const Parameters &settings,std::str
         g.TexImage2D(Texture2d,0,0x1908,width,height,0,0x1908,0x1401,nullptr);p.width=width;p.height=height;
     }
     g.CopyTexSubImage2D(Texture2d,0,0,0,0,0,width,height);
+    // Smoothness reads this copy. Every weight, including it, is drawn through
+    // the one production pass; nothing here is a pass-through.
     g.UseProgram(p.program);g.Uniform1i(p.frame,0);g.Uniform2f(p.texel,1.f/width,1.f/height);
     std::array<float,controls.size()> weights{};
     for(std::size_t i=0;i<weights.size();++i)weights[i]=settings.values[i]/100.f;
