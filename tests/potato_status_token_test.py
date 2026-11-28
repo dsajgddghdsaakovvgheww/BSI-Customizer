@@ -106,7 +106,11 @@ def main():
     body = writer.group(1)
     for forbidden in ("glGet", "GetIntegerv", "http", "QNetwork", "QHttp", "upload", "QScreen"):
         assert forbidden not in body, f"the status token must not perform {forbidden}"
-    assert "block==s.lastToken" in body, "the token is written on change, not every second"
+    # Written on change, not every second. The change stamp must include the live
+    # frame counter and Smoothness, or a climbing count would never reach the file.
+    assert "stamp==s.lastToken" in body, "the token is written on change, not every second"
+    assert "metrics().processed" in body, "the change check must see the frame counter"
+    assert "s.lastToken=stamp" in body, "store the full stamp, not the text alone"
     assert "QIODevice::WriteOnly|QIODevice::Truncate" in body
     assert "BSI_SHADERS_STATUS_TOKEN" in bridge, "a harness must be able to name the token path"
 
@@ -117,6 +121,41 @@ def main():
         "build the token with insert(), not initializer-list emplace: the bridge targets Qt 5.15.2 too"
     assert "#include <QtGlobal>" in bridge, "qEnvironmentVariable needs QtGlobal on Qt 5"
     assert "writeStatusToken" in HEADER.read_text(encoding="utf-8"), "declared in the header"
+
+    # 7b. The frame pass is a DIFFERENT question from texture eligibility, and the
+    #     token must carry enough to answer it: a frame counter that only moves when
+    #     the production pass rendered, plus the live Smoothness weight. A binding
+    #     count must never be reported as a frame change.
+    for key in ("processedFrames", "frameSmoothness", "framePassEnabled",
+                "framePassNeutral", "renderer", "active", "status"):
+        assert f'QStringLiteral("{key}")' in bridge, f"the token must report {key}"
+    payload = token(processedFrames=812, frameSmoothness=40, framePassEnabled=True,
+                    framePassNeutral=False, renderer="OpenGL", active=True)
+    result, verdict = analyze(payload)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert verdict["framePass"]["key"] == "frame_active", verdict
+    assert "FRAME PASS: frame_active" in result.stdout, result.stdout
+    assert "TEXTURE VERDICT" in result.stdout, "the two answers must stay separate"
+
+    # A rendered pass with Smoothness at 0 means the pass works but nothing is
+    # being smoothed — a different instruction from "the pass is bypassed".
+    result, verdict = analyze(token(processedFrames=900, frameSmoothness=0,
+                                    framePassEnabled=True, framePassNeutral=False))
+    assert verdict["framePass"]["key"] == "frame_active_not_smoothing", verdict
+    assert "raise" in verdict["framePass"]["summary"].lower()
+
+    # No rendered frame and a live setting: say it is bypassed, not that it worked.
+    result, verdict = analyze(token(processedFrames=0, frameSmoothness=75,
+                                    framePassEnabled=True, framePassNeutral=False))
+    assert verdict["framePass"]["key"] == "frame_bypassed", verdict
+    assert "not rendered a frame" in verdict["framePass"]["summary"]
+
+    # A token that predates the fields must be reported as unknown, never assumed
+    # to be a success or a failure.
+    result, verdict = analyze(token())
+    assert result.returncode == 0
+    assert "FRAME PASS: unknown" in result.stdout, result.stdout
+    assert "framePass" not in verdict, "absence of a measurement is not a pass"
 
     # 8. The shared constant block must hold every effect weight AND the packed
     #    texel pair without overlap. Adding a control once moved the pair into a

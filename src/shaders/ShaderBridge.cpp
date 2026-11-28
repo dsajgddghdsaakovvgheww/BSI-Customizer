@@ -120,7 +120,16 @@ ShaderBridge::ShaderBridge(QObject *parent):QObject(parent){
 void ShaderBridge::writeStatusToken(){
     auto &s=state();
     const QString block=diagnostics();
-    if(block.isEmpty()||block==s.lastToken)return;
+    // The status TEXT can stay identical while the frame counter climbs, and the
+    // token is the evidence that the frame pass is doing something. Include the
+    // live frame facts in the change check, or the file would freeze at the first
+    // written value and never show progress.
+    const auto settings=Runtime::instance().settings();
+    const QString stamp=block+QStringLiteral("|%1|%2|%3")
+        .arg(Runtime::instance().metrics().processed)
+        .arg(settings.values[controls.size()-1])
+        .arg(settings.enabled?1:0);
+    if(block.isEmpty()||stamp==s.lastToken)return;
     const auto savedValues=s.preferences.values();
     // The user needs one thing from this file: where it is. Print it once per
     // process so it can be pasted, without an extra GL call or a file scan.
@@ -139,7 +148,18 @@ void ShaderBridge::writeStatusToken(){
     token.insert(QStringLiteral("potatoGraphic"),QJsonValue::fromVariant(savedValues.value(QStringLiteral("potatoGraphic"))));
     token.insert(QStringLiteral("potatoStrength"),QJsonValue::fromVariant(savedValues.value(QStringLiteral("potatoStrength"))));
     token.insert(QStringLiteral("detail"),tokenDetail(block));
+    // In-game evidence for the frame pass, as opposed to texture eligibility.
+    // `processedFrames` only increments when the production pass actually rendered
+    // on the identified game surface, so a climbing count is the difference between
+    // "Smoothness is changing your picture" and "the pass is being bypassed".
+    token.insert(QStringLiteral("frameSmoothness"),settings.values[controls.size()-1]);
+    token.insert(QStringLiteral("framePassEnabled"),settings.enabled);
+    token.insert(QStringLiteral("framePassNeutral"),settings.neutral());
     const auto metricsValue=metrics();
+    token.insert(QStringLiteral("processedFrames"),QJsonValue::fromVariant(metricsValue.value(QStringLiteral("processedFrames"))));
+    token.insert(QStringLiteral("renderer"),QJsonValue::fromVariant(metricsValue.value(QStringLiteral("renderer"))));
+    token.insert(QStringLiteral("active"),QJsonValue::fromVariant(metricsValue.value(QStringLiteral("active"))));
+    token.insert(QStringLiteral("status"),QJsonValue::fromVariant(metricsValue.value(QStringLiteral("status"))));
     for(auto it=metricsValue.cbegin();it!=metricsValue.cend();++it){
         const auto name=it.key();
         if(!(name.startsWith(QStringLiteral("texture"))||name==QStringLiteral("potatoGraphicEnabled")))continue;
@@ -153,7 +173,7 @@ void ShaderBridge::writeStatusToken(){
     if(!file.open(QIODevice::WriteOnly|QIODevice::Truncate))return;
     file.write(QJsonDocument(token).toJson(QJsonDocument::Indented));
     file.close();
-    s.lastToken=block;
+    s.lastToken=stamp;
 }
 ShaderBridge::~ShaderBridge(){state().bridges.remove(this);}
 QVariantMap ShaderBridge::saved()const{return state().preferences.values();}

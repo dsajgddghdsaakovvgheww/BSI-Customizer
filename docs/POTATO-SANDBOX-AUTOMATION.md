@@ -87,3 +87,12 @@ BlueStacks itself is never redistributed here: the release carries only BSI's ow
 patched player executable. Nothing in this workflow bypasses a licence or an
 anti-cheat check, and no account or profile is modified beyond the patched
 executable that the user already installs manually today.
+
+## "Does it work in my game?"
+
+A release build cannot contain a test outcome for a machine it has never seen. What it
+can do is report the one fact only the game process knows: whether the post-process
+pass actually rendered a frame. That is `processedFrames` in the status token, with
+`frameSmoothness` alongside it; `scripts/Analyze-PotatoStatus.py` prints it as a
+separate `FRAME PASS:` verdict ahead of the texture verdict. See
+[VERIFY-IN-GAME.md](VERIFY-IN-GAME.md).

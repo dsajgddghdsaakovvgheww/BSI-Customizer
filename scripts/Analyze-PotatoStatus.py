@@ -78,6 +78,47 @@ def blocker_line(token: dict) -> str | None:
     return None
 
 
+def frame_pass(token: dict) -> dict | None:
+    """What the presentation pass itself did, when the token even says.
+
+    `processedFrames` only increments when the production pass rendered on the
+    identified game surface, so it is the in-game answer to "is my picture being
+    changed" — not the texture-eligibility path below it.
+    """
+    if "processedFrames" not in token:
+        return None
+    processed = number(token, "processedFrames") or 0
+    smoothness = number(token, "frameSmoothness")
+    enabled = token.get("framePassEnabled")
+    neutral = token.get("framePassNeutral")
+    result = {"processedFrames": processed, "frameSmoothness": smoothness,
+              "framePassEnabled": enabled, "framePassNeutral": neutral}
+    if processed > 0 and smoothness:
+        result["key"] = "frame_active"
+        result["summary"] = (
+            f"The frame pass rendered {processed} game frame(s) on the identified game "
+            f"surface with Smoothness at {smoothness}. The picture you saw was processed; "
+            "compare it against 0 to see the difference for yourself.")
+    elif processed > 0:
+        result["key"] = "frame_active_not_smoothing"
+        result["summary"] = (
+            f"The frame pass rendered {processed} game frame(s), but Smoothness is "
+            f"{'0' if smoothness in (None, 0) else smoothness}. The pass works; raise "
+            "Smoothness above 0 to change the picture.")
+    elif neutral is True or enabled is False:
+        result["key"] = "frame_off"
+        result["summary"] = (
+            "The post-process pass is off/neutral, so nothing is drawn over the game "
+            "frame. No frame change is expected in this state.")
+    else:
+        result["key"] = "frame_bypassed"
+        result["summary"] = (
+            "The pass is enabled but has not rendered a frame on an identified game "
+            "surface. The token's status line says why; a DirectX/Vulkan-only game still "
+            "keeps its original frames.")
+    return result
+
+
 def classify(token: dict) -> dict:
     armed = bool(token.get("potatoGraphic")) and (number(token, "potatoStrength") or 0) > 0
     inspected = number(token, "textureDrawInspected") or 0
@@ -94,6 +135,9 @@ def classify(token: dict) -> dict:
         key, text = "prepared", VERDICTS[3][1]
     result["verdict"] = key
     result["summary"] = text
+    surface = frame_pass(token)
+    if surface is not None:
+        result["framePass"] = surface
     # The single most useful extra fact for each zero path.
     if key == "no_eligible_sampler":
         line = result["firstBlocker"] or ""
@@ -131,7 +175,17 @@ def main() -> int:
         return 2
 
     verdict = classify(token)
-    print(f"VERDICT: {verdict['verdict']}")
+    # The frame pass is the answer to "did my picture change"; the texture verdict
+    # below it explains the separate mip-sampling path. Never merge the two.
+    surface = verdict.get("framePass")
+    if surface:
+        print(f"FRAME PASS: {surface['key']}")
+        print(f"  {surface['summary']}")
+    else:
+        print("FRAME PASS: unknown")
+        print("  This token predates the frame-pass fields. Update to a build that "
+              "reports them; nothing here can say whether the frame was processed.")
+    print(f"TEXTURE VERDICT: {verdict['verdict']}")
     print(f"  {verdict['summary']}")
     print(f"  armed={verdict['armed']} inspected={verdict['inspected']} "
           f"preparedBindings={verdict['preparedBindings']}")
