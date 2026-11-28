@@ -296,11 +296,11 @@ int main(int argc,char **argv){
         applied(old,old.values());require(json(f.path).value(QStringLiteral("schema")).toString()==QLatin1String("bsi.shaders.v5")
                 &&json(f.path).value(QStringLiteral("values")).toObject().value(QStringLiteral("smoothness")).toInt()==0&&f.backend.writes==0,
                 QStringLiteral("v4 gains only the neutral Smoothness key on explicit Save, with no Display write"));
+        auto broken=releasedValues;broken[QStringLiteral("smoothness")]=50;
         auto tampered=json(f.path);tampered[QStringLiteral("schema")]=QStringLiteral("bsi.shaders.v4");
-        tampered[QStringLiteral("values")]=releasedValues;write(f.path,encoded(tampered));
-        auto broken=releasedValues;broken[QStringLiteral("smoothness")]=50;tampered[QStringLiteral("values")]=broken;write(f.path,encoded(tampered));
+        tampered[QStringLiteral("values")]=broken;const auto tamperedBytes=encoded(tampered);write(f.path,tamperedBytes);
         ShaderPreferences refused;refused.load(f.path);
-        require(!refused.error().isEmpty()&&bytes(f.path)==encoded(tampered)&&refused.parameters().neutral(),
+        require(!refused.error().isEmpty()&&bytes(f.path)==tamperedBytes&&refused.parameters().neutral(),
                 QStringLiteral("A v4 file carrying a v5 key is refused on load, never guessed or clamped"));
         write(f.path,releasedBytes);ShaderPreferences restored;restored.load(f.path);
         require(success(restored.apply(restored.values())),QStringLiteral("the exact released file still saves after the refusal"));
