@@ -588,11 +588,6 @@ Rectangle {
                     }
                     Text {
                         Layout.fillWidth: true; wrapMode: Text.Wrap
-                        text: qsTr("If Potato reports a single-level texture, no sampler can make it coarser: that frame is one image. The Smoothness control above works on the presented frame instead, so it reduces detail whatever the game's texture layout is.")
-                        color: page.bsiTheme.colors.primary30; font: page.bsiTheme.fonts.bodySmall
-                    }
-                    Text {
-                        Layout.fillWidth: true; wrapMode: Text.Wrap
                         text: qsTr("Automatic mip sampling on the selected OpenGL / GLES game drawable. Opaque mipmapped HUD or RGB data maps may also change. Separate Qt windows, blended draws, protected textures, unsupported sampling and existing LOD/anisotropic overrides stay native. DirectX and Vulkan currently keep the original textures. Separate from resolution; no profile reset or FPS promise.")
                         color: page.bsiTheme.colors.primary30; font: page.bsiTheme.fonts.bodySmall
                     }
