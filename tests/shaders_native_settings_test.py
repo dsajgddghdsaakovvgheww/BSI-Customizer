@@ -418,7 +418,7 @@ def main():
             assert navigation["visualIndex"] == 11, f"Shaders' visual position is not its native callback index: {navigation}"
             assert window.property("pCurrentTabIndex") == 12, f"physical Shaders activation failed after pointer scrolling: {navigation}"
             page = evaluate(window, "pSettingsItems.pSettingElements[12].pComponentObj")
-            assert page and evaluate(page, "Engine.controls.length") == 10
+            assert page and evaluate(page, "Engine.controls.length") == 11, "ten effects plus frame Smoothness"
             assert page.property("tabsArranged"), "Shaders must sort visually before About"
             assert page.property("bsiTabIndex") == 12, "visual sorting changed the native callback index"
             assert evaluate(window, "String(pSettingsItems.pSettingElements[11].pQmlSource).endsWith('PlrAboutSetting.qml')")
