@@ -143,3 +143,27 @@ Honest limits:
 * It is not a resolution change, an FPS claim, or evidence about the user's GPU.
 * It always goes through the existing single post-process pass; a Smoothness-only
   profile does not add a second pass, a readback or a resolution change.
+
+## What shipped, and how it was verified
+
+`v4.1.7` (branch `arena/d3aece89-bsi-customizer`, commit `398b3c5`) is the first
+release that contains the Smoothness control. Verification actually executed:
+
+* Production GLES pipeline on ANGLE/SwiftShader: the detail curve above, plus a
+  neutral byte-identity check, reference colour math, source alpha, host-state
+  restoration and pending-error preservation (`tests/shaders_gpu_test.py`).
+* Windows WARP DirectX and native Vulkan pixel tests now drive every spatial index
+  including Smoothness, each asserting byte-exact native at 0, strict monotonic
+  decrease, alpha preservation and <62% detail at full strength.
+* The Vulkan push-constant layout is derived from `controls.size()`; the earlier
+  hand-written offsets were rejected by Khronos validation in CI, and the pixel job
+  now runs with validation on.
+* Schema: v1-v4 files decode against their own exact key count, v5 is the only
+  writer, the interrupt journal accepts every readable schema, and the live Save
+  path normalises a draft that predates the newest control instead of refusing it.
+* `tests/potato_status_token_test.py` guards the layout, the schema list and the
+  detail metrics at source level, each with a negative control that was run.
+
+Not verified: any of this inside the user's installed player, their GPU, or their
+game. The status token and its classifier remain the only in-game evidence channel;
+a new token from a run with Smoothness above 0 is what would close that gap.
