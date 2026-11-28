@@ -1,11 +1,21 @@
 #include "VulkanPipeline.h"
 #include "VulkanSpirv.h"
+#include "Parameters.h"
 #include <array>
 #include <cstdint>
 #include <limits>
 
 namespace BsiShaders {
 namespace {
+// The fragment shader declares exactly this std430 block:
+//     uniform Parameters { float weights[N]; vec2 texel; };
+// A std430 neighbour is aligned to its own alignment, so the vec2 after N floats
+// starts at the next 8-byte boundary — the offset a hand-written constant got
+// wrong twice (a weight silently became a texel size). Derive it, never type it.
+constexpr std::size_t vulkanTexelSlot=(BsiShaders::controls.size()+1)/2*2;
+constexpr std::size_t vulkanConstantFloats=vulkanTexelSlot+2;
+constexpr std::uint32_t vulkanConstantBytes=std::uint32_t(vulkanConstantFloats*sizeof(float));
+static_assert(vulkanTexelSlot>=BsiShaders::controls.size(),"the texel pair may never overlap a weight");
 template<typename T> T vkInfo(VkStructureType type){T value{};value.sType=type;return value;}
 bool result(VkResult value,const char *operation,std::string *error){
     if(value==VK_SUCCESS)return true;
@@ -85,7 +95,11 @@ bool VulkanPipeline::initialize(const VulkanTarget &target,std::string *error){
     sampling.magFilter=sampling.minFilter=VK_FILTER_LINEAR;sampling.mipmapMode=VK_SAMPLER_MIPMAP_MODE_NEAREST;
     sampling.addressModeU=sampling.addressModeV=sampling.addressModeW=VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     if(!result(g.CreateSampler(d,&sampling,nullptr,&p.sampler),"vkCreateSampler",error))return false;
-    const VkPushConstantRange constants{VK_SHADER_STAGE_FRAGMENT_BIT,0,48};
+    // The declared range must equal the shader's own std430 block, which is
+    // derived rather than guessed: N weights, then the vec2 texel on the next
+    // 8-byte boundary. Khronos validation names a mismatch explicitly
+    // (VUID-VkGraphicsPipelineCreateInfo-layout-07987).
+    const VkPushConstantRange constants{VK_SHADER_STAGE_FRAGMENT_BIT,0,vulkanConstantBytes};
     auto layout=vkInfo<VkPipelineLayoutCreateInfo>(VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO);
     layout.setLayoutCount=1;layout.pSetLayouts=&p.descriptorLayout;layout.pushConstantRangeCount=1;layout.pPushConstantRanges=&constants;
     if(!result(g.CreatePipelineLayout(d,&layout,nullptr,&p.layout),"vkCreatePipelineLayout",error))return false;
@@ -191,12 +205,12 @@ bool VulkanPipeline::process(VkQueue queue,std::uint32_t image,const std::vector
     g.CmdBeginRenderPass(f.command,&render,VK_SUBPASS_CONTENTS_INLINE);
     g.CmdBindPipeline(f.command,VK_PIPELINE_BIND_POINT_GRAPHICS,p.pipeline);
     g.CmdBindDescriptorSets(f.command,VK_PIPELINE_BIND_POINT_GRAPHICS,p.layout,0,1,&f.descriptor,0,nullptr);
-    // Same layout as the shader's push constant: every weight, then the texel
-    // pair. Writing the pair at a fixed offset aliased weight 10/11 -> texel.
-    static_assert(controls.size()<=14,"effect weights must fit the push constant");
-    std::array<float,16> constants{};
+    // Exactly the shader's std430 block: every weight, then the texel pair at
+    // the derived offset. A fixed offset aliased the last weights -> texel.
+    std::array<float,vulkanConstantFloats> constants{};
     for(std::size_t i=0;i<settings.values.size();++i)constants[i]=settings.values[i]/100.f;
-    constants[14]=1.f/p.target.extent.width;constants[15]=1.f/p.target.extent.height;
+    constants[vulkanConstantFloats-2]=1.f/p.target.extent.width;
+    constants[vulkanConstantFloats-1]=1.f/p.target.extent.height;
     g.CmdPushConstants(f.command,p.layout,VK_SHADER_STAGE_FRAGMENT_BIT,0,sizeof(constants),constants.data());
     const VkViewport viewport{0,0,float(p.target.extent.width),float(p.target.extent.height),0,1};
     const VkRect2D scissor{{0,0},p.target.extent};

@@ -138,12 +138,21 @@ def main():
     upload = re.search(r"std::array<float,(\d+)> constants", d3d)
     assert upload and int(upload.group(1)) == slots, (
         f"the DirectX upload is {upload.group(1) if upload else 'missing'} floats but the shader reads {slots}")
-    vk_upload = re.search(r"std::array<float,(\d+)> constants", vulkan)
-    vk_pair = re.search(r"constants\[(\d+)\]=\d\.f/p\.target\.extent\.width", vulkan)
-    assert vk_upload and vk_pair and int(vk_upload.group(1)) == 4 * int(re.search(r"float4 packed\[(\d+)\]", hlsl).group(1)), (
-        "the Vulkan push constant must use the same slot count as DirectX")
-    assert count <= int(vk_pair.group(1)), (
-        f"{count} weights would alias the Vulkan texel pair at {vk_pair.group(1)}")
+    # Vulkan: the push constant is the shader's own std430 block, so the C++ must
+    # DERIVE the texel offset (a std430 neighbour starts on its own 8-byte
+    # boundary) instead of typing an index. Two hand-written offsets each turned a
+    # weight into a texel size; validation caught the second as a 56-vs-48 range.
+    vk_slot = re.search(r"vulkanTexelSlot=\s*\(BsiShaders::controls\.size\(\)\+1\)/2\*2", vulkan)
+    assert vk_slot, "the Vulkan texel slot must stay derived from the control count"
+    vk_floats = re.search(r"vulkanConstantFloats=vulkanTexelSlot\+(\d+)", vulkan)
+    assert vk_floats and int(vk_floats.group(1)) == 2, "the block is weights, then a vec2 texel"
+    vk_range = re.search(r"VkPushConstantRange constants\{[^}]*?,vulkanConstantBytes\}", vulkan)
+    assert vk_range, "the pipeline-layout range must be the derived block size, not a literal"
+    vk_upload = re.search(r"std::array<float,vulkanConstantFloats> constants", vulkan)
+    assert vk_upload, "the upload must use the same derived size as the layout"
+    vk_pair = re.search(r"constants\[vulkanConstantFloats-(\d)\]", vulkan)
+    assert vk_pair, "the texel pair must be written at the derived slot"
+    assert count <= (count + 1) // 2 * 2, "sanity: the std430 texel slot never overlaps a weight"
     buffer_bytes = re.search(r"ByteWidth=(\d+)", d3d)
     assert buffer_bytes and int(buffer_bytes.group(1)) >= slots * 4, (
         "the DirectX constant buffer must be at least as large as the shader's block")
