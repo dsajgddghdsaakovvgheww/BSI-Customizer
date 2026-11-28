@@ -206,7 +206,7 @@ int main(int argc,char **argv){
     }
     {
         Fixture f;
-        auto legacy=f.preferences.values();legacy.remove(QStringLiteral("potatoMode"));legacy.remove(QStringLiteral("potatoGraphic"));legacy.remove(QStringLiteral("textureOverridesReviewed"));legacy.remove(QStringLiteral("potatoStrength"));legacy[QStringLiteral("enabled")]=true;legacy[QStringLiteral("contrast")]=21;
+        auto legacy=f.preferences.values();legacy.remove(QStringLiteral("potatoMode"));legacy.remove(QStringLiteral("potatoGraphic"));legacy.remove(QStringLiteral("textureOverridesReviewed"));legacy.remove(QStringLiteral("potatoStrength"));legacy.remove(QStringLiteral("smoothness"));legacy[QStringLiteral("enabled")]=true;legacy[QStringLiteral("contrast")]=21;
         const auto old=encoded({{QStringLiteral("schema"),QStringLiteral("bsi.shaders.v1")},{QStringLiteral("values"),QJsonObject::fromVariantMap(legacy)}});
         write(f.path,old);f.preferences.load(f.path);require(f.preferences.bindDisplay(&f.backend),f.preferences.error());
         require(f.preferences.values().value(QStringLiteral("contrast")).toInt()==21&&bytes(f.path)==old,QStringLiteral("Released v1 visual values load WITHOUT writing native state or migrating on open"));
@@ -226,7 +226,7 @@ int main(int argc,char **argv){
     {
         Fixture f;applied(f.preferences,mode(f.preferences,2));
         auto legacy=json(f.path);legacy.insert(QStringLiteral("schema"),QStringLiteral("bsi.shaders.v2"));
-        auto values=legacy.value(QStringLiteral("values")).toObject();values.remove(QStringLiteral("potatoGraphic"));values.remove(QStringLiteral("textureOverridesReviewed"));values.remove(QStringLiteral("potatoStrength"));
+        auto values=legacy.value(QStringLiteral("values")).toObject();values.remove(QStringLiteral("potatoGraphic"));values.remove(QStringLiteral("textureOverridesReviewed"));values.remove(QStringLiteral("potatoStrength"));values.remove(QStringLiteral("smoothness"));
         legacy.insert(QStringLiteral("values"),values);const auto previous=encoded(legacy);write(f.path,previous);
         ShaderPreferences p;p.load(f.path);require(p.bindDisplay(&f.backend),p.error());
         require(bytes(f.path)==previous&&!p.texture().enabled&&p.values().value(QStringLiteral("potatoMode")).toInt()==2,
@@ -269,7 +269,7 @@ int main(int argc,char **argv){
         }
         for(bool enabled:{false,true}){
             auto legacy=json(f.path);legacy[QStringLiteral("schema")]=QStringLiteral("bsi.shaders.v3");
-            auto oldValues=legacy.value(QStringLiteral("values")).toObject();oldValues.remove(QStringLiteral("potatoStrength"));oldValues[QStringLiteral("potatoGraphic")]=enabled;
+            auto oldValues=legacy.value(QStringLiteral("values")).toObject();oldValues.remove(QStringLiteral("potatoStrength"));oldValues.remove(QStringLiteral("smoothness"));oldValues[QStringLiteral("potatoGraphic")]=enabled;
             legacy[QStringLiteral("values")]=oldValues;const auto oldBytes=encoded(legacy);write(f.path,oldBytes);
             ShaderPreferences migrated;migrated.load(f.path);
             require(migrated.error().isEmpty()&&migrated.texture().enabled==enabled&&migrated.texture().strength==100&&bytes(f.path)==oldBytes,
