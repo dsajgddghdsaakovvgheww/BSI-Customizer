@@ -96,3 +96,30 @@ pass actually rendered a frame. That is `processedFrames` in the status token, w
 `frameSmoothness` alongside it; `scripts/Analyze-PotatoStatus.py` prints it as a
 separate `FRAME PASS:` verdict ahead of the texture verdict. See
 [VERIFY-IN-GAME.md](VERIFY-IN-GAME.md).
+
+## A game package is not a test either
+
+Handing this automation an `.xapk` does not close the gap, and it is worth being
+precise about why:
+
+* The sandbox and every hosted runner lack a hypervisor: no `/dev/kvm`, no VT-x
+  exposure, and no ADB/emulator tooling. An ARM or x86 Android game cannot be
+  *executed* there, only read.
+* BSI's hook is loaded into the **Windows emulator process** (`HD-Player.exe`). The
+  game inside the phone VM is a separate guest; even with the APK in hand, the code
+  that would have to run is BlueStacks' own VM, which cannot boot in CI.
+* Neither this sandbox nor CI can reach typical file hosts, so the package has to be
+  supplied as an archive the runner can already see.
+
+What *is* answerable without running anything is the game's graphics shape, and that
+decides whether Potato's texture path is reachable at all:
+
+```bash
+python scripts/Inspect-GameApk.py --xapk "<the .xapk>" --json report.json
+```
+
+It reports, per ABI, which native libraries exist, whether they are x86/x86_64 or
+ARM, and which graphics stacks they reference (GLES/EGL, Vulkan, Unity/Unreal/Cocos/
+Flutter/CEF). It never extracts, loads, executes or goes online, and every report ends
+with the same limit: imports prove what a library *references*, not which path the game
+takes at runtime, and not that a frame was rendered.

@@ -124,6 +124,8 @@ jobs:
           node tests/shaders_potato_logic_test.mjs
       - name: Check the Potato status-token classifier and writer contract
         run: python tests/potato_status_token_test.py
+      - name: Static game-package inspection stays read-only and honest
+        run: python tests/game_apk_inspect_test.py
       - name: Verify bundled Settings-tab pack and complete resource budgets
         run: |
           python tests/settings_panel_icon_pack_test.py
