@@ -157,6 +157,18 @@ def main():
     assert buffer_bytes and int(buffer_bytes.group(1)) >= slots * 4, (
         "the DirectX constant buffer must be at least as large as the shader's block")
 
+    # 8b. The interrupted-save journal embeds a full `next` snapshot. Its accepted
+    #     schema list must include whatever the writer emits, or a real interrupted
+    #     resolution save becomes unrecoverable ("uncommitted drafts cannot be
+    #     mistaken for committed recovery" — a stale list failed exactly that way).
+    prefs = (ROOT / "src" / "shaders" / "ShaderPreferences.cpp").read_text(encoding="utf-8")
+    written = re.search(r'QStringLiteral\("(bsi\.shaders\.v\d+)"\)\},\n\s*\{QStringLiteral\("values"\)', prefs)
+    assert written, "the writer's schema string must stay greppable"
+    accepted = re.search(r'\|!\[(.*?)\]\s*\n?\s*\.contains\(transaction', prefs, re.S)
+    assert accepted, "the journal's accepted-schema list must stay explicit"
+    assert f'"{written.group(1)}"' in accepted.group(1), (
+        f"a journal written as {written.group(1)} would be refused on reopen")
+
     # 9. Both Windows detail metrics must compare against a real NEIGHBOUR in both
     #    axes. A hand-typed vertical term once subtracted the row stride itself, so
     #    the metric could not fall and the smoothness threshold was unreachable.

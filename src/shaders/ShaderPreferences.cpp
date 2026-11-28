@@ -135,9 +135,9 @@ bool decodeConfig(const QJsonObject &root,ShaderSavedConfiguration *c,ShaderDisp
         if(transaction.size()!=3||!decodeResolution(transaction.value(QStringLiteral("before")),&pending->before)
            ||!decodeResolution(transaction.value(QStringLiteral("target")),&pending->target)
            ||!transaction.value(QStringLiteral("next")).isObject()
-           ||(transaction.value(QStringLiteral("next")).toObject().value(QStringLiteral("schema")).toString()!=QLatin1String("bsi.shaders.v2")
-              &&transaction.value(QStringLiteral("next")).toObject().value(QStringLiteral("schema")).toString()!=QLatin1String("bsi.shaders.v3")
-              &&transaction.value(QStringLiteral("next")).toObject().value(QStringLiteral("schema")).toString()!=QLatin1String("bsi.shaders.v4"))
+           ||![QLatin1String("bsi.shaders.v2"),QLatin1String("bsi.shaders.v3"),
+                 QLatin1String("bsi.shaders.v4"),QLatin1String("bsi.shaders.v5")]
+                .contains(transaction.value(QStringLiteral("next")).toObject().value(QStringLiteral("schema")).toString())
            ||!decodeConfig(transaction.value(QStringLiteral("next")).toObject(),&pending->next,nullptr,error))
             return refuse(error,QStringLiteral("Invalid pending Display recovery evidence; no native value was overwritten."));
         const bool restoring=pending->next.potato==PotatoMode::Native;
