@@ -287,7 +287,10 @@ int main(int argc,char **argv){
         applied(f.preferences,values);
         auto released=json(f.path);released[QStringLiteral("schema")]=QStringLiteral("bsi.shaders.v4");
         auto releasedValues=released.value(QStringLiteral("values")).toObject();
-        require(releasedValues.remove(QStringLiteral("smoothness")),QStringLiteral("the v5 writer must have persisted Smoothness"));
+        // QJsonObject::remove returns void on Qt 5 and bool on Qt 6: assert
+        // presence first, so this suite is buildable against both SDKs.
+        require(releasedValues.contains(QStringLiteral("smoothness")),QStringLiteral("the v5 writer must have persisted Smoothness"));
+        releasedValues.remove(QStringLiteral("smoothness"));
         released[QStringLiteral("values")]=releasedValues;const auto releasedBytes=encoded(released);write(f.path,releasedBytes);
         ShaderPreferences old;old.load(f.path);
         require(old.error().isEmpty()&&old.parameters().enabled&&old.parameters().values[1]==27
