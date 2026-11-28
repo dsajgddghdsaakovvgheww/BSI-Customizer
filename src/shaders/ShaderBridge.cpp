@@ -1,6 +1,7 @@
 #include "ShaderBridge.h"
 #include "ShaderPreferences.h"
 #include "Runtime.h"
+#include <cstdio>
 #include <QCoreApplication>
 #include <QClipboard>
 #include <QGuiApplication>
@@ -49,6 +50,7 @@ struct State {
     // Last status block written to the token file, so the 1s tick only touches
     // the disk when something actually changed.
     QString lastToken;
+    bool announcedToken=false;
     QSet<ShaderBridge*> bridges;
     QPointer<SurfaceObserver> surfaceObserver;
     bool attached=false,connected=false;
@@ -119,6 +121,13 @@ void ShaderBridge::writeStatusToken(){
     const QString block=diagnostics();
     if(block.isEmpty()||block==s.lastToken)return;
     const auto savedValues=s.preferences.values();
+    // The user needs one thing from this file: where it is. Print it once per
+    // process so it can be pasted, without an extra GL call or a file scan.
+    if(!s.announcedToken&&!block.isEmpty()){
+        s.announcedToken=true;
+        std::fprintf(stderr,"BSI Potato status file: %s\n",qPrintable(tokenFor(s.instance)));
+        std::fflush(stderr);
+    }
     QJsonObject token{{QStringLiteral("schema"),1},
         // The shader library knows its own build revision, not the app version.
         {QStringLiteral("revision"),QString::fromLatin1(BSI_SHADERS_BUILD_REVISION)},
