@@ -31,6 +31,17 @@ struct Node
     quint32 value;
 };
 
+// Every node is reached by index from its parent's first-child word, so an
+// index that points past the tree section is a decided layout (the parent is
+// unusable), not a doubt about the tree: descending into it would read bytes
+// that belong to another structure.
+bool inTreeSpan(const QByteArray &data, qint64 root, quint32 index, int stride, qint64 spanEnd)
+{
+    const qint64 off = root + qint64(index) * stride;
+    return qint64(index) < kMaxNodes && off >= root && off + stride <= spanEnd
+        && inRange(data, off, stride);
+}
+
 // Parse a connected tree from its root, rather than guessing a node from any
 // occurrence of the compressed flag. Child indices give the exact tree size.
 QList<Node> readTree(const QByteArray &data, qint64 root, int stride, bool explicitBases, qint64 *span)
@@ -488,6 +499,97 @@ QList<File> filesInPool(const QByteArray &data, const Link &pool)
     return files;
 }
 
+// List a validated pool without demanding that every node in it parse.
+//
+// `filesInPool()` above is the strict form, used before editing a specific
+// resource: one unreadable node means the mapping cannot be trusted as a whole,
+// so it refuses. Enumeration must not inherit that rule. Some shipped players
+// (MSI 5.12's 13 MB build is one) carry a resource tree whose name table was
+// partly destroyed after linking: a compressed copy of the window overlaps the
+// table, so ~11% of the name records are length/hash words followed by zeroes.
+// Those nodes are genuinely unusable and stay skipped; every other node is
+// still an ordinary, correctly named, in-place resource - including all sixteen
+// stock controls the Settings page imports.
+//
+// The tree is walked by child index exactly as the strict form does, so `path`
+// means the same thing in both, and every reported record has passed the same
+// tests as before: verified name hash, mapped payload, decoded payload size
+// inside its section, and the record itself inside the tree's own span.
+QList<File> reachableFiles(const QByteArray &data, const Link &pool)
+{
+    QList<File> files;
+    if (pool.treeOff < 0 || pool.nameBaseRaw < 0 || pool.dataBaseRva < 0
+        || (pool.nodeSize != 14 && pool.nodeSize != 22))
+        return files;
+    const qint64 root = pool.treeOff;
+    const int stride = pool.nodeSize;
+    qint64 span = 0;
+    const auto tree = readTree(data, root, stride, true, &span);
+    const auto sections = PeUtils::sections(data);
+    const auto *treeSection = PeUtils::sectionForRaw(sections, root);
+    if (tree.isEmpty() || !treeSection || span <= 0)
+        return files;
+    const qint64 spanEnd = qMin(root + span, qint64(treeSection->rawPtr) + treeSection->rawSize);
+    if (spanEnd <= root || !inRange(data, root, spanEnd - root))
+        return files;
+    QHash<qint64, const Node *> byOffset;
+    byOffset.reserve(tree.size());
+    for (const auto &node : tree)
+        byOffset.insert(node.off, &node);
+    QSet<QString> seen;
+    QSet<qint64> visited;
+    QList<QPair<qint64, QString>> pending { qMakePair(root, QString()) };
+    while (!pending.isEmpty()) {
+        const auto entry = pending.takeLast();
+        const qint64 off = entry.first;
+        const QString prefix = entry.second;
+        if (visited.contains(off))
+            continue;
+        visited.insert(off);
+        const auto found = byOffset.constFind(off);
+        if (found == byOffset.cend())
+            continue; // index outside the tree's own span: nothing to read
+        const Node &node = *found.value();
+        if (node.flags == 2) {
+            QString childPrefix = prefix;
+            if (off != root) {
+                const QString directory = readName(data, pool.nameBaseRaw + node.name);
+                if (directory.isEmpty())
+                    continue; // this subtree cannot be named, so its paths are unknown
+                childPrefix += directory + QLatin1Char('/');
+            }
+            const quint32 count = be32(data, node.off + 6);
+            const quint32 first = be32(data, node.off + 10);
+            for (quint32 i = 0; i < count; ++i) {
+                if (!inTreeSpan(data, root, first + i, stride, spanEnd))
+                    continue;
+                pending << qMakePair(root + qint64(first + i) * stride, childPrefix);
+            }
+            continue;
+        }
+        const QString name = readName(data, pool.nameBaseRaw + node.name);
+        if (name.isEmpty())
+            continue; // destroyed name record: the node cannot be addressed
+        const qint64 rva = pool.dataBaseRva + node.value;
+        if (rva < 0 || rva > 0xffffffffLL)
+            continue;
+        const qint64 raw = PeUtils::rvaToRaw(sections, quint32(rva));
+        if (!inRange(data, raw, 4))
+            continue;
+        const quint32 size = be32(data, raw);
+        const auto *section = PeUtils::sectionForRaw(sections, raw);
+        if (!section || raw + 4 + qint64(size) > qint64(section->rawPtr) + section->rawSize)
+            continue;
+        const QString path = prefix + name;
+        const QString key = name + QLatin1Char(':') + QString::number(raw);
+        if (seen.contains(key))
+            continue;
+        seen.insert(key);
+        files << File { name, raw, node.flags, path };
+    }
+    return files;
+}
+
 QList<File> registeredFiles(const QByteArray &data)
 {
     QList<File> files;
@@ -497,13 +599,61 @@ QList<File> registeredFiles(const QByteArray &data)
         pool.found = true; pool.explicitBases = true; pool.registered = registration.registered;
         pool.treeOff = registration.tree; pool.nameBaseRaw = registration.names;
         pool.dataBaseRva = registration.dataRva; pool.nodeSize = registration.version == 1 ? 14 : 22;
-        for (const auto &file : filesInPool(data, pool)) {
+        // filesInPool() is all-or-nothing: it exists to validate one candidate
+        // mapping for an edit, and a single node that does not parse must make
+        // that mapping unusable. A player's binary copy can also be scrambled
+        // after linking (a UPX-style section layout), and then a handful of
+        // name records no longer verify while every control the Settings page
+        // imports is perfectly intact. Enumeration is a different question -
+        // "which resources does this player actually carry" - so a pool that
+        // fails the strict walk is listed by its reachable, verified records
+        // instead of being dropped.
+        auto listed = filesInPool(data, pool);
+        if (listed.isEmpty())
+            listed = reachableFiles(data, pool);
+        for (const auto &file : listed) {
             const auto key = file.name + QLatin1Char(':') + QString::number(file.entryOff);
             if (seen.contains(key)) continue;
             seen.insert(key); files << file;
         }
     }
     return files;
+}
+
+QStringList enumerationReport(const QByteArray &data)
+{
+    QStringList report;
+    const auto sections = PeUtils::sections(data);
+    for (const auto &registration : registeredPools(data)) {
+        Link pool;
+        pool.found = true; pool.explicitBases = true; pool.registered = registration.registered;
+        pool.treeOff = registration.tree; pool.nameBaseRaw = registration.names;
+        pool.dataBaseRva = registration.dataRva; pool.nodeSize = registration.version == 1 ? 14 : 22;
+        const auto strict = filesInPool(data, pool);
+        QString reason = QStringLiteral("strictly enumerated");
+        if (strict.isEmpty()) {
+            qint64 span = 0;
+            const auto tree = readTree(data, registration.tree, pool.nodeSize, true, &span);
+            const auto *treeSection = PeUtils::sectionForRaw(sections, registration.tree);
+            if (tree.isEmpty())
+                reason = QStringLiteral("tree did not parse");
+            else if (!treeSection || span <= 0)
+                reason = QStringLiteral("tree is outside its section");
+            else
+                reason = QStringLiteral("a name record or payload in the tree is unreadable");
+            const auto reachable = reachableFiles(data, pool);
+            report << QStringLiteral("pool at 0x%1 (v%2, %3 registration): %4, %5 of %6 reachable records listed")
+                              .arg(registration.tree, 0, 16).arg(registration.version)
+                              .arg(registration.registered ? QStringLiteral("call-site") : QStringLiteral("binary header"))
+                              .arg(reason).arg(reachable.size()).arg(tree.size());
+        } else {
+            report << QStringLiteral("pool at 0x%1 (v%2, %3 registration): %4, %5 records")
+                              .arg(registration.tree, 0, 16).arg(registration.version)
+                              .arg(registration.registered ? QStringLiteral("call-site") : QStringLiteral("binary header"))
+                              .arg(reason).arg(strict.size());
+        }
+    }
+    return report;
 }
 
 QByteArray readFile(const QByteArray &data, const File &file, qint64 limit)

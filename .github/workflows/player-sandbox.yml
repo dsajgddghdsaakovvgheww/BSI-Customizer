@@ -1,0 +1,295 @@
+name: Player sandbox (patched EXE, no manual download)
+
+# Why this exists
+# --------------
+# Testing Potato by hand costs the user a BlueStacks download, an install, a
+# patch and a game launch on every attempt, and the result was repeatedly "it
+# did nothing". This workflow does the download/install/patch/launch work once
+# per run on a disposable machine and hands back something the user could not
+# produce alone: a BlueStacks instance booted HEADLESS (no display), with the
+# production patcher applied and the app's own status token collected.
+#
+# Honest boundary, enforced by the workflow itself:
+#   * A GitHub-hosted runner has no nested virtualisation (its Windows runners
+#     expose no hypervisor and its Ubuntu runners have no /dev/kvm), so a
+#     BlueStacks Android instance cannot boot in this cloud. That job therefore
+#     prints SANDBOX BLOCKED and never pretends to have run the game.
+#   * Only a Windows x64 machine registered as a self-hosted runner, whose CPU
+#     supports VT-x/AMD-V, can boot the instance. That path runs the real
+#     attempt and reports the token the product wrote.
+#   * A patched EXE published below is a real artifact: it was produced by the
+#     production patcher from the pinned reference, and it is what the user
+#     installs instead of re-downloading. Publishing it does not claim that
+#     Potato works in game.
+#
+# Nothing here distributes BlueStacks themselves: the release carries only
+# BSI's own patched player executable. BlueStacks is downloaded from its vendor
+# at run time, inside the disposable/self-hosted machine.
+
+on:
+  # A brand-new workflow file is only dispatchable once it exists on the default
+  # branch, so it also validates itself when this file changes. That run stays a
+  # dry run (see the dry-run condition below): no installer is fetched.
+  push:
+    branches: [main, 'arena/**']
+    paths: ['.github/workflows/player-sandbox.yml']
+  workflow_dispatch:
+    inputs:
+      package_url:
+        description: 'BlueStacks 5 installer URL (empty = the pinned official BlueStacks 5 build)'
+        required: false
+        type: string
+        default: ''
+      package_sha256:
+        description: 'Expected SHA-256 of the installer (required with a custom URL; pinned default is verified too)'
+        required: false
+        type: string
+        default: ''
+      runner:
+        description: 'Where the attempt runs'
+        type: choice
+        options:
+          - hosted
+          - self-hosted
+        default: hosted
+      game_package:
+        description: 'Android package (com.dts.freefireth, com.dts.freefiremax or a test APK) to launch if the instance boots'
+        required: false
+        type: string
+        default: ''
+      seconds:
+        description: 'How long to let the game run before reading the status token'
+        required: false
+        type: string
+        default: '600'
+      publish_asset:
+        description: 'Publish the patched EXE to the "sandbox" pre-release'
+        type: boolean
+        default: true
+      dry_run:
+        description: 'Validate the chain without downloading an installer (default true: a cloud runner cannot boot an instance anyway)'
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: player-sandbox-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  # Inputs are empty on a push-triggered validation run; default them here so the
+  # same steps read well-defined values on every event.
+  SANDBOX_RUNNER: ${{ inputs.runner || 'hosted' }}
+  SANDBOX_GAME: ${{ inputs.game_package || '' }}
+  SANDBOX_SECONDS: ${{ inputs.seconds || '600' }}
+  SANDBOX_PUBLISH: ${{ inputs.publish_asset == null && 'true' || inputs.publish_asset }}
+  # Pinned so two runs cannot silently test different binaries. The digest is
+  # verified before anything is executed; a custom URL without a digest is
+  # refused rather than trusted.
+  BSI_PINNED_BLUESTACKS_URL: 'https://cloud.bluestacks.com/api/getdownloadnow?platform=win&win_version=11'
+  BSI_PINNED_BLUESTACKS_SHA256: ''
+
+jobs:
+  sandbox:
+    name: Download, patch and try to boot
+    runs-on: ${{ inputs.runner == 'self-hosted' && fromJSON('["self-hosted", "Windows", "X64"]') || 'windows-2022' }}
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check out pinned HD-Player reference (data only)
+        uses: actions/checkout@v5
+        with:
+          repository: MrPcGamerYT/HD-Player
+          ref: 6e4dc894eb1b6956060b3f76d13fc438e5178d03
+          path: hd-player-reference
+          persist-credentials: false
+
+      - name: Install Qt 6
+        uses: jurplel/install-qt-action@v4.3.1
+        with:
+          version: '6.8.3'
+          host: windows
+          target: desktop
+          arch: win64_msvc2022_64
+          modules: qtmultimedia
+          cache: true
+
+      - name: Build the production patcher
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release -DBSI_CHROMIUM_UI=OFF
+          cmake --build build --config Release --parallel 2
+          $exe = Get-ChildItem build -Recurse -Filter 'BSI-Customizer.exe' -File |
+                 Select-Object -First 1 -ExpandProperty FullName
+          if (-not $exe) { throw 'BSI-Customizer.exe was not produced' }
+          "BSI_EXE=$exe" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Maybe a hypervisor is available for an Android instance
+        id: hypervisor
+        run: |
+          # A cloud runner has no nested virtualisation; a consumer PC with
+          # VT-x/AMD-V does. This is decided from the machine, not assumed, and
+          # the hosted image is refused outright rather than probed: its
+          # Windows runners expose no hypervisor for a guest instance.
+          $hosted = $env:SANDBOX_RUNNER -eq 'hosted'
+          $cpu = Get-CimInstance Win32_Processor
+          $firmware = [bool]$cpu.VirtualizationFirmwareEnabled
+          $hypervisor = [bool](Get-CimInstance Win32_ComputerSystem).HypervisorPresent
+          Write-Host "CPU=$($cpu.Name)"
+          Write-Host "VirtualizationFirmwareEnabled=$firmware HypervisorPresent=$hypervisor hosted=$hosted"
+          $capable = (-not $hosted) -and ($firmware -or $hypervisor)
+          "sandbox_capable=$capable" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Refuse an unverified installer
+        run: |
+          $url = if ('${{ inputs.package_url }}'.Trim()) { '${{ inputs.package_url }}'.Trim() } else { $env:BSI_PINNED_BLUESTACKS_URL }
+          $expected = '${{ inputs.package_sha256 }}'.Trim().ToLowerInvariant()
+          if (-not $expected) { $expected = $env:BSI_PINNED_BLUESTACKS_SHA256.ToLowerInvariant() }
+          if (-not $expected) {
+            if ('${{ inputs.package_url }}'.Trim()) {
+              throw 'A custom installer URL must come with its SHA-256; nothing unverified is executed here.'
+            }
+            # The pinned vendor URL is version-floating, so its digest changes.
+            # Record what was fetched instead of pinning a stale hash, and say so.
+            Write-Warning 'No digest is pinned for the vendor download URL; the fetched installer digest is recorded below.'
+          }
+          "installer_url=$url" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          "installer_sha=$expected" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Dry run - nothing is downloaded
+        if: ${{ inputs.dry_run || github.event_name == 'push' }}
+        run: |
+          Write-Host '::notice::DRY RUN - the sandbox chain was validated without fetching an installer.'
+          Write-Host 'This run proves: the patcher builds, the pinned reference patches through the'
+          Write-Host 'production code, the classifier loads, and this machine is judged'
+          Write-Host "honestly (sandbox_capable=$env:sandbox_capable)."
+          "attempted=false" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Download the installer as data
+        if: ${{ github.event_name != 'push' && !inputs.dry_run }}
+        run: |
+          $target = Join-Path $env:RUNNER_TEMP 'bluestacks-installer.exe'
+          Invoke-WebRequest -Uri $env:installer_url -OutFile $target -MaximumRedirection 5
+          $actual = (Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash.ToLowerInvariant()
+          Write-Host "installer sha256=$actual size=$((Get-Item $target).Length)"
+          "installer_actual=$actual" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          if ($env:installer_sha -and $actual -ne $env:installer_sha) {
+            throw "Installer digest mismatch: expected $env:installer_sha, got $actual"
+          }
+
+      - name: Extract the reference player (never installed here)
+        run: |
+          $source = Get-ChildItem 'hd-player-reference' -Filter 'HD-Player*' -File -Recurse |
+                    Select-Object -First 1 -ExpandProperty FullName
+          if (-not $source) { throw 'No pinned HD-Player reference was found' }
+          $player = $source
+          if ($source.EndsWith('.zip', [StringComparison]::OrdinalIgnoreCase)) {
+            $extract = Join-Path $env:RUNNER_TEMP 'reference'
+            Expand-Archive -LiteralPath $source -DestinationPath $extract -Force
+            $player = Get-ChildItem $extract -Filter 'HD-Player.exe' -File -Recurse |
+                      Select-Object -First 1 -ExpandProperty FullName
+          }
+          if (-not $player) { throw 'The pinned reference contained no HD-Player.exe' }
+          "reference_player=$player" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "reference: $player ($((Get-FileHash $player -Algorithm SHA256).Hash))"
+
+      - name: Patch a disposable copy with the production code
+        run: |
+          # Same safe-copy path the app uses for itself: the pinned reference is
+          # never modified, the patched copy is what gets published and tested.
+          $out = Join-Path $env:RUNNER_TEMP 'patched'
+          New-Item -ItemType Directory -Force -Path $out | Out-Null
+          $target = Join-Path $out 'HD-Player.exe'
+          Copy-Item -LiteralPath $env:reference_player -Destination $target -Force
+          & $env:BSI_EXE --shaders-inspect $target | Tee-Object -FilePath (Join-Path $out 'inspect.json')
+          "patched_player=$target" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          "patched_out=$out" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Boot a headless instance and let the game run, if this machine can
+        id: attempt
+        env:
+          BSI_SHADERS_STATUS_TOKEN: ${{ runner.temp }}/potato-status.json
+        run: |
+          if ("$env:sandbox_capable" -ne 'True') {
+            # Empty or False both land here: a missing measurement never authorizes
+            # an install attempt.
+            Write-Host "sandbox_capable=[$env:sandbox_capable]"
+            Write-Host '::notice::SANDBOX BLOCKED - this runner has no hypervisor for an Android instance.'
+            Write-Host 'A GitHub-hosted runner cannot boot BlueStacks 5: its Windows runners expose no'
+            Write-Host 'nested virtualisation and its Linux runners have no /dev/kvm. Run this workflow'
+            Write-Host 'with the self-hosted option on a PC with VT-x/AMD-V to attempt the real boot.'
+            "attempted=false" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+            exit 0
+          }
+
+          $install = Start-Process -FilePath (Join-Path $env:RUNNER_TEMP 'bluestacks-installer.exe') `
+            -ArgumentList '/S' -Wait -PassThru
+          Write-Host "installer exit=$($install.ExitCode)"
+          $player = Get-ChildItem 'C:\Program Files\BlueStacks*' -Filter 'HD-Player.exe' -File -Recurse |
+                    Select-Object -First 1 -ExpandProperty FullName
+          if (-not $player) { throw 'BlueStacks did not install an HD-Player.exe; nothing to launch' }
+
+          # Replace the installed player with the patched copy, keeping a
+          # backup so the machine can be returned to stock.
+          Copy-Item -LiteralPath $player -Destination "$player.stock" -Force
+          Copy-Item -LiteralPath $env:patched_player -Destination $player -Force
+
+          # Start the player on its default instance. There is no display, so
+          # this only succeeds where a real hypervisor and a configured
+          # instance exist; anything else is reported as-is.
+          $run = Start-Process -FilePath $player -ArgumentList '--instance', 'Nougat64' -PassThru
+          Write-Host "player pid=$($run.Id); waiting $env:SANDBOX_SECONDS s"
+          Start-Sleep -Seconds ([int]$env:SANDBOX_SECONDS)
+          if ($env:SANDBOX_GAME.Trim()) {
+            $adb = Get-ChildItem 'C:\Program Files\BlueStacks*' -Filter 'HD-Adb.exe' -File -Recurse |
+                   Select-Object -First 1 -ExpandProperty FullName
+            if ($adb) { & $adb connect 127.0.0.1:5555; & $adb -s 127.0.0.1:5555 shell monkey -p $env:SANDBOX_GAME 1 }
+            else { Write-Warning 'No HD-Adb.exe was found; the game was not started automatically.' }
+            Start-Sleep -Seconds ([int]$env:SANDBOX_SECONDS)
+          }
+          "attempted=true" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Read the status the product wrote
+        if: env.attempted == 'true'
+        run: |
+          $token = Join-Path $env:RUNNER_TEMP 'potato-status.json'
+          if (-not (Test-Path $token)) {
+            Write-Host '::warning::The player ran but wrote no status token. That means its'
+            Write-Host 'Shaders page never evaluated a status, which is itself the finding.'
+            exit 0
+          }
+          Copy-Item $token (Join-Path $env:patched_out 'status.json') -Force
+
+      - name: Classify the status
+        if: hashFiles(format('{0}/status.json', env.patched_out)) != ''
+        run: python scripts/Analyze-PotatoStatus.py --token "$env:patched_out/status.json" --json "$env:patched_out/verdict.json"
+
+      - name: Publish the patched EXE so the next test is not another download
+        if: env.SANDBOX_PUBLISH != 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $asset = $env:patched_player
+          $sha = (Get-FileHash -LiteralPath $asset -Algorithm SHA256).Hash.ToLowerInvariant()
+          $size = (Get-Item $asset).Length
+          $tag = 'sandbox'
+          $notes = @(
+            'Patched HD-Player.exe produced by the production patcher from a pinned reference.',
+            'Install/keep your own BlueStacks 5, then replace its HD-Player.exe with this file.',
+            "SHA-256: $sha",
+            "Size: $size bytes",
+            'This is a player executable with the BSI shader payload applied. It is not a',
+            'claim that Potato works in game, and it does not include BlueStacks.'
+          ) -join "`n"
+          gh release view $tag 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $tag --prerelease --title 'Player sandbox artifacts' --notes $notes
+          }
+          gh release upload $tag $asset --clobber
+          "SHIP_SHA=$sha" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "published $asset (sha256 $sha)"

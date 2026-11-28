@@ -58,7 +58,15 @@ struct File
 // `File::name` is the leaf the node stores, `File::path` the full resource path
 // rebuilt from the directory nodes ("images/logo.png").
 QList<File> filesInPool(const QByteArray &data, const Link &pool);
+// Enumerate the reachable, verified records of a pool whose strict walk fails.
+// Used by registeredFiles() so one destroyed name record cannot hide the whole
+// player's resource set; editing still goes through findLink() validation.
+QList<File> reachableFiles(const QByteArray &data, const Link &pool);
 QList<File> registeredFiles(const QByteArray &data);
+// One line per registered pool, for diagnostics after a refusal: how many
+// records the strict walk validated, how many were reachable when it did not,
+// and why the strict walk was refused. Never changes an enumeration result.
+QStringList enumerationReport(const QByteArray &data);
 QByteArray readFile(const QByteArray &data, const File &file, qint64 limit = 5000000);
 
 // Health + layout introspection for raw-byte patchers. Every zlib payload

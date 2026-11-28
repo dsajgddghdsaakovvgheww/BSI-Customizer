@@ -129,9 +129,11 @@ or `vulkan-1.dll`. The existing arbitrary startup-DLL feature remains separate.
   exact current display/DRAW binding. Surface/context destruction revokes only
   the matching source; unknown/pre-existing/untracked surfaces fail closed.
 - Default-off **Potato graphic**, independent of visual enable/resolution, uses
-  private GL/GLES samplers with after-draw restoration and explicit driver-
-  override review. Its format/draw/protection checks and resource-provenance
-  limits are documented separately; DirectX/Vulkan texture paths remain absent.
+  private GL/GLES samplers with after-draw restoration. The driver-override
+  review is **automatic**: the runtime re-verifies sampler provenance for every
+  draw it considers, so the page no longer gates Save on a manual checkbox.
+  Its format/draw/protection checks and resource-provenance limits are documented
+  separately; DirectX/Vulkan texture paths remain absent.
   The native [Potato strength slider](POTATO-STRENGTH.md) saves 0..100% independently:
   0 is native, 50 is former Light, 100 preserves previous On/Strong. Save/Discard,
   v1/v2/v3 migration and render-thread percentage are tested; strength never
@@ -245,9 +247,13 @@ producer ownership is not inferred. These known interception gaps may explain
 the pattern, but their use by the actual game is unproven. New per-interval
 inspection/scene/bypass diagnostics distinguish that limitation from saving.
 
-The latest Shaders flow keeps every control resource-backed, moves/reveals the
-required Potato driver-review checkbox beside its switch, and explicitly
-separates unsaved drafts from saved/runtime texture evidence. Current-size
+The latest Shaders flow keeps every control resource-backed, exposes the
+Potato graphic switch, strength slider and live texture status in the tab
+(`tests/shaders_potato_page_test.py` guards that contract after a shipped
+regression where the controls were deleted while `save()` still revealed the
+removed `potatoReview` id and threw `ReferenceError`), applies the automatic
+driver-override review, and explicitly separates unsaved drafts from
+saved/runtime texture evidence. Current-size
 720/540 selections are honest no-ops; profiles above the original size or
 outside native bounds are omitted rather than failing combined shader Saves.
 A changed size opens the **actual stock Graphics-style restart dialog before

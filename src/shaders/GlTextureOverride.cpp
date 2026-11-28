@@ -82,7 +82,7 @@ struct GlTextureOverride::Impl {
     unsigned copyImageApis=0;
     GlQualityCapabilities qualityCapabilities;
     I units=0,attachments=0,extensionCount=0,maximumLevel=0,drawBuffers=0,imageUnits=0;
-    enum class MipRefusal { None, Protection, Range, Dimensions, Format, Incomplete, SingleLevel, Storage, NonMipFilter, Count };
+    enum class MipRefusal { None, Protection, Range, Dimensions, Format, Incomplete, SingleLevel, Storage, BaseOnlyFilter, Count };
     struct MipInspection {
         MipRefusal refusal=MipRefusal::None;
         I levels=0,base=-1,last=-1,immutable=-1,storage=-1,view=-1,effectiveBase=-1,effectiveLast=-1;
@@ -95,7 +95,7 @@ struct GlTextureOverride::Impl {
         case MipRefusal::Dimensions:return "unqualified base image dimensions";
         case MipRefusal::Format:return "unsupported color internal format";
         case MipRefusal::Incomplete:return "undefined or mismatched REQUIRED mip level";
-        case MipRefusal::NonMipFilter:return "non-mipmapped source minification filter (base image only; missing higher mips are legal)";
+        case MipRefusal::BaseOnlyFilter:return "base-only source minification filter with stored levels (legal sampling; nothing was invented)";
         case MipRefusal::SingleLevel:return "only one effective mip level";
         case MipRefusal::Storage:return "unqualified immutable storage/view metadata";
         default:return "qualified mip chain";
@@ -223,10 +223,11 @@ struct GlTextureOverride::Impl {
         GetTexLevelParameteriv(texture2d,base,0x1003,&result.format);
         if(result.width<64||result.height<64||result.width>16384||result.height>16384)return refuse(MipRefusal::Dimensions);
         if(!colorFormat(result.format))return refuse(MipRefusal::Format);
-        // A non-mipmapped LINEAR/NEAREST sampler legally uses only the base
-        // image, irrespective of stored MAX_LEVEL=1000. Do not falsely call
-        // level 1 REQUIRED, and do not invent mips/blur that compositor input.
-        if(minimumFilter==0x2600||minimumFilter==0x2601)return refuse(MipRefusal::NonMipFilter);
+        // A LINEAR/NEAREST min filter samples only the base image today, but
+        // that is a FILTER fact, not a storage fact. Never report a missing
+        // REQUIRED mip 1 for it, and never invent levels: keep walking the
+        // levels the resource actually stores, and report how many exist.
+        const bool baseOnlyFilter=minimumFilter==0x2600||minimumFilter==0x2601;
         I width=result.width,height=result.height,levels=1;
         while((width>1||height>1)&&base+levels<=last&&levels<16){
             const auto level=base+levels;result.failedLevel=level;
@@ -239,6 +240,11 @@ struct GlTextureOverride::Impl {
             // guarantees contiguous storage: an undefined terminal image ends
             // that chain. NEVER accept a missing tail on a mutable texture.
             if(result.immutable==1&&!immutableLevelsQuery&&!w&&!h)break;
+            // With a base-only filter no higher level is REQUIRED, so an
+            // undefined one is simply the end of the stored chain (reported as
+            // single-level below). A DEFINED level of the wrong size/format is
+            // still a real defect for either filter.
+            if(!w&&!h&&baseOnlyFilter)break;
             if(w!=width||h!=height||f!=result.format)return refuse(MipRefusal::Incomplete);
             ++levels;
         }
@@ -621,6 +627,7 @@ unsigned GlTextureOverride::begin(TextureQuality mode,bool reviewed,U primitive,
             ++bound;if(g.attached(U(texture))){++feedback;continue;}
             I minimumFilter=0;g.integer(U(original),0x2801,&minimumFilter);
             const auto mip=g.inspectMips(minimumFilter);const I levels=mip.levels;
+            if(minimumFilter==0x2600||minimumFilter==0x2601)++mipRefusals[static_cast<std::size_t>(Impl::MipRefusal::BaseOnlyFilter)];
             if(levels<2){
                 if(!noChain)firstMipRefusal=mip;
                 ++noChain;++mipRefusals[static_cast<std::size_t>(mip.refusal)];continue;
@@ -636,7 +643,13 @@ unsigned GlTextureOverride::begin(TextureQuality mode,bool reviewed,U primitive,
             proof.privateReplacementSupported=true;proof.externalOverridesReviewed=reviewed;proof.visibleMipLevels=U(levels);
             GlQualitySampler source;source.minimumFilter=sampler.min;source.comparisonMode=sampler.compare;
             source.minimumLod=sampler.lo;source.maximumLod=sampler.hi;source.lodBias=sampler.bias;source.maximumAnisotropy=sampler.anisotropy;
-            const auto plan=planGlTextureQuality(mode,proof,source,g.qualityCapabilities,strength);if(!plan.changed()){++descriptor;continue;}
+            const bool storedChain=levels>=2;
+            const auto plan=planGlTextureQuality(mode,proof,source,g.qualityCapabilities,strength,storedChain);
+            if(!plan.changed()){++descriptor;continue;}
+            // Private sampler only. The source's magnification/filter family is
+            // preserved; a base-only filter gains its mipmap qualifier only
+            // because the stored levels above were just verified to exist.
+            sampler.min=plan.descriptor.minimumFilter;
             sampler.lo=plan.descriptor.minimumLod;sampler.bias=plan.descriptor.lodBias;
             const U replacement=g.privateSampler(sampler);if(!replacement){++replacementFailure;continue;}
             g.changed.push_back({U(unit),U(original)});g.BindSampler(U(unit),replacement);
@@ -647,6 +660,17 @@ unsigned GlTextureOverride::begin(TextureQuality mode,bool reviewed,U primitive,
             *detail=g.changed.empty()?"Depth-independent Potato inspected this owned game draw but found no eligible mipmapped color sampler; native sampling retained.":"Depth-independent Potato prepared private coarser-mip samplers for this qualified game draw; original bindings restore after this draw. Opaque mipmapped HUD/RGB data maps may also change. Not measured game pixels/FPS.";
         else *detail=g.changed.empty()?"No qualified scene-color mip sampler in this game draw; native sampling retained.":"Potato prepared private coarser-mip samplers for an owned game scene draw; original bindings restore immediately afterward. This is not a measurement of game output or FPS.";
     }
+    if(detail&&!g.changed.empty()){
+        // Surface the accepted base-only descriptors too: without this, a
+        // successful Save looks identical to one that only met mipmapped
+        // sources, and the player report could not show which path was used.
+        const auto accepted=mipRefusals[static_cast<std::size_t>(Impl::MipRefusal::BaseOnlyFilter)];
+        if(accepted){
+            char counts[192]{};
+            std::snprintf(counts,sizeof(counts)," Base-only-filter samplers qualified with a private mip qualifier: %u; their own descriptors were not edited.",accepted);
+            *detail+=counts;
+        }
+    }
     if(detail&&g.changed.empty()){
         char counts[384]{};
         std::snprintf(counts,sizeof(counts)," sampler2D slots=%u; bound textures=%u; draw-attachment feedback=%u; ineligible mip/color/protection=%u; sampler-policy refusals=%u; private-sampler failures=%u.",samplers,bound,feedback,noChain,descriptor,replacementFailure);
@@ -654,9 +678,9 @@ unsigned GlTextureOverride::begin(TextureQuality mode,bool reviewed,U primitive,
         if(noChain){
             const auto count=[&](Impl::MipRefusal why){return mipRefusals[static_cast<std::size_t>(why)];};
             const auto &m=firstMipRefusal;char state[768]{};
-            std::snprintf(state,sizeof(state)," Mip first blockers: protected=%u; range=%u; dimensions=%u; format=%u; incomplete-required-level=%u; single-level=%u; storage-metadata=%u; non-mip-filter=%u. First: %s; base/max=%d/%d; immutable=%d; storage/view-levels=%d/%d; effective-base/max=%d/%d; size=%dx%d; internal-format=0x%x; failed-level=%d; source-min-filter=0x%x. Unqueried range/dimension fields are -1; internal-format=0 means not inspected.",
+            std::snprintf(state,sizeof(state)," Mip first blockers: protected=%u; range=%u; dimensions=%u; format=%u; incomplete-required-level=%u; single-level=%u; storage-metadata=%u; base-only-filter=%u (accepted when levels exist). First: %s; base/max=%d/%d; immutable=%d; storage/view-levels=%d/%d; effective-base/max=%d/%d; size=%dx%d; internal-format=0x%x; failed-level=%d; source-min-filter=0x%x. Unqueried range/dimension fields are -1; internal-format=0 means not inspected.",
                 count(Impl::MipRefusal::Protection),count(Impl::MipRefusal::Range),count(Impl::MipRefusal::Dimensions),
-                count(Impl::MipRefusal::Format),count(Impl::MipRefusal::Incomplete),count(Impl::MipRefusal::SingleLevel),count(Impl::MipRefusal::Storage),count(Impl::MipRefusal::NonMipFilter),
+                count(Impl::MipRefusal::Format),count(Impl::MipRefusal::Incomplete),count(Impl::MipRefusal::SingleLevel),count(Impl::MipRefusal::Storage),count(Impl::MipRefusal::BaseOnlyFilter),
                 Impl::mipDiagnostic(m.refusal),m.base,m.last,m.immutable,m.storage,m.view,m.effectiveBase,m.effectiveLast,m.width,m.height,U(m.format),m.failedLevel,U(m.filter));
             *detail+=state;
         }

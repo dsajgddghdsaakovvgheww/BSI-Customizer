@@ -82,6 +82,21 @@ def main():
     read = gl("glReadPixels", None, I, I, I, I, U, U, P)
     active_texture = gl("glActiveTexture", None, U)
 
+    mo_detail = {}
+
+    def energy_of(frame, width=SIZE, height=SIZE):
+        """Horizontal+vertical colour deltas: visible detail, not a counter."""
+        stride = width * 4
+        total = 0
+        for y in range(1, height):
+            row, above = y * stride, (y - 1) * stride
+            for x in range(1, width):
+                at = row + x * 4
+                for channel in range(3):
+                    total += abs(frame[at + channel] - frame[at - 4 + channel])
+                    total += abs(frame[at + channel] - frame[above + channel])
+        return total
+
     def pixels():
         result = (C.c_ubyte * (SIZE * SIZE * 4))()
         read(0, 0, SIZE, SIZE, 0x1908, 0x1401, result)
@@ -94,7 +109,8 @@ def main():
         clear_color(*rgb, 1)
         clear(0x4000)
 
-    def pattern():
+    def pattern(detailed=False):
+        flexible = detailed is True
         flat((.08, .08, .08))
         enable(0x0C11)
         for y in range(SIZE):
@@ -103,6 +119,13 @@ def main():
                 value = .15 + .65 / (1 + math.exp(max(-50, min(50, (y - x) * .8))))
                 if 27 < x < 35 and 27 < y < 35:
                     value = 1
+                if flexible:
+                    # A textured frame: a real game HUD/scene has high-frequency
+                    # detail, and a screen-space filter can only be judged on it.
+                    # A single smooth gradient has almost no detail to reduce.
+                    value = (1.0 if ((x // 4) + (y // 4)) & 1 else .1) if (x // 16 + y // 16) & 1 else value
+                    if x % 23 < 2 or y % 29 < 2:
+                        value = 1
                 scissor(x, y, 1, 1)
                 clear_color(value, value * .8, value * .6, 1)
                 clear(0x4000)
@@ -120,6 +143,8 @@ def main():
         result.append(tuple(is_enabled(e) for e in [0x0BE2, 0x0B71, 0x0B90, 0x0B44, 0x0C11, 0x0BD0]))
         return result
 
+    CONTROLS = 11  # the ten original effects plus frame Smoothness (index 10)
+
     with tempfile.TemporaryDirectory(prefix="bsi-shader-gpu-") as temp:
         library = Path(temp) / "pipeline.so"
         subprocess.run([os.environ.get("CXX", "g++"), "-std=c++17", "-O2", "-Wall", "-Wextra", "-Werror", "-shared", "-fPIC",
@@ -134,34 +159,53 @@ def main():
         assert get_error() == 0
 
         def render(values=None, enabled=True, width=SIZE, height=SIZE):
-            values = values or [0] * 10
-            assert core.bsi_test_render(width, height, enabled, (I * 10)(*values), message, len(message)), message.value.decode()
+            values = values or [0] * CONTROLS
+            assert core.bsi_test_render(width, height, enabled, (I * CONTROLS)(*values), message, len(message)), message.value.decode()
 
         flat()
         original = pixels()
         render()
         assert pixels() == original, "enabled + all-zero settings must be byte-exact neutral bypass"
-        render([40] * 10, enabled=False)
+        render([40] * CONTROLS, enabled=False)
         assert pixels() == original, "disabled effects must not touch a frame"
         for index, value in [(0, 60), (0, -80), (1, 30), (1, -45), (2, 50), (2, -70), (3, 75), (4, 60), (5, 80)]:
             flat()
-            values = [0] * 10
+            values = [0] * CONTROLS
             values[index] = value
             expected = (F * 3)()
             # Compare against the quantized input actually captured from the surface.
-            core.bsi_test_reference((F * 3)(*(c / 255 for c in original[:3])), (I * 10)(*values), expected)
+            core.bsi_test_reference((F * 3)(*(c / 255 for c in original[:3])), (I * CONTROLS)(*values), expected)
             render(values)
             observed = pixels()[:3]
             assert all(abs(observed[i] - round(expected[i] * 255)) <= 1 for i in range(3)), (index, observed, list(expected))
-        for index in (6, 7, 8, 9):
+        for index in (6, 7, 8, 9, 10):
             pattern()
             before = pixels()
-            values = [0] * 10
+            values = [0] * CONTROLS
             values[index] = 85
             render(values)
             after = pixels()
             assert after != before, f"spatial shader {index} did not change real framebuffer pixels"
             assert all(after[i] == before[i] for i in range(3, len(after), 4)), "shader must preserve source alpha"
+            if index == 10:
+                # Screen-space Smoothness is the lever for a game whose only
+                # sampled texture is ONE level: prove it coarsens a real frame
+                # monotonically and still reproduces native at zero.
+                energy = []
+                for percent in (0, 25, 50, 75, 100):
+                    pattern(detailed=True)
+                    native_energy = energy_of(pixels())
+                    values[10] = percent
+                    render(values)
+                    energy.append(energy_of(pixels()))
+                assert energy[0] == native_energy, "0% Smoothness must be the native frame"
+                assert energy == sorted(energy, reverse=True), ("Smoothness must monotonically reduce detail", energy)
+                assert len(set(energy)) == len(energy), ("each Smoothness step must be distinct", energy)
+                # Half is a real, visible reduction of a textured frame. (A soft
+                # gradient frame has almost no detail for ANY screen filter to
+                # remove, which is why this case uses the textured pattern.)
+                assert energy[-1] < native_energy * 0.62, ("100% Smoothness must be a visible change", energy)
+                mo_detail["smoothness"] = energy
         flat()
         viewport(2, 3, 47, 49)
         scissor(4, 5, 11, 13)
@@ -170,16 +214,16 @@ def main():
         color_mask(0, 1, 0, 1)
         active_texture(0x84C3)
         before = snapshot()
-        render([20, 10, 5, 0, 0, 0, 0, 0, 0, 0])
+        render([20, 10, 5, 0, 0, 0, 0, 0, 0, 0, 0])
         assert snapshot() == before, "production pipeline failed to restore native host state"
         assert get_error() == 0
         enable(0xDEADBEEF)
-        render([20] + [0] * 9)
+        render([20] + [0] * (CONTROLS - 1))
         assert get_error() == 0x0500, "pipeline must not consume the host's pending GL error"
         assert get_error() == 0
-        invalid = (I * 10)(101, *([0] * 9))
+        invalid = (I * CONTROLS)(101, *([0] * (CONTROLS - 1)))
         assert not core.bsi_test_render(SIZE, SIZE, True, invalid, message, len(message))
-        assert not core.bsi_test_render(0, SIZE, True, (I * 10)(20, *([0] * 9)), message, len(message))
+        assert not core.bsi_test_render(0, SIZE, True, (I * CONTROLS)(20, *([0] * (CONTROLS - 1))), message, len(message))
         core.bsi_test_release()
         assert get_error() == 0
         if os.environ.get("BSI_TEST_TEXTURE_QUALITY"):
@@ -202,7 +246,8 @@ def main():
     native("eglDestroySurface", U, P, P)(display, surface)
     native("eglDestroyContext", U, P, P)(display, context)
     native("eglTerminate", U, P)(display)
-    print("PASS: production C++ " + ("desktop OpenGL core" if desktop else "GLES") + " pipeline changes real pixels for all 10 effects; neutral byte identity, reference color math, source alpha, host-state restoration, pending error preservation and invalid input guards")
+    print("Frame Smoothness detail per percent:", mo_detail.get("smoothness"))
+    print("PASS: production C++ " + ("desktop OpenGL core" if desktop else "GLES") + " pipeline changes real pixels for all 10 effects plus frame Smoothness (monotonic detail reduction, native at 0%); neutral byte identity, reference color math, source alpha, host-state restoration, pending error preservation and invalid input guards")
     print("LIMIT: software/API test only; Windows hooks, native Settings integration, DirectX/Vulkan and physical GPU-vendor coverage remain unverified")
 
 

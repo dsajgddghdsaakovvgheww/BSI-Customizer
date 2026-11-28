@@ -45,14 +45,30 @@ QVariantMap configValues(const ShaderSavedConfiguration &c){
     for(std::size_t i=0;i<controls.size();++i)result.insert(QString::fromLatin1(controls[i].key),c.visual.values[i]);
     return result;
 }
-bool decodeValues(const QVariantMap &map,ShaderSavedConfiguration *c,QString *error,int version=4){
+// Older files predate the newest control: they carry one fewer value key, and
+// that control simply stays at its neutral default. Every key a file does carry
+// is still range-checked, and the expected key COUNT is exact for its version.
+// One list for every schema this build accepts. The journal embed and the file
+// itself must agree, or an interrupted save becomes unrecoverable.
+bool knownSchema(const QString &schema){
+    for(const char *name:{"bsi.shaders.v1","bsi.shaders.v2","bsi.shaders.v3","bsi.shaders.v4","bsi.shaders.v5"})
+        if(schema==QLatin1String(name))return true;
+    return false;
+}
+std::size_t controlCount(int version){
+    // v1-v4 always had the ten original controls; the eleventh arrived in v5.
+    return version>=5?controls.size():10;
+}
+bool decodeValues(const QVariantMap &map,ShaderSavedConfiguration *c,QString *error,int version=5){
     const bool legacy=version==1;
-    if(map.size()!=int(controls.size())+(legacy?1:version==2?2:version==3?4:5)||map.value(QStringLiteral("enabled")).userType()!=QMetaType::Bool)
+    const std::size_t expected=controlCount(version);
+    if(map.size()!=int(expected)+(legacy?1:version==2?2:version==3?4:5)||map.value(QStringLiteral("enabled")).userType()!=QMetaType::Bool)
         return refuse(error,QStringLiteral("Shader settings have an invalid schema."));
     c->visual.enabled=map.value(QStringLiteral("enabled")).toBool();
-    for(std::size_t i=0;i<controls.size();++i)
+    for(std::size_t i=0;i<expected;++i)
         if(!integer(map.value(QString::fromLatin1(controls[i].key)),controls[i].minimum,controls[i].maximum,&c->visual.values[i]))
             return refuse(error,QStringLiteral("Shader values must be finite integer steps in their supported ranges."));
+    for(std::size_t i=expected;i<controls.size();++i)c->visual.values[i]=0;
     int mode=0;
     if(!legacy&&!integer(map.value(QStringLiteral("potatoMode")),0,2,&mode))
         return refuse(error,QStringLiteral("Resolution mode must be Native, Light or Strong."));
@@ -83,7 +99,7 @@ bool decodeResolution(const QJsonValue &value,DisplayResolution *out){
 QJsonObject configJson(const ShaderSavedConfiguration &c){
     QJsonObject display;
     if(c.potato!=PotatoMode::Native)display={{QStringLiteral("original"),resolutionJson(c.original)},{QStringLiteral("target"),resolutionJson(c.target)}};
-    return {{QStringLiteral("schema"),QStringLiteral("bsi.shaders.v4")},
+    return {{QStringLiteral("schema"),QStringLiteral("bsi.shaders.v5")},
         {QStringLiteral("values"),QJsonObject::fromVariantMap(configValues(c))},{QStringLiteral("display"),display}};
 }
 QString displayReviewKey(PotatoMode mode,const DisplayResolution &before,const DisplayResolution &target,const ShaderSavedConfiguration &saved){
@@ -99,9 +115,10 @@ QString displayReviewKey(PotatoMode mode,const DisplayResolution &before,const D
 bool decodeConfig(const QJsonObject &root,ShaderSavedConfiguration *c,ShaderDisplayPending *pending,QString *error){
     const auto schema=root.value(QStringLiteral("schema")).toString();
     const bool legacy=schema==QLatin1String("bsi.shaders.v1");
-    const int version=legacy?1:schema==QLatin1String("bsi.shaders.v2")?2:schema==QLatin1String("bsi.shaders.v3")?3:4;
+    const int version=legacy?1:schema==QLatin1String("bsi.shaders.v2")?2:schema==QLatin1String("bsi.shaders.v3")?3
+        :schema==QLatin1String("bsi.shaders.v4")?4:5;
     const bool journal=root.contains(QStringLiteral("pendingDisplay"));
-    if((!legacy&&schema!=QLatin1String("bsi.shaders.v2")&&schema!=QLatin1String("bsi.shaders.v3")&&schema!=QLatin1String("bsi.shaders.v4"))||root.size()!=(legacy?2:journal?4:3)
+    if(!knownSchema(schema)||root.size()!=(legacy?2:journal?4:3)
        ||(legacy&&journal)||(!pending&&journal)||!root.value(QStringLiteral("values")).isObject())
         return refuse(error,QStringLiteral("Saved shader preferences have an unknown or invalid format; no native display setting was changed."));
     if(!decodeValues(root.value(QStringLiteral("values")).toObject().toVariantMap(),c,error,version))return false;
@@ -125,9 +142,7 @@ bool decodeConfig(const QJsonObject &root,ShaderSavedConfiguration *c,ShaderDisp
         if(transaction.size()!=3||!decodeResolution(transaction.value(QStringLiteral("before")),&pending->before)
            ||!decodeResolution(transaction.value(QStringLiteral("target")),&pending->target)
            ||!transaction.value(QStringLiteral("next")).isObject()
-           ||(transaction.value(QStringLiteral("next")).toObject().value(QStringLiteral("schema")).toString()!=QLatin1String("bsi.shaders.v2")
-              &&transaction.value(QStringLiteral("next")).toObject().value(QStringLiteral("schema")).toString()!=QLatin1String("bsi.shaders.v3")
-              &&transaction.value(QStringLiteral("next")).toObject().value(QStringLiteral("schema")).toString()!=QLatin1String("bsi.shaders.v4"))
+           ||!knownSchema(transaction.value(QStringLiteral("next")).toObject().value(QStringLiteral("schema")).toString())
            ||!decodeConfig(transaction.value(QStringLiteral("next")).toObject(),&pending->next,nullptr,error))
             return refuse(error,QStringLiteral("Invalid pending Display recovery evidence; no native value was overwritten."));
         const bool restoring=pending->next.potato==PotatoMode::Native;
@@ -269,7 +284,15 @@ QVariantMap ShaderPreferences::apply(const QVariantMap &input,bool keepCurrentDi
     const auto fail=[&](const QString &message){lastError=message;return QVariantMap{{"ok",false},{"msg",message}};};
     ShaderSavedConfiguration requested;QString error;
     if(file.isEmpty())return fail(QStringLiteral("No native player instance is attached."));
-    if(!decodeValues(input,&requested,&error))return fail(error);
+    // A live Save carries the CURRENT schema's exact key count. A draft missing the
+    // newest control is normalized first instead of being mistaken for a legacy
+    // file: only files on disk have a version, and they are decoded with theirs.
+    QVariantMap normalized=input;
+    for(std::size_t i=0;i<controls.size();++i){
+        const auto key=QString::fromLatin1(controls[i].key);
+        if(!normalized.contains(key))normalized.insert(key,0);
+    }
+    if(!decodeValues(normalized,&requested,&error))return fail(error);
     if(keepCurrentDisplay&&requested.potato!=PotatoMode::Native)return fail(QStringLiteral("Keep current display requires Native mode."));
     if(!safePath(file)||!QDir().mkpath(QFileInfo(file).absolutePath())||!safePath(file)||!safePath(file+QStringLiteral(".lock")))
         return fail(QStringLiteral("Cannot create a safe shader settings/lock directory."));

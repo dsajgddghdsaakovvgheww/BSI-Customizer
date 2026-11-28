@@ -418,7 +418,7 @@ def main():
             assert navigation["visualIndex"] == 11, f"Shaders' visual position is not its native callback index: {navigation}"
             assert window.property("pCurrentTabIndex") == 12, f"physical Shaders activation failed after pointer scrolling: {navigation}"
             page = evaluate(window, "pSettingsItems.pSettingElements[12].pComponentObj")
-            assert page and evaluate(page, "Engine.controls.length") == 10
+            assert page and evaluate(page, "Engine.controls.length") == 11, "ten effects plus frame Smoothness"
             assert page.property("tabsArranged"), "Shaders must sort visually before About"
             assert page.property("bsiTabIndex") == 12, "visual sorting changed the native callback index"
             assert evaluate(window, "String(pSettingsItems.pSettingElements[11].pQmlSource).endsWith('PlrAboutSetting.qml')")
@@ -490,12 +490,17 @@ def main():
                 click(prompt, button)
                 assert not evaluate(page, "!!restartPrompt")
 
-            # The Potato texture customizer is intentionally absent from the
-            # Shaders tab. Resolution remains independently configurable.
+            # The Potato texture switch/strength are part of the Shaders tab and
+            # are automatic: the manual driver-review tick is gone, and no
+            # control may exist for it (a stale reference to it used to make
+            # Save throw ReferenceError). Resolution stays independent.
             controls = {item.objectName() for item in tree(page) if item.objectName()}
-            assert not (controls & {"shaderPotatoGraphic", "shaderPotatoReview",
-                                    "shaderPotatoStrength", "shaderPotatoStrengthValue",
-                                    "shaderPotatoTextureStatus", "shaderStretchSection"})
+            assert {"shaderPotatoGraphic", "shaderPotatoStrength",
+                    "shaderPotatoStrengthValue", "shaderPotatoTextureStatus"} <= controls, controls
+            assert not (controls & {"shaderPotatoReview", "shaderStretchSection"})
+            # Automatic review never switches Potato on by itself.
+            assert evaluate(page, "!!draft.potatoGraphic") is False
+            assert evaluate(page, "visitPotatoOverrides()") is False
             assert not backend.writes and backend.commits == 0 and not profile.exists()
             tab(window, 0)
             tab(window, 12)

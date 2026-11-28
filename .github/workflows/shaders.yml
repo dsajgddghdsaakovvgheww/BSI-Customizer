@@ -153,6 +153,10 @@ jobs:
           python tests/shaders/run_ci_tests.py --command python -X faulthandler -u tests/shaders_native_settings_test.py
           python tests/shaders/run_ci_tests.py --command python -X faulthandler -u tests/shaders_native_settings_test.py --persistent-model
           python tests/shaders/run_ci_tests.py --command python -X faulthandler -u tests/shaders_native_settings_test.py --missing-module
+      - name: Potato graphic page contract and automatic driver review (Qt-free)
+        run: |
+          python tests/shaders_potato_page_test.py
+          node tests/shaders_potato_logic_test.mjs
       - name: Live plugin preview shares one theme, stays opaque on every tab and preserves physical No/Discard
         run: python tests/run_qt_runtime_test.py tests/shaders_preview_ui_test.py
       - name: Missing-font metrics cannot widen the Shaders form beyond its clip
@@ -257,6 +261,85 @@ jobs:
           if-no-files-found: error
       - name: Record scope of results
         run: echo 'Software/API tests only. No HD-Player installation, Win32 presentation hook or Intel/AMD/NVIDIA hardware certification is implied.' >> "$GITHUB_STEP_SUMMARY"
+
+  emulated-game:
+    # A game-shaped GLES frame loop (material asset + mip chain, indexed scene
+    # draws, a blended HUD pass, presented frames) drives the REAL production
+    # GlTextureOverride/GlTextureProvenance through the same call order the
+    # player's OpenGL hooks use. A missing GL driver FAILS this job; it is never
+    # skipped, and the run is not presented as a captured game or hardware proof.
+    if: ${{ inputs.focused_egl != true }}
+    name: Emulated game frame loop (production Potato changes real pixels)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install a real GLES driver for the game loop
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libegl-mesa0 libgles2 libgl1-mesa-dri
+          if [ ! -e /usr/lib/x86_64-linux-gnu/libEGL.so.1 ]; then echo 'EGL runtime missing after install; the emulated-game job must not silently skip' >&2; exit 1; fi
+      - name: Install the second software driver (ANGLE/SwiftShader) for both source-sampling modes
+        run: |
+          npm install --prefix "$RUNNER_TEMP/swiftshader" --no-fund --no-audit --save-exact @sparticuz/chromium@133.0.0
+          mkdir -p "$RUNNER_TEMP/shader-icd"
+          node -e "const fs=require('node:fs'),z=require('node:zlib');fs.writeFileSync(process.env.RUNNER_TEMP+'/shader-icd/swiftshader.tar',z.brotliDecompressSync(fs.readFileSync(process.env.RUNNER_TEMP+'/swiftshader/node_modules/@sparticuz/chromium/bin/swiftshader.tar.br')));"
+          tar -xf "$RUNNER_TEMP/shader-icd/swiftshader.tar" -C "$RUNNER_TEMP/shader-icd"
+          test -f "$RUNNER_TEMP/shader-icd/libEGL.so"
+      - name: Emulated game on Mesa software GLES (default environment)
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+          BSI_TEXTURE_PIXEL_ARTIFACT_DIR: ${{ runner.temp }}/potato-emulated-game/mesa
+        run: python3 tests/shaders/run_ci_tests.py --command python3 tests/shaders_potato_emulator_game_test.py
+      - name: Emulated game on ANGLE/SwiftShader GLES 3 (independent driver)
+        env:
+          BSI_SHADERS_EGL_LIBRARY: ${{ runner.temp }}/shader-icd/libEGL.so
+          BSI_SHADERS_EGL_PLATFORM: angle-swiftshader
+          BSI_TEXTURE_PIXEL_ARTIFACT_DIR: ${{ runner.temp }}/potato-emulated-game/angle
+        run: python3 tests/shaders/run_ci_tests.py --command python3 tests/shaders_potato_emulator_game_test.py
+      - name: Negative control - the same harness must FAIL on neutered production Potato
+        # A green run above only means something if this harness can go red. It
+        # is re-run against a temporary copy of the production file with the
+        # apply path disabled; the repository sources are never modified.
+        env:
+          BSI_SHADERS_EGL_LIBRARY: ${{ runner.temp }}/shader-icd/libEGL.so
+          BSI_SHADERS_EGL_PLATFORM: angle-swiftshader
+        run: |
+          mkdir -p "$RUNNER_TEMP/negative-control"
+          cp tests/shaders/emulated_game_adapter.cpp "$RUNNER_TEMP/negative-control/"
+          python3 - "$RUNNER_TEMP/negative-control/GlTextureOverride.cpp" <<'PY'
+          import pathlib, sys
+          source = pathlib.Path('src/shaders/GlTextureOverride.cpp').read_text()
+          guard = 'if(!g.ready||mode==TextureQuality::Native||!strength)return 0;'
+          assert source.count(guard) == 1, 'negative control anchor changed; fix the control, do not skip it'
+          pathlib.Path(sys.argv[1]).write_text(source.replace(guard, 'if(!g.ready||true)return 0;'))
+          PY
+          set +e
+          BSI_POTATO_ADAPTER_SOURCES="$RUNNER_TEMP/negative-control/emulated_game_adapter.cpp,$RUNNER_TEMP/negative-control/GlTextureOverride.cpp" \
+            python3 tests/shaders_potato_emulator_game_test.py > "$RUNNER_TEMP/negative-control/output.txt" 2>&1
+          status=$?
+          set -e
+          cat "$RUNNER_TEMP/negative-control/output.txt"
+          if [ "$status" -eq 0 ]; then echo '::error::the emulated-game harness passed against neutered production Potato; the evidence is not discriminating'; exit 1; fi
+          echo "negative control failed as required (exit $status)"
+          git diff --exit-code -- src/shaders/GlTextureOverride.cpp
+      - name: Retain presented game frames and measured per-strength evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: potato-emulated-game-${{ github.run_id }}
+          path: ${{ runner.temp }}/potato-emulated-game
+          if-no-files-found: error
+      - name: Record scope of results
+        run: |
+          {
+            echo '### Emulated game frame loop'
+            echo 'Production Potato ran inside a software GLES game loop and changed presented game-material detail at every saved strength; Off restored the frame byte for byte.'
+            echo '**Not** a captured Android game, HD-Player installation, Windows detour, physical GPU or FPS measurement.'
+          } >> "$GITHUB_STEP_SUMMARY"
 
   windows-plugin:
     if: ${{ inputs.focused_egl != true }}
@@ -365,6 +448,10 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Persistent Settings model, delayed navigation and hidden-tab ordering fixture failed' }
           python tests/shaders/run_ci_tests.py --command python -X faulthandler -u tests/shaders_native_settings_test.py --missing-module
           if ($LASTEXITCODE -ne 0) { throw 'Missing shader module fallback failed' }
+      - name: Potato graphic page contract and automatic driver review (Qt-free)
+        run: |
+          python tests/shaders_potato_page_test.py
+          node tests/shaders_potato_logic_test.mjs
       - name: Live plugin preview shares one theme, stays opaque on every tab and preserves physical No/Discard
         env:
           BSI_TEST_COMMAND_TIMEOUT: '180'

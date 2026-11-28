@@ -194,7 +194,7 @@ int main(int argc,char **argv){
     }
     {
         QTemporaryDir dir;ShaderPreferences p;p.load(dir.filePath(QStringLiteral("p.json")));
-        require(p.values().size()==15&&p.parameters().neutral(),QStringLiteral("Neutral v4 defaults with independent native-resolution/texture modes"));
+        require(p.values().size()==16&&p.parameters().neutral(),QStringLiteral("Neutral v5 defaults with independent native-resolution/texture modes"));
         auto values=p.values();values[QStringLiteral("enabled")]=true;values[QStringLiteral("saturation")]=31;applied(p,values);
         const auto visual=p.parameters();const auto before=bytes(dir.filePath(QStringLiteral("p.json")));
         require(!success(p.apply(mode(p,2)))&&p.parameters()==visual,QStringLiteral("Absent native backend blocks Potato, not independent visual effects"));
@@ -206,11 +206,11 @@ int main(int argc,char **argv){
     }
     {
         Fixture f;
-        auto legacy=f.preferences.values();legacy.remove(QStringLiteral("potatoMode"));legacy.remove(QStringLiteral("potatoGraphic"));legacy.remove(QStringLiteral("textureOverridesReviewed"));legacy.remove(QStringLiteral("potatoStrength"));legacy[QStringLiteral("enabled")]=true;legacy[QStringLiteral("contrast")]=21;
+        auto legacy=f.preferences.values();legacy.remove(QStringLiteral("potatoMode"));legacy.remove(QStringLiteral("potatoGraphic"));legacy.remove(QStringLiteral("textureOverridesReviewed"));legacy.remove(QStringLiteral("potatoStrength"));legacy.remove(QStringLiteral("smoothness"));legacy[QStringLiteral("enabled")]=true;legacy[QStringLiteral("contrast")]=21;
         const auto old=encoded({{QStringLiteral("schema"),QStringLiteral("bsi.shaders.v1")},{QStringLiteral("values"),QJsonObject::fromVariantMap(legacy)}});
         write(f.path,old);f.preferences.load(f.path);require(f.preferences.bindDisplay(&f.backend),f.preferences.error());
         require(f.preferences.values().value(QStringLiteral("contrast")).toInt()==21&&bytes(f.path)==old,QStringLiteral("Released v1 visual values load WITHOUT writing native state or migrating on open"));
-        applied(f.preferences,f.preferences.values());require(json(f.path).value(QStringLiteral("schema")).toString()==QLatin1String("bsi.shaders.v4")&&f.backend.writes==0,QStringLiteral("v1 migrates only on Save, with Native mode and no Display writes"));
+        applied(f.preferences,f.preferences.values());require(json(f.path).value(QStringLiteral("schema")).toString()==QLatin1String("bsi.shaders.v5")&&f.backend.writes==0,QStringLiteral("v1 migrates only on Save, with Native mode and no Display writes"));
     }
     {
         Fixture f;
@@ -226,7 +226,7 @@ int main(int argc,char **argv){
     {
         Fixture f;applied(f.preferences,mode(f.preferences,2));
         auto legacy=json(f.path);legacy.insert(QStringLiteral("schema"),QStringLiteral("bsi.shaders.v2"));
-        auto values=legacy.value(QStringLiteral("values")).toObject();values.remove(QStringLiteral("potatoGraphic"));values.remove(QStringLiteral("textureOverridesReviewed"));values.remove(QStringLiteral("potatoStrength"));
+        auto values=legacy.value(QStringLiteral("values")).toObject();values.remove(QStringLiteral("potatoGraphic"));values.remove(QStringLiteral("textureOverridesReviewed"));values.remove(QStringLiteral("potatoStrength"));values.remove(QStringLiteral("smoothness"));
         legacy.insert(QStringLiteral("values"),values);const auto previous=encoded(legacy);write(f.path,previous);
         ShaderPreferences p;p.load(f.path);require(p.bindDisplay(&f.backend),p.error());
         require(bytes(f.path)==previous&&!p.texture().enabled&&p.values().value(QStringLiteral("potatoMode")).toInt()==2,
@@ -243,7 +243,7 @@ int main(int argc,char **argv){
         ShaderPreferences p;p.load(f.path);require(p.texture().enabled&&p.texture().externalOverridesReviewed
                 &&p.texture().drawPolicy==TextureDrawPolicy::OwnedMipCompatibility,
                 QStringLiteral("Saved/reopened Potato On actually selects depth-independent owned-mip compatibility, not the legacy depth gate"));
-        require(p.values().size()==15,QStringLiteral("Compatibility policy remains implicit; the only new persisted value is independent texture strength"));
+        require(p.values().size()==16,QStringLiteral("Compatibility policy remains implicit; the newest persisted value is frame Smoothness"));
         values[QStringLiteral("potatoGraphic")]=false;applied(f.preferences,values);
         require(!f.preferences.texture().enabled&&f.preferences.texture().drawPolicy==TextureDrawPolicy::DepthQualifiedScene
                 &&f.backend.writes==0,QStringLiteral("Turning texture Potato off disarms compatibility without a native Display write"));
@@ -269,14 +269,58 @@ int main(int argc,char **argv){
         }
         for(bool enabled:{false,true}){
             auto legacy=json(f.path);legacy[QStringLiteral("schema")]=QStringLiteral("bsi.shaders.v3");
-            auto oldValues=legacy.value(QStringLiteral("values")).toObject();oldValues.remove(QStringLiteral("potatoStrength"));oldValues[QStringLiteral("potatoGraphic")]=enabled;
+            auto oldValues=legacy.value(QStringLiteral("values")).toObject();oldValues.remove(QStringLiteral("potatoStrength"));oldValues.remove(QStringLiteral("smoothness"));oldValues[QStringLiteral("potatoGraphic")]=enabled;
             legacy[QStringLiteral("values")]=oldValues;const auto oldBytes=encoded(legacy);write(f.path,oldBytes);
             ShaderPreferences migrated;migrated.load(f.path);
             require(migrated.error().isEmpty()&&migrated.texture().enabled==enabled&&migrated.texture().strength==100&&bytes(f.path)==oldBytes,
                     QStringLiteral("Released v3 On remains exactly legacy Strong 100; Off remains Off, without migrating/writing on open"));
-            applied(migrated,migrated.values());require(json(f.path).value(QStringLiteral("schema")).toString()==QLatin1String("bsi.shaders.v4")
+            applied(migrated,migrated.values());require(json(f.path).value(QStringLiteral("schema")).toString()==QLatin1String("bsi.shaders.v5")
                     &&f.backend.writes==0,QStringLiteral("v3 gains strength only on explicit Save, with no native Display edit"));
         }
+        f.untouched();
+    }
+    {
+        // The file every existing user already has is v4, with ten weights and no
+        // Smoothness key. It must decode exactly, keep the new control neutral, and
+        // only gain the key on an explicit Save.
+        Fixture f;auto values=mode(f.preferences,0);values[QStringLiteral("enabled")]=true;values[QStringLiteral("contrast")]=27;
+        applied(f.preferences,values);
+        auto released=json(f.path);released[QStringLiteral("schema")]=QStringLiteral("bsi.shaders.v4");
+        auto releasedValues=released.value(QStringLiteral("values")).toObject();
+        // QJsonObject::remove returns void on Qt 5 and bool on Qt 6: assert
+        // presence first, so this suite is buildable against both SDKs.
+        require(releasedValues.contains(QStringLiteral("smoothness")),QStringLiteral("the v5 writer must have persisted Smoothness"));
+        releasedValues.remove(QStringLiteral("smoothness"));
+        released[QStringLiteral("values")]=releasedValues;const auto releasedBytes=encoded(released);write(f.path,releasedBytes);
+        ShaderPreferences old;old.load(f.path);
+        require(old.error().isEmpty()&&old.parameters().enabled&&old.parameters().values[1]==27
+                &&old.parameters().values[std::size_t(controls.size())-1]==0&&!old.parameters().neutral()&&bytes(f.path)==releasedBytes,
+                QStringLiteral("A released v4 file decodes with Smoothness neutral native bytes and is never rewritten on open"));
+        applied(old,old.values());require(json(f.path).value(QStringLiteral("schema")).toString()==QLatin1String("bsi.shaders.v5")
+                &&json(f.path).value(QStringLiteral("values")).toObject().value(QStringLiteral("smoothness")).toInt()==0&&f.backend.writes==0,
+                QStringLiteral("v4 gains only the neutral Smoothness key on explicit Save, with no Display write"));
+        auto broken=releasedValues;broken[QStringLiteral("smoothness")]=50;
+        auto tampered=json(f.path);tampered[QStringLiteral("schema")]=QStringLiteral("bsi.shaders.v4");
+        tampered[QStringLiteral("values")]=broken;const auto tamperedBytes=encoded(tampered);write(f.path,tamperedBytes);
+        ShaderPreferences refused;refused.load(f.path);
+        require(!refused.error().isEmpty()&&bytes(f.path)==tamperedBytes&&refused.parameters().neutral(),
+                QStringLiteral("A v4 file carrying a v5 key is refused on load, never guessed or clamped"));
+        // The page may hand Save a draft that predates the newest control (a
+        // cached/older UI build). That is normalized to neutral, not rejected —
+        // but every value that IS present is still range-checked, and unrelated
+        // junk keys are still refused.
+        write(f.path,releasedBytes);ShaderPreferences draft;draft.load(f.path);
+        auto noSmoothness=draft.values();noSmoothness.remove(QStringLiteral("smoothness"));
+        noSmoothness[QStringLiteral("contrast")]=33;
+        require(success(draft.apply(noSmoothness))&&draft.values()[QStringLiteral("contrast")]==33
+                &&draft.values()[QStringLiteral("smoothness")]==0,
+                QStringLiteral("A pre-Smoothness draft still saves, with the new control neutral"));
+        auto outOfRange=draft.values();outOfRange[QStringLiteral("smoothness")]=101;
+        require(!success(draft.apply(outOfRange))&&draft.values()[QStringLiteral("smoothness")]==0,
+                QStringLiteral("The new control is range-checked on the live Save path"));
+
+        write(f.path,releasedBytes);ShaderPreferences restored;restored.load(f.path);
+        require(success(restored.apply(restored.values())),QStringLiteral("the exact released file still saves after the refusal"));
         f.untouched();
     }
     {

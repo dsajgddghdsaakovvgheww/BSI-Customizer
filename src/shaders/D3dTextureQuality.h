@@ -9,8 +9,11 @@ namespace BsiShaders {
 // D3D11, D3D12 dynamic and D3D12 static/root samplers share these LOD fields.
 // A caller must separately qualify the bound color SRV, ownership and safe
 // descriptor/root-signature replacement. A sampler by itself proves none of it.
+// `strength` is the same saved 0-100 percentage the GL/GLES and Vulkan plans
+// take. Without it these adapters silently used the historical maximum, so the
+// native strength slider changed nothing on a DirectX player.
 template<typename Descriptor>TextureSamplerPlan<Descriptor> planD3dTextureQuality(
-    TextureQuality mode,const TextureQualityProof &proof,const Descriptor &source){
+    TextureQuality mode,const TextureQualityProof &proof,const Descriptor &source,int strength=100){
     TextureSamplerPlan<Descriptor> result{source,TextureQualityDecision::UnsupportedDescriptor};
     if(mode==TextureQuality::Native){result.decision=TextureQualityDecision::Disabled;return result;}
     static_assert(std::is_same_v<Descriptor,D3D11_SAMPLER_DESC>||std::is_same_v<Descriptor,D3D12_SAMPLER_DESC>
@@ -26,7 +29,7 @@ template<typename Descriptor>TextureSamplerPlan<Descriptor> planD3dTextureQualit
     TextureSampling sampling;
     sampling.minimumLod=source.MinLOD;sampling.maximumLod=source.MaxLOD;sampling.lodBias=source.MipLODBias;
     sampling.mipmapped=true;
-    const auto plan=planTextureQuality(mode,proof,sampling);
+    const auto plan=planTextureQuality(mode,proof,sampling,strength);
     result.decision=plan.decision;if(plan.changed())result.descriptor.MinLOD=plan.sampling.minimumLod;
     return result;
 }

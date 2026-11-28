@@ -39,7 +39,28 @@ void exercise(const Run &run){
         float v=.15f+.65f/(1+std::exp(std::fmax(-50.f,std::fmin(50.f,(float(y)-x)*.8f))));if(x>27&&x<35&&y>27&&y<35)v=1;
         const auto i=(y*width+x)*4;pattern[i]=static_cast<unsigned char>(std::lround(v*255));pattern[i+1]=static_cast<unsigned char>(std::lround(v*.8f*255));pattern[i+2]=static_cast<unsigned char>(std::lround(v*.6f*255));pattern[i+3]=173;
     }
-    for(std::size_t i=6;i<10;++i){p=Parameters{};p.enabled=true;p.values[i]=85;require(run(pattern,p)!=pattern,"a spatial shader did not change actual DirectX image pixels");}
+    for(std::size_t i=6;i<controls.size();++i){p=Parameters{};p.enabled=true;p.values[i]=85;require(run(pattern,p)!=pattern,"a spatial shader did not change actual DirectX image pixels");}
+    // Screen-space Smoothness must be a real, monotonic reduction of a textured
+    // frame in the DirectX path too, and zero must stay byte-exact native.
+    Pixels textured(bytes);
+    for(UINT y=0;y<height;++y)for(UINT x=0;x<width;++x){
+        const auto i=(y*width+x)*4;const bool cell=(((x/4)+(y/4))&1)!=0;
+        const auto v=cell?230.f:26.f;textured[i]=static_cast<unsigned char>(v);textured[i+1]=static_cast<unsigned char>(v*.8f);textured[i+2]=static_cast<unsigned char>(v*.6f);textured[i+3]=173;
+    }
+    const auto detail=[&](const Pixels &frame){
+        long long total=0;for(UINT y=1;y<height;++y)for(UINT x=1;x<width;++x)for(int c=0;c<3;++c){
+            const auto at=(y*width+x)*4+c;total+=std::llabs(int(frame[at])-int(frame[at-4]))+std::llabs(int(frame[at])-int(frame[at-width*4]));
+        }return total;
+    };
+    p=Parameters{};p.enabled=true;require(run(textured,p)==textured,"DirectX zero Smoothness must be byte-exact native");
+    long long previous=detail(textured);
+    for(int percent:{25,50,75,100}){
+        p=Parameters{};p.enabled=true;p.values[10]=percent;const auto after=run(textured,p);
+        const auto now=detail(after);require(now<previous,"DirectX Smoothness must reduce visible frame detail monotonically");
+        for(UINT c=3;c<bytes;c+=4)require(after[c]==173,"DirectX Smoothness must not touch source alpha");
+        previous=now;
+    }
+    require(previous<detail(textured)*62/100,"DirectX 100% Smoothness must be a visible change");
 }
 void d3d11(){
     ComPtr<ID3D11Device> device;ComPtr<ID3D11DeviceContext> context;
@@ -122,7 +143,7 @@ void d3d12(){
         require(pipeline.render(image.Get(),p,&error),error);idle();transfer(false);okay(readback->Map(0,nullptr,&data),"map actual D3D12 result");Pixels result(bytes);for(UINT row=0;row<height;++row)std::memcpy(result.data()+row*width*4,static_cast<unsigned char*>(data)+footprint.Offset+row*footprint.Footprint.RowPitch,width*4);readback->Unmap(0,nullptr);return result;
     };
     exercise(run);idle();pipeline.release();CloseHandle(event);
-    std::cout<<"PASS: actual D3D12 WARP resources/queue with production On12 shader backend, all 10 effects, neutral byte identity, reference math, alpha and copy/presentation-state round trips\n";
+    std::cout<<"PASS: actual D3D12 WARP resources/queue with production On12 shader backend, all 11 controls (ten effects plus frame Smoothness), neutral byte identity, reference math, alpha and copy/presentation-state round trips\n";
 }
 }
 int main(int argc,char **argv){if(argc>1&&std::strcmp(argv[1],"d3d12")==0)d3d12();else d3d11();std::cout<<"LIMIT: WARP API fixture, not hardware, DXGI hook, native player UI or Intel/AMD/NVIDIA certification\n";}

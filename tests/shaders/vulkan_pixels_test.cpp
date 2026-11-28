@@ -151,7 +151,30 @@ int main(){
         float v=.15f+.65f/(1.f+std::exp(std::fmax(-50.f,std::fmin(50.f,(float(y)-x)*.8f))));if(x>27&&x<35&&y>27&&y<35)v=1;
         auto i=(y*width+x)*4;pattern[i]=static_cast<unsigned char>(std::lround(v*255));pattern[i+1]=static_cast<unsigned char>(std::lround(v*.8f*255));pattern[i+2]=static_cast<unsigned char>(std::lround(v*.6f*255));pattern[i+3]=173;
     }
-    for(std::size_t control=6;control<10;++control){p=Parameters{};p.enabled=true;p.values[control]=85;require(run(pattern,p)!=pattern,"every spatial Vulkan effect must change actual image pixels");}
+    for(std::size_t control=6;control<controls.size();++control){p=Parameters{};p.enabled=true;p.values[control]=85;require(run(pattern,p)!=pattern,"every spatial Vulkan effect must change actual image pixels");}
+    // The Vulkan push constant carries the same eleven weights; Smoothness must
+    // therefore be a real, monotonic frame-detail reduction there as well.
+    std::vector<unsigned char> textured(size);
+    for(std::uint32_t y=0;y<height;++y)for(std::uint32_t x=0;x<width;++x){
+        const auto i=(y*width+x)*4;const bool cell=(((x/4)+(y/4))&1)!=0;const auto v=cell?230.f:26.f;
+        textured[i]=static_cast<unsigned char>(v);textured[i+1]=static_cast<unsigned char>(v*.8f);textured[i+2]=static_cast<unsigned char>(v*.6f);textured[i+3]=173;
+    }
+    const auto detail=[&](const std::vector<unsigned char> &frame){
+        long long total=0;for(std::uint32_t y=1;y<height;++y)for(std::uint32_t x=1;x<width;++x)for(int c=0;c<3;++c){
+            const auto at=std::size_t(y*width+x)*4+c;
+            total+=std::llabs(int(frame[at])-int(frame[at-4]))
+                  +std::llabs(int(frame[at])-int(frame[at-std::size_t(width)*4]));
+        }return total;
+    };
+    p=Parameters{};p.enabled=true;require(run(textured,p)==textured,"Vulkan zero Smoothness must be byte-exact native");
+    long long previous=detail(textured);
+    for(int percent:{25,50,75,100}){
+        p=Parameters{};p.enabled=true;p.values[10]=percent;const auto after=run(textured,p);
+        const auto now=detail(after);require(now<previous,"Vulkan Smoothness must reduce visible frame detail monotonically");
+        for(std::size_t i=3;i<after.size();i+=4)require(after[i]==173,"Vulkan Smoothness must not touch source alpha");
+        previous=now;
+    }
+    require(previous<detail(textured)*62/100,"Vulkan 100% Smoothness must be a visible change");
     VkSemaphore done=VK_NULL_HANDLE;p.values[0]=101;require(!pipeline.process(queue,0,{},p,&done,&error)&&!done,"out-of-range values cannot submit");
     p.values[0]=20;require(!pipeline.process(queue,5,{},p,&done,&error)&&!done,"unknown image index cannot submit");
     pipeline.release();require(pipeline.initialize(target,&error),error);p=Parameters{};p.enabled=true;p.values[2]=40;require(run(flat,p)!=flat,"resource recreation must still change pixels");pipeline.release();
@@ -160,6 +183,6 @@ int main(){
     if(messenger)instanceProc<PFN_vkDestroyDebugUtilsMessengerEXT>(get,instance,"vkDestroyDebugUtilsMessengerEXT")(instance,messenger,nullptr);
     destroyInstance(instance,nullptr);require(validationErrors.load()==0,"Khronos validation reported API/synchronization/resource-lifetime errors");
     if(validate)std::cout<<"PASS: required Khronos validation layer reports zero Vulkan errors, including device resource destruction\n";
-    std::cout<<"PASS: native Vulkan production pipeline renders all 10 effects to real image pixels; neutral byte identity, reference math, alpha, semaphore handoff/reuse, parameter bounds, invalid image rejection and resource recreation\n";
+    std::cout<<"PASS: native Vulkan production pipeline renders all 11 controls (ten effects plus frame Smoothness) to real image pixels; neutral byte identity, reference math, alpha, semaphore handoff/reuse, parameter bounds, invalid image rejection and resource recreation\n";
     std::cout<<"LIMIT: offscreen API test only; Win32 surface/presentation hooks, native player integration and physical Intel/AMD/NVIDIA validation remain separate requirements\n";
 }

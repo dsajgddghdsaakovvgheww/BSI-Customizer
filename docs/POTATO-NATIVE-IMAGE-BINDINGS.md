@@ -36,6 +36,11 @@ LINEAR/NEAREST filter a base-only image is legal, irrespective of stored
 MAX_LEVEL=1000. With a mip filter a genuinely incomplete mutable chain must
 still be refused. No game producer's blocker was captured in this report.
 
+That diagnostic was a **classification**, not a verdict: a base-only filter over
+a real stored chain is now an eligible descriptor
+([repair](POTATO-BASE-ONLY-FILTER.md)); `non-mip-filter=` is reported as
+`base-only-filter=`.
+
 The new diagnostic reads the effective **bound sampler's** minification filter
 (or the texture's filter if no sampler object is bound), distinguishes
 `non-mip-filter` from `incomplete-required-level`, and records `source-min-filter`.

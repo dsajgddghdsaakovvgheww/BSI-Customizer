@@ -1,12 +1,19 @@
 #include "ShaderBridge.h"
 #include "ShaderPreferences.h"
 #include "Runtime.h"
+#include <cstdio>
+#include <QtGlobal>
 #include <QCoreApplication>
 #include <QClipboard>
 #include <QGuiApplication>
 #include <QCryptographicHash>
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonValue>
+#include <QStringList>
 #include <QPlatformSurfaceEvent>
 #include <QPointer>
 #include <QSet>
@@ -41,6 +48,10 @@ private:
 struct State {
     ShaderPreferences preferences;
     QString instance,error;
+    // Last status block written to the token file, so the 1s tick only touches
+    // the disk when something actually changed.
+    QString lastToken;
+    bool announcedToken=false;
     QSet<ShaderBridge*> bridges;
     QPointer<SurfaceObserver> surfaceObserver;
     bool attached=false,connected=false;
@@ -50,6 +61,34 @@ QString fileFor(const QString &instance){
     const auto key=QCryptographicHash::hash((QFileInfo(QCoreApplication::applicationFilePath()).canonicalFilePath()+QLatin1Char('\n')+instance).toUtf8(),QCryptographicHash::Sha256).toHex();
     return QDir(QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation))
         .filePath(QStringLiteral("BSICustomizer/Shaders/")+QString::fromLatin1(key)+QStringLiteral(".json"));
+}
+// The player-facing UI shows a bounded status block that users paste back for
+// support. That paste is manual and easy to lose, so the SAME text is written
+// as one small token file whenever it changes. Only numeric counters and the
+// already-published status strings go in it: no GL handles, no window titles, no
+// game paths and no game content.
+QString tokenFor(const QString &instance){
+    // A test/CI harness can name the exact file it will read; otherwise the
+    // record sits next to the settings it summarizes.
+    const auto override=qEnvironmentVariable("BSI_SHADERS_STATUS_TOKEN");
+    if(!override.isEmpty()&&!instance.isEmpty())return override;
+    return fileFor(instance)+QStringLiteral(".token");
+}
+// The owner-draw status block is large; keep only the lines a zero-binding
+// failure is diagnosed from so a test log stays readable.
+QString tokenDetail(const QString &text){
+    static const char *const wanted[]={"Prepared Potato sampler bindings","Texture inspection",
+        "Requested / configured hint / observed host API","Eligible / prepared calls",
+        "Mip first blockers","Latest resource-linked producer inspection","sampler2D slots",
+        "Base-only-filter samplers qualified","Blended / no-qualified-sampler"};
+    QStringList kept;
+    const auto lines=text.split(QLatin1Char('\n'));
+    for(const auto &line:lines){
+        for(const auto *needle:wanted){
+            if(line.contains(QLatin1String(needle))){kept+=line.trimmed();break;}
+        }
+    }
+    return kept.join(QLatin1Char('\n'));
 }
 template<std::size_t N> QVariantMap auditCounters(const std::array<const char*,N> &labels,const std::array<std::uint64_t,N> &values){
     QVariantMap result;
@@ -69,7 +108,72 @@ void notify(){for(auto *bridge:state().bridges){emit bridge->settingsChanged();e
 ShaderBridge::ShaderBridge(QObject *parent):QObject(parent){
     state().bridges.insert(this);
     auto *timer=new QTimer(this);timer->setInterval(1000);
-    connect(timer,&QTimer::timeout,this,&ShaderBridge::metricsChanged);timer->start();
+    connect(timer,&QTimer::timeout,this,[this]{
+        writeStatusToken();
+        emit metricsChanged();
+    });
+    timer->start();
+}
+// Best effort and side-effect free for the game: a failure to write (read-only
+// profile, locked directory, disk full) is ignored. Nothing is uploaded and no
+// extra GL query is issued; this only re-serializes status the UI already has.
+void ShaderBridge::writeStatusToken(){
+    auto &s=state();
+    const QString block=diagnostics();
+    // The status TEXT can stay identical while the frame counter climbs, and the
+    // token is the evidence that the frame pass is doing something. Include the
+    // live frame facts in the change check, or the file would freeze at the first
+    // written value and never show progress.
+    const auto settings=Runtime::instance().settings();
+    const QString stamp=block+QStringLiteral("|%1|%2|%3")
+        .arg(Runtime::instance().metrics().processed)
+        .arg(settings.values[controls.size()-1])
+        .arg(settings.enabled?1:0);
+    if(block.isEmpty()||stamp==s.lastToken)return;
+    const auto savedValues=s.preferences.values();
+    // The user needs one thing from this file: where it is. Print it once per
+    // process so it can be pasted, without an extra GL call or a file scan.
+    if(!s.announcedToken&&!block.isEmpty()){
+        s.announcedToken=true;
+        std::fprintf(stderr,"BSI Potato status file: %s\n",qPrintable(tokenFor(s.instance)));
+        std::fflush(stderr);
+    }
+    // This module is also built against the OLDEST supported SDK (Qt 5.15.2) for
+    // player-side compatibility, so use the two-argument insert() rather than
+    // initializer-list emplace: no newer-Qt assumption may creep into the bridge.
+    QJsonObject token;
+    token.insert(QStringLiteral("schema"),1);
+    // The shader library knows its own build revision, not the app version.
+    token.insert(QStringLiteral("revision"),QString::fromLatin1(BSI_SHADERS_BUILD_REVISION));
+    token.insert(QStringLiteral("potatoGraphic"),QJsonValue::fromVariant(savedValues.value(QStringLiteral("potatoGraphic"))));
+    token.insert(QStringLiteral("potatoStrength"),QJsonValue::fromVariant(savedValues.value(QStringLiteral("potatoStrength"))));
+    token.insert(QStringLiteral("detail"),tokenDetail(block));
+    // In-game evidence for the frame pass, as opposed to texture eligibility.
+    // `processedFrames` only increments when the production pass actually rendered
+    // on the identified game surface, so a climbing count is the difference between
+    // "Smoothness is changing your picture" and "the pass is being bypassed".
+    token.insert(QStringLiteral("frameSmoothness"),settings.values[controls.size()-1]);
+    token.insert(QStringLiteral("framePassEnabled"),settings.enabled);
+    token.insert(QStringLiteral("framePassNeutral"),settings.neutral());
+    const auto metricsValue=metrics();
+    token.insert(QStringLiteral("processedFrames"),QJsonValue::fromVariant(metricsValue.value(QStringLiteral("processedFrames"))));
+    token.insert(QStringLiteral("renderer"),QJsonValue::fromVariant(metricsValue.value(QStringLiteral("renderer"))));
+    token.insert(QStringLiteral("active"),QJsonValue::fromVariant(metricsValue.value(QStringLiteral("active"))));
+    token.insert(QStringLiteral("status"),QJsonValue::fromVariant(metricsValue.value(QStringLiteral("status"))));
+    for(auto it=metricsValue.cbegin();it!=metricsValue.cend();++it){
+        const auto name=it.key();
+        if(!(name.startsWith(QStringLiteral("texture"))||name==QStringLiteral("potatoGraphicEnabled")))continue;
+        if(name==QStringLiteral("textureProducerStatus")||name==QStringLiteral("textureStatus")
+           ||name==QStringLiteral("textureLastBypass"))continue;
+        token.insert(name,QJsonValue::fromVariant(it.value()));
+    }
+    const QString path=tokenFor(s.instance);
+    QDir().mkpath(QFileInfo(path).path());
+    QFile file(path);
+    if(!file.open(QIODevice::WriteOnly|QIODevice::Truncate))return;
+    file.write(QJsonDocument(token).toJson(QJsonDocument::Indented));
+    file.close();
+    s.lastToken=stamp;
 }
 ShaderBridge::~ShaderBridge(){state().bridges.remove(this);}
 QVariantMap ShaderBridge::saved()const{return state().preferences.values();}

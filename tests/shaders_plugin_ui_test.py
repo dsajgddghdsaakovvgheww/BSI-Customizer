@@ -437,7 +437,7 @@ Window {
         assert item("shaderSave").property("implicitHeight") == reference.property("implicitHeight")
         assert item("shaderSave").property("font") == reference.property("font"), "Save font differs from the native button"
         initial = settings()
-        assert initial["enabled"] is False and initial["potatoMode"] == 0 and initial["potatoStrength"] == 100 and len(initial) == 15
+        assert initial["enabled"] is False and initial["potatoMode"] == 0 and initial["potatoStrength"] == 100 and initial["smoothness"] == 0 and len(initial) == 16
         assert evaluate("Engine.display.available"), evaluate("Engine.display.detail")
         assert evaluate("Engine.metrics.requestedRenderer") == "Automatic"
         assert evaluate("Engine.metrics.configuredRenderer") == "Vulkan"
@@ -596,14 +596,16 @@ Window {
             click(dialog_button(dialog, 0), target_window=dialog)
             assert native_display.pIsShortcutsEnabled and not evaluate("!!restartPrompt")
 
-        # The unproven Potato texture customizer is intentionally not exposed
-        # in the Shaders tab. Keep the ordinary visual effects and resolution
-        # controls available without presenting unavailable texture promises.
-        hidden_texture_controls = {"shaderPotatoGraphic", "shaderPotatoReview",
-                                   "shaderPotatoStrength", "shaderPotatoStrengthValue",
-                                   "shaderPotatoTextureStatus", "shaderStretchSection"}
+        # The Potato texture switch and strength ARE exposed in the Shaders tab.
+        # They used to be deleted while save() still revealed the removed
+        # driver-review control, so Save raised ReferenceError. The manual
+        # review control must stay absent: the runtime performs that check.
         visible_names = {child.objectName() for child in all_items() if child.objectName()}
-        assert not (visible_names & hidden_texture_controls), visible_names & hidden_texture_controls
+        required_texture_controls = {"shaderPotatoGraphic", "shaderPotatoStrength",
+                                     "shaderPotatoStrengthValue", "shaderPotatoTextureStatus"}
+        assert required_texture_controls <= visible_names, required_texture_controls - visible_names
+        retired_texture_controls = {"shaderPotatoReview", "shaderStretchSection"}
+        assert not (visible_names & retired_texture_controls), visible_names & retired_texture_controls
 
         original_display = dict(native_display.committed)
 
@@ -710,7 +712,7 @@ Window {
         assert native_display.committed["fb_width"] == 960 and native_display.committed["fb_height"] == 540
         assert native_display.committed["custom_resolution_selected"] is True and native_display.commits == 1
         stored = json.loads(profile.read_text())
-        assert stored["schema"] == "bsi.shaders.v4" and stored["display"]["original"] == {"width": 1920, "height": 1080, "custom": False}
+        assert stored["schema"] == "bsi.shaders.v5" and stored["display"]["original"] == {"width": 1920, "height": 1080, "custom": False}
         assert "pendingDisplay" not in stored and evaluate("Engine.display.restartRequired")
         assert "restart" in item("shaderPotatoStatus").property("text").lower()
         assert save_button.mapToItem(page, QPointF(0, 0)) == footer_position, "Potato feedback must not move Save"

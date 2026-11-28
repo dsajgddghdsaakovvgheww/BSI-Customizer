@@ -52,7 +52,10 @@ try {
         # Only this SDK is first on PATH, not another Qt major. Package checking
         # reads actual imports/exports/fixed versions; no arbitrary DLL is loaded.
         $env:PATH = (Join-Path $prefix 'bin') + ';' + $oldPath
-        ctest --test-dir $build -C Release --output-on-failure --timeout 60
+        # Surface the failing CTest assertion in the check annotation. A bare
+        # ctest run only reaches the Actions log host, which some API clients
+        # cannot read, so a real failure looked like a one-line "tests failed".
+        python (Join-Path $repo 'tests/shaders/run_ci_tests.py') --test-dir $build -C Release --output-on-failure --timeout 60
         if ($LASTEXITCODE -ne 0) { throw "Qt $version shader/package/recovery/DirectX tests failed" }
         $out = Join-Path $OutputDirectory "qt-$version"
         New-Item -ItemType Directory -Path $out | Out-Null
