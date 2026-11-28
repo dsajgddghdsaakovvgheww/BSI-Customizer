@@ -13,7 +13,11 @@ PUBLIC = {
     "ShaderPlugin.cpp": {"QQmlEngine", "QQmlExtensionPlugin", "QtQml/qqml.h"},
     "ShaderBridge.h": {"QObject", "QVariantMap", "QVariantList", "QQmlParserStatus"},
     "ShaderBridge.cpp": {"QCoreApplication", "QClipboard", "QGuiApplication", "QCryptographicHash", "QDir", "QFileInfo",
-                         "QPlatformSurfaceEvent", "QPointer", "QSet", "QStandardPaths", "QThread", "QTimer", "QWindow"},
+                         "QPlatformSurfaceEvent", "QPointer", "QSet", "QStandardPaths", "QThread", "QTimer", "QWindow",
+                         # The Potato status token needs JSON writing on the GUI
+                         # tick. All of these are QtCore public headers; the
+                         # guard still rejects any private (_p) header.
+                         "QtGlobal", "QFile", "QJsonDocument", "QJsonObject", "QJsonValue", "QStringList"},
     # GUI-side native Display preferences; none of these Qt objects may cross
     # into the renderer or its platform callbacks. Introspection is public API.
     "NativeDisplayBinding.h": {"QObject", "QPointer", "QString"},
