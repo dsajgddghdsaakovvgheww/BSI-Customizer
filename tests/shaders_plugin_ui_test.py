@@ -437,7 +437,7 @@ Window {
         assert item("shaderSave").property("implicitHeight") == reference.property("implicitHeight")
         assert item("shaderSave").property("font") == reference.property("font"), "Save font differs from the native button"
         initial = settings()
-        assert initial["enabled"] is False and initial["potatoMode"] == 0 and initial["potatoStrength"] == 100 and len(initial) == 15
+        assert initial["enabled"] is False and initial["potatoMode"] == 0 and initial["potatoStrength"] == 100 and initial["smoothness"] == 0 and len(initial) == 16
         assert evaluate("Engine.display.available"), evaluate("Engine.display.detail")
         assert evaluate("Engine.metrics.requestedRenderer") == "Automatic"
         assert evaluate("Engine.metrics.configuredRenderer") == "Vulkan"
