@@ -2,6 +2,7 @@
 #include "ShaderPreferences.h"
 #include "Runtime.h"
 #include <cstdio>
+#include <QtGlobal>
 #include <QCoreApplication>
 #include <QClipboard>
 #include <QGuiApplication>
@@ -128,12 +129,16 @@ void ShaderBridge::writeStatusToken(){
         std::fprintf(stderr,"BSI Potato status file: %s\n",qPrintable(tokenFor(s.instance)));
         std::fflush(stderr);
     }
-    QJsonObject token{{QStringLiteral("schema"),1},
-        // The shader library knows its own build revision, not the app version.
-        {QStringLiteral("revision"),QString::fromLatin1(BSI_SHADERS_BUILD_REVISION)},
-        {QStringLiteral("potatoGraphic"),savedValues.value(QStringLiteral("potatoGraphic"))},
-        {QStringLiteral("potatoStrength"),savedValues.value(QStringLiteral("potatoStrength"))},
-        {QStringLiteral("detail"),tokenDetail(block)}};
+    // This module is also built against the OLDEST supported SDK (Qt 5.15.2) for
+    // player-side compatibility, so use the two-argument insert() rather than
+    // initializer-list emplace: no newer-Qt assumption may creep into the bridge.
+    QJsonObject token;
+    token.insert(QStringLiteral("schema"),1);
+    // The shader library knows its own build revision, not the app version.
+    token.insert(QStringLiteral("revision"),QString::fromLatin1(BSI_SHADERS_BUILD_REVISION));
+    token.insert(QStringLiteral("potatoGraphic"),QJsonValue::fromVariant(savedValues.value(QStringLiteral("potatoGraphic"))));
+    token.insert(QStringLiteral("potatoStrength"),QJsonValue::fromVariant(savedValues.value(QStringLiteral("potatoStrength"))));
+    token.insert(QStringLiteral("detail"),tokenDetail(block));
     const auto metricsValue=metrics();
     for(auto it=metricsValue.cbegin();it!=metricsValue.cend();++it){
         const auto name=it.key();

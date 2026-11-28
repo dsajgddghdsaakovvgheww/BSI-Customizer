@@ -109,6 +109,13 @@ def main():
     assert "block==s.lastToken" in body, "the token is written on change, not every second"
     assert "QIODevice::WriteOnly|QIODevice::Truncate" in body
     assert "BSI_SHADERS_STATUS_TOKEN" in bridge, "a harness must be able to name the token path"
+
+    # 7. The bridge is ALSO built against the oldest supported player SDK
+    #    (Qt 5.15.2), so it must not use emplace-style QJsonObject construction:
+    #    a newer-Qt-only form broke the release payload build once already.
+    assert "QJsonObject token{" not in bridge, \
+        "build the token with insert(), not initializer-list emplace: the bridge targets Qt 5.15.2 too"
+    assert "#include <QtGlobal>" in bridge, "qEnvironmentVariable needs QtGlobal on Qt 5"
     assert "writeStatusToken" in HEADER.read_text(encoding="utf-8"), "declared in the header"
 
     print("PASS: Potato status-token classifier reaches one verdict per real early stop "
